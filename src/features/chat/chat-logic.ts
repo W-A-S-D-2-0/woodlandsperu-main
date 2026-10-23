@@ -1,5 +1,6 @@
 import type { ChatMessage } from '../../../shared/api/chat'
 import { modelPhotos, type ModelPhoto } from '../../content/model-photos'
+import { parseMarkerLine, type PreviewMarker, type WhatsappMarker } from '../engraving/preview-marker'
 
 /** Lógica del widget de chat. Sin React: se prueba sola. */
 
@@ -53,6 +54,8 @@ export type BodyBlock =
   | { kind: 'product'; name: string; collection: string | null; sizes: string; description: string | null }
   | { kind: 'line'; label: string; amount: string | null }
   | { kind: 'total'; amount: string; note: string }
+  | PreviewMarker
+  | WhatsappMarker
 
 const PRICE_ROW = /^•\s*(.+?):\s*desde\s+(S\/\s?[\d.,]+)\s*$/
 const ORDER_ROW = /^•\s*(.+?)\s+—\s+(S\/\s?[\d.,]+)\s*$/
@@ -70,6 +73,12 @@ export function parseBody(body: string): BodyBlock[] {
   const lines = body.split('\n')
   lines.forEach((raw, i) => {
     const line = raw.trim()
+    const marker = parseMarkerLine(line)
+    if (marker) {
+      flush()
+      blocks.push(marker)
+      return
+    }
     const price = PRICE_ROW.exec(line)
     const row = ORDER_ROW.exec(line)
     const total = TOTAL_ROW.exec(line)

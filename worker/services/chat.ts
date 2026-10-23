@@ -3,7 +3,7 @@ import type { CatalogResponse } from '../../shared/api/contracts'
 import { createGeminiModel } from '../integrations/gemini'
 import type { ChatChannel, ChatData } from '../data/chat-data'
 import type { PublicData } from '../data/public-data'
-import { alliesReply, guidedFlowFirst, createGuidedModel, historyHasOrder, quickInfoReply, runAssistant, smallTalkReply, wantsHuman, type AssistantModel } from './assistant'
+import { alliesReply, engravingFirst, guidedFlowFirst, createGuidedModel, historyHasOrder, quickInfoReply, runAssistant, smallTalkReply, wantsHuman, type AssistantModel } from './assistant'
 
 /** Cuántos mensajes previos ve el asistente: lo bastante para recordar nombre, productos y grabado de toda la charla. */
 const HISTORY_LIMIT = 40
@@ -25,6 +25,9 @@ export const createAssistantModel: AssistantModelFactory = (env, catalog) => {
       // Saludos y agradecimientos: respuesta inmediata, sin gastar una consulta a la IA.
       const talk = smallTalkReply(input.history.findLast((m) => m.role === 'customer')?.body ?? '')
       if (talk) return { text: talk }
+      // Dudas de personalización: imágenes de la tabla con el nombre en otras posiciones y WhatsApp de Brigitte.
+      const engraving = engravingFirst(input.history, catalog)
+      if (engraving) return { text: engraving }
       // Los aliados salen de la misma lista que la web: respuesta inmediata y sin que la IA invente nada.
       const allies = alliesReply(input.history.findLast((m) => m.role === 'customer')?.body ?? '')
       if (allies) return { text: allies }

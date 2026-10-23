@@ -3,6 +3,7 @@ import { PublicLayout } from '../components/layout/PublicLayout'
 import { openChat } from '../features/chat/open-chat'
 import { AlliancesPage } from '../features/alliances/AlliancesPage'
 import { AboutPage } from '../features/home/AboutPage'
+import { EngravingSharePage } from '../features/engraving/EngravingSharePage'
 import { HomePage } from '../features/home/HomePage'
 import { NotFoundPage } from './NotFoundPage'
 import { RouteError } from './RouteError'
@@ -30,6 +31,7 @@ export const router = createBrowserRouter([
       { path: 'cotizar', loader: toChat('Quiero hacer un pedido') },
       { path: 'alianzas', Component: AlliancesPage },
       { path: 'nosotros', Component: AboutPage },
+      { path: 'grabado', Component: EngravingSharePage },
       { path: '*', Component: NotFoundPage },
     ],
   },

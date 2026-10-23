@@ -242,3 +242,26 @@ chat; al recibirla, el pedido queda **pagado, confirmado y en producción** y Te
 - Riesgo conocido: el pago se da por recibido con cualquier imagen válida; no se compara con la app de Yape. El pedido
   lleva una nota interna «verificar en la app de Yape». Mejora posible: revisar la captura (monto, fecha, código) o
   dejar el pago en «pendiente» hasta que el equipo lo valide.
+
+## 9. Dudas de personalización: vista previa y WhatsApp de Brigitte (2026-10-23)
+
+Decisión del usuario: Teca atiende las dudas de grabado (nombre en el centro, arriba a la derecha, «no me gusta»…)
+mostrando la tabla con el texto en distintas posiciones, y si ninguna convence ofrece un botón al WhatsApp de
+Brigitte (948 467 431, `brigitte` en `src/content/site.ts`) con un mensaje corto ya escrito.
+
+- Las «imágenes generadas» no usan IA: el chat dibuja la tabla con el texto en cada posición (`EngravingBoard`).
+  Es instantáneo, gratis y no inventa nada. Sirve para cualquier modelo (usa la foto de tabla limpia de la web).
+- `worker/services/engraving-help.ts`: reglas por palabras clave (sin IA). Va antes de Gemini y también dentro del
+  pedido paso a paso (una duda en el paso del grabado no se toma como el texto a grabar). Recomienda primero las
+  esquinas y el centro al final (según la dueña casi nadie lo pide). Tras una ronda de recomendaciones, si sigue sin
+  convencerse, deja solo el botón de Brigitte.
+- Marcas en el texto de Teca: `[[vista|…]]` y `[[whatsapp|…]]` (`src/features/engraving/preview-marker.ts`).
+- Un enlace de WhatsApp no puede adjuntar imágenes: el mensaje nombra la posición pedida y las recomendadas. Decisión
+  del usuario: el mensaje NO lleva ningún vínculo. La página `/grabado` (vistas por dirección) queda disponible pero
+  ya no se enlaza desde el mensaje.
+- Al elegir una posición, Teca la confirma y le dice cómo dejarla anotada en el pedido (escribirla junto al texto en la
+  pregunta del grabado). El pedido paso a paso aún no tiene un paso propio de «posición».
+- Vista por modelo: cada tabla se dibuja con su silueta y proporción oficial (`src/content/board-shapes.ts`):
+  Moshaco con canal, Ya Vuelta redonda, Sacha Paleta con mango, Bosques Amazónicos y Huambrilla alargadas, Ñañito con
+  costados boleados. Sin modelo conocido se usa la tabla genérica. Son siluetas de referencia sobre la textura real de
+  la teca; cuando Woodland entregue fotos limpias de cada modelo conviene cambiarlas por esas.

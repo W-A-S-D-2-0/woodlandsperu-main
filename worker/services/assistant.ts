@@ -3,6 +3,7 @@ import { quoteRequestSchema, WEB_ORDER_MAX_UNITS, type QuoteRequestInput } from 
 import { assistantKnowledge, knowledgeForPrompt } from '../../src/content/assistant-knowledge'
 import { alliancesContent } from '../../src/content/alliances'
 import { deliveryBands, deliveryNote, deliveryUnknown } from '../../src/content/delivery'
+import { engravingHelpReply } from './engraving-help'
 import { paymentChatText, paymentConfigured, paymentLines, paymentRequestText } from '../../src/content/payment'
 import { guidedFlowReply } from './guided-flow'
 
@@ -432,7 +433,12 @@ function infoReply(text: string, catalog: CatalogResponse): string | null {
 
 /** Pedido paso a paso sin IA: continúa el que está en marcha o inicia uno si el cliente pide pedir/cotizar. Va antes que la IA (más rápido y no depende de ella); null si no aplica. */
 export function guidedFlowFirst(history: HistoryMessage[], catalog: CatalogResponse): ModelOutput | null {
-  return guidedFlowReply(history, catalog, { allowStart: true, info: (t) => infoReply(normalizeText(t), catalog) })
+  return guidedFlowReply(history, catalog, { allowStart: true, info: (t) => engravingHelpReply(history, catalog, t) ?? infoReply(normalizeText(t), catalog) })
+}
+
+/** Duda de personalización (otra posición, «no me gusta», «cómo se vería»): imágenes de la tabla y el botón de WhatsApp de Brigitte. Sin IA. */
+export function engravingFirst(history: HistoryMessage[], catalog: CatalogResponse): string | null {
+  return engravingHelpReply(history, catalog)
 }
 
 /**
@@ -518,8 +524,10 @@ export function createGuidedModel(catalog: CatalogResponse): AssistantModel {
       const isFirst = history.filter((m) => m.role === 'customer').length <= 1
 
       // Pedido o cotización paso a paso, sin IA: nunca depende de que el modelo esté disponible.
-      const flow = guidedFlowReply(history, catalog, { allowStart: true, info: (t) => infoReply(normalizeText(t), catalog) })
+      const flow = guidedFlowReply(history, catalog, { allowStart: true, info: (t) => engravingHelpReply(history, catalog, t) ?? infoReply(normalizeText(t), catalog) })
       if (flow) return flow
+      const engraving = engravingHelpReply(history, catalog)
+      if (engraving) return { text: engraving }
       const talk = smallTalkReply(history.findLast((m) => m.role === 'customer')?.body ?? '')
       if (talk) return { text: talk }
       const allies = alliesReply(history.findLast((m) => m.role === 'customer')?.body ?? '')

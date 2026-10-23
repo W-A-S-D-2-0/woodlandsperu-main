@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CatalogResponse, OrderSubmittedResponse } from '../../shared/api/contracts'
 import { runAssistant, createGuidedModel, guidedFlowFirst, type HistoryMessage } from './assistant'
-import { parseCustomerData } from './guided-flow'
+import { parseCustomerData } from './customer-data'
 
 const V1 = '3f2b8c1e-5d4a-4e7b-9a10-2c6d8e9f0a1b'
 const V2 = '4f2b8c1e-5d4a-4e7b-9a10-2c6d8e9f0a1b'

@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react'
+import { brigitte } from '../../content/site'
+import { EngravingBoard } from '../engraving/EngravingBoard'
+import { positionLabel, whatsappUrl, type PreviewMarker, type WhatsappMarker } from '../engraving/preview-marker'
 import { formatSizes, parseBody, photoForModel, typedLength, type BodyBlock } from './chat-logic'
 import { useDragScroll } from './useDragScroll'
 
@@ -71,6 +74,46 @@ function ProductCarousel({ items, onAsk, onSeeAll }: { items: ProductBlock[]; on
   )
 }
 
+/** La tabla con el nombre en cada posición recomendada, en un carrusel: se elige la que gusta con un toque. */
+function PreviewCarousel({ marker, onAsk }: { marker: PreviewMarker; onAsk?: (message: string) => void }) {
+  const { ref, handlers } = useDragScroll<HTMLDivElement>()
+  return (
+    <div
+      ref={ref}
+      role="group"
+      aria-label="Vistas previas del grabado"
+      {...handlers}
+      className="-mx-1 flex cursor-grab snap-x snap-mandatory gap-2.5 overflow-x-auto px-1 pb-1.5 [scrollbar-width:none] active:cursor-grabbing [&::-webkit-scrollbar]:hidden"
+    >
+      {marker.positions.map((position) => (
+        <article key={position} className="flex w-[14rem] shrink-0 snap-start flex-col gap-2 overflow-hidden rounded-xl border border-linea bg-marfil p-2 select-none">
+          <EngravingBoard line1={marker.line1} line2={marker.line2} font={marker.font} position={position} model={marker.model} />
+          <p className="px-1 text-xs font-semibold text-nogal">{positionLabel(position)}</p>
+          {onAsk && (
+            <button type="button" className="rounded-full bg-nogal px-3 py-1.5 text-xs font-semibold text-marfil transition-colors hover:bg-madera-700" onClick={() => onAsk(`Prefiero la posición ${positionLabel(position)}`)}>
+              Quiero esta posición
+            </button>
+          )}
+        </article>
+      ))}
+    </div>
+  )
+}
+
+/** Abre el WhatsApp de Brigitte con el mensaje ya escrito. */
+function WhatsappButton({ marker }: { marker: WhatsappMarker }) {
+  return (
+    <a
+      href={whatsappUrl(brigitte.whatsapp, marker)}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex min-h-10 items-center justify-center gap-2 justify-self-start rounded-full bg-selva px-4 py-2 text-xs font-semibold text-marfil shadow-sm transition-colors hover:bg-nogal"
+    >
+      Escribirle a {brigitte.name} por WhatsApp
+    </a>
+  )
+}
+
 /** Texto de un mensaje del asistente: precios en tarjetas, líneas de pedido y total destacado. `typing` escribe el texto simple poco a poco. */
 export function ChatBody({ body, typing = false, onAsk, onSeeAll }: { body: string; typing?: boolean; onAsk?: (message: string) => void; onSeeAll?: () => void }) {
   const blocks = parseBody(body)
@@ -85,6 +128,8 @@ export function ChatBody({ body, typing = false, onAsk, onSeeAll }: { body: stri
           for (let j = i; blocks[j]?.kind === 'product'; j++) items.push(blocks[j] as ProductBlock)
           return <ProductCarousel key={i} items={items} onAsk={onAsk} onSeeAll={onSeeAll} />
         }
+        if (b.kind === 'preview') return <PreviewCarousel key={i} marker={b} onAsk={onAsk} />
+        if (b.kind === 'whatsapp') return <WhatsappButton key={i} marker={b} />
         if (b.kind === 'text') return <p key={i} className="whitespace-pre-wrap">{b.text}</p>
         if (b.kind === 'price') {
           const photo = photoForModel(b.name)

@@ -1,16 +1,10 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import {
-  engravingContent,
-  engravingFonts,
-  engravingLimits,
-  engravingPositions,
-  type EngravingFont,
-  type EngravingPosition,
-} from '../../content/engraving'
+import { engravingContent, engravingFonts, engravingLimits, engravingPositions, type EngravingFont } from '../../content/engraving'
 import { landingImages } from '../../content/home'
 import { formatPrice } from '../catalog/catalog-format'
 import { useCatalog } from '../catalog/use-catalog'
 import { openChat } from '../chat/open-chat'
+import { fontClass, positionClass } from './EngravingBoard'
 import {
   defaultEngraving,
   engravingSummary,
@@ -22,20 +16,6 @@ import {
 
 const inputClass =
   'min-h-11 w-full rounded-lg border border-beige/25 bg-nogal/70 px-3 text-base text-marfil placeholder:text-beige/50 focus-visible:border-marfil'
-
-const positionClass: Record<EngravingPosition, string> = {
-  'bottom-right': 'right-[8%] bottom-[10%] items-end text-right',
-  'bottom-left': 'bottom-[10%] left-[8%] items-start text-left',
-  'top-left': 'top-[10%] left-[8%] items-start text-left',
-  'top-right': 'top-[10%] right-[8%] items-end text-right',
-  center: 'inset-0 items-center justify-center text-center',
-}
-
-const fontClass: Record<EngravingFont, string> = {
-  classic: 'font-display font-medium',
-  italic: 'font-display font-medium italic',
-  modern: 'font-sans font-semibold tracking-[0.12em] uppercase',
-}
 
 function Choice<T extends string>({
   legend,

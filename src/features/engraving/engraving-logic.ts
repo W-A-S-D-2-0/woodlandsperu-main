@@ -48,7 +48,7 @@ const charWidth: Record<EngravingFont, number> = { classic: 0.56, italic: 0.52, 
 const maxSize = { line1: 9, line2: 4.4 } as const
 
 /** Tamaño de letra en unidades de ancho de la tabla (cqw) para que la línea quepa sin cortarse. */
-export function engravingFontSize(text: string, font: EngravingFont, line: 'line1' | 'line2'): number {
-  const fit = 80 / (Math.max(text.length, 1) * charWidth[font])
+export function engravingFontSize(text: string, font: EngravingFont, line: 'line1' | 'line2', room = 80): number {
+  const fit = room / (Math.max(text.length, 1) * charWidth[font])
   return Math.round(Math.min(maxSize[line], fit) * 100) / 100
 }

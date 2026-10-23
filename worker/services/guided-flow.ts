@@ -2,6 +2,8 @@ import type { CatalogProduct, CatalogResponse, CatalogVariant } from '../../shar
 import { WEB_ORDER_MAX_UNITS } from '../../shared/api/public-schemas'
 import { lineTotal, resolveUnitPrice } from '../../src/features/catalog/pricing'
 import type { HistoryMessage, ModelOutput } from './assistant'
+import { parseCustomerData } from './customer-data'
+import { looksLikeEngravingDoubt } from './engraving-help'
 
 /**
  * Flujo de pedido/cotización SIN IA, paso a paso. Es lo que garantiza que el chat nunca falle: si la IA está
@@ -205,12 +207,16 @@ function apply(step: Step, raw: string, f: Flow, catalog: CatalogResponse): stri
       return null
     }
     case 'engrave': {
+      // Una duda («no me gusta», «cómo se ve», «mejor en el centro») no es el texto a grabar: la atiende Teca con imágenes.
+      if (looksLikeEngravingDoubt(text)) return 'Antes de seguir con tu pedido, vamos con tu duda del grabado.'
       if (no(text)) f.cur!.engraving = null
       else if (yes(text) && normalize(text).length < 12) return 'Escribe el texto exacto que quieres grabar, o responde «no».'
       else f.cur!.engraving = text.replace(/^["«“]|["»”]$/g, '').slice(0, 200)
       return null
     }
     case 'more': {
+      // Con grabado en el producto, una duda («no me gusta», «ninguna me convence») la atiende Teca con imágenes.
+      if (f.cur?.engraving && looksLikeEngravingDoubt(text)) return 'Antes de seguir con tu pedido, vamos con tu duda del grabado.'
       if (!yes(text) && !no(text)) return 'Responde «sí» o «no».'
       f.lines.push(f.cur as Line)
       f.cur = yes(text) ? {} : null
@@ -260,6 +266,7 @@ function apply(step: Step, raw: string, f: Flow, catalog: CatalogResponse): stri
       return null
     }
     case 'confirm':
+      if (f.lines.some((l) => l.engraving) && looksLikeEngravingDoubt(text)) return 'Antes de confirmar, vamos con tu duda del grabado.'
       if (!yes(text)) return no(text) ? 'cancel' : 'Responde «sí» para confirmar o «no» para cancelar.'
       f.confirmed = true
       return null
@@ -267,43 +274,6 @@ function apply(step: Step, raw: string, f: Flow, catalog: CatalogResponse): stri
     case 'done':
       return null
   }
-}
-
-/**
- * Lee los datos del cliente de un solo mensaje: «Ana Pérez, ana@correo.com, 987654321, Jr. Lima 123, Tarapoto».
- * Acepta también líneas con etiqueta («Nombre: …»). Lo que no encuentra queda sin llenar y el flujo lo pide aparte.
- */
-export function parseCustomerData(raw: string): Pick<Flow, 'name' | 'email' | 'phone' | 'address'> {
-  let rest = raw
-  const email = rest.match(/[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+/)?.[0]
-  if (email) rest = rest.replace(email, ' ')
-  const mobile = rest.match(/(?:\+?51[\s-]?)?9\d{2}[\s-]?\d{3}[\s-]?\d{3}\b/)?.[0]
-  const phone = mobile ?? rest.match(/\+?\d[\d\s()-]{5,}\d/)?.[0]
-  if (phone) rest = rest.replace(phone, ' ')
-  const digits = phone?.replace(/[\s()-]/g, '')
-
-  const out: Pick<Flow, 'name' | 'email' | 'phone' | 'address'> = {}
-  if (email) out.email = email.slice(0, 254)
-  if (digits && /^\+?[0-9]{7,15}$/.test(digits)) out.phone = digits
-
-  const label = /^(nombre completo|nombre|direcci[oó]n|dir|correo|e-?mail|celular|tel[eé]fono|tel|cel)\s*:?\s*/i
-  const segments = rest
-    .split(/[\n,;|]+/)
-    .map((x) => x.trim())
-    .filter(Boolean)
-  const addressParts: string[] = []
-  for (const [index, segment] of segments.entries()) {
-    const tag = segment.match(label)?.[1]?.toLowerCase() ?? ''
-    const value = segment.replace(label, '').trim()
-    if (!value) continue
-    if (/^nombre/.test(tag)) out.name = value.slice(0, 160)
-    else if (/^dir/.test(tag)) addressParts.push(value)
-    else if (index === 0 && !out.name && !tag && /\p{L}/u.test(value) && !/\d/.test(value)) out.name = value.replace(/^(me llamo|mi nombre es|soy)\s+/i, '').slice(0, 160)
-    else if (value.length > 1 && !/^(correo|celular|tel[eé]fono)$/i.test(value)) addressParts.push(value)
-  }
-  const address = addressParts.join(', ')
-  if (address.length >= 6 && /\p{L}/u.test(address)) out.address = address.slice(0, 300)
-  return out
 }
 
 function matchEntry(text: string, list: Entry[], allowFilter: boolean): { kind: 'ok'; entry: Entry } | { kind: 'filter'; product: CatalogProduct } | { kind: 'none' } {
