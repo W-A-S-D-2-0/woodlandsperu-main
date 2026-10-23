@@ -281,7 +281,7 @@ export function ChatWidget() {
             {shown.map((m) => (
               <li key={m.id} className={`${m.role !== 'customer' && parseBody(m.body).some((b) => b.kind !== 'text') ? 'w-full max-w-full' : 'max-w-[85%]'} rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${bubble[m.role] ?? bubble.system}`}>
                 {m.role === 'staff' && <span className="mb-0.5 block text-[0.7rem] font-semibold tracking-[0.08em] text-madera-700 uppercase">Equipo Woodland</span>}
-                {m.role === 'customer' ? m.body : <ChatBody body={m.body} typing={m.id === typingId} onAsk={(message) => void submit(undefined, message)} onSeeAll={catalogOnPage ? seeCatalog : undefined} />}
+                {m.role === 'customer' ? m.body : <ChatBody body={m.body} typing={m.id === typingId} onAsk={(message) => void submit(undefined, message)} onSeeAll={catalogOnPage ? seeCatalog : undefined} onCancel={m.id === last?.id && !pending && !uploading ? () => void submit(undefined, 'cancelar') : undefined} />}
                 {messageTime(m.createdAt) && <time dateTime={m.createdAt} className={`mt-1 block text-[0.65rem] ${m.role === 'customer' ? 'text-beige/70' : 'text-carbon-600'}`}>{messageTime(m.createdAt)}</time>}
               </li>
             ))}

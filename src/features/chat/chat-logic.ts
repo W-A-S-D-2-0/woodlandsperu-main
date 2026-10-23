@@ -119,6 +119,14 @@ export function photoForModel(name: string): ModelPhoto | undefined {
   return Object.values(modelPhotos).find((photo) => plain(photo.name) === wanted)
 }
 
+/** La frase con que el servidor cierra cada pregunta del pedido paso a paso. En la web no se muestra: se reemplaza por el botón «Cancelar». */
+const FLOW_FOOTER = /\n*\(Pedido paso a paso · escribe «cancelar» para salir\)\s*$/
+
+/** Separa el texto de una respuesta de la frase final del pedido paso a paso (`inFlow` indica que la tenía). */
+export function splitFlowFooter(body: string): { text: string; inFlow: boolean } {
+  return FLOW_FOOTER.test(body) ? { text: body.replace(FLOW_FOOTER, '').trimEnd(), inFlow: true } : { text: body, inFlow: false }
+}
+
 /** Hora local (HH:MM) de un mensaje; vacío si la fecha no es válida. */
 export function messageTime(createdAt: string): string {
   const date = new Date(createdAt)

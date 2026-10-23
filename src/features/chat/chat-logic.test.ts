@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatMessage } from '../../../shared/api/chat'
 import { chatToken } from '../../../shared/api/chat'
-import { createChatToken, lastMessageId, loadChatToken, messageTime, formatSizes, parseBody, photoForModel, typedLength, mergeMessages, statusNotice } from './chat-logic'
+import { createChatToken, lastMessageId, loadChatToken, messageTime, formatSizes, parseBody, photoForModel, typedLength, mergeMessages, splitFlowFooter, statusNotice } from './chat-logic'
 
 const msg = (id: number, body = 'x'): ChatMessage => ({ id, role: 'customer', body, createdAt: '2026-10-17T10:00:00Z' })
 
@@ -53,6 +53,20 @@ describe('mensajes', () => {
     expect(statusNotice('needs_human')).toMatch(/anotada para el equipo/)
     expect(statusNotice('needs_human')).toMatch(/asistente sigue/)
     expect(statusNotice('with_human')).toBe(statusNotice('needs_human'))
+  })
+})
+
+describe('splitFlowFooter', () => {
+  const footer = '(Pedido paso a paso · escribe «cancelar» para salir)'
+
+  it('quita la frase final del pedido paso a paso y avisa que la tenía', () => {
+    expect(splitFlowFooter(`¿Cuántas unidades quieres?\n${footer}`)).toEqual({ text: '¿Cuántas unidades quieres?', inFlow: true })
+    expect(splitFlowFooter(`Este es tu pedido:\n• 1 × Moshaco — S/ 433.90\n\n¿Confirmas el pedido? (sí/no)\n${footer}\n`)).toMatchObject({ inFlow: true })
+  })
+
+  it('un mensaje normal queda igual', () => {
+    expect(splitFlowFooter('Hola, ¿qué te interesa?')).toEqual({ text: 'Hola, ¿qué te interesa?', inFlow: false })
+    expect(splitFlowFooter('Para salir escribe «cancelar» cuando quieras.').inFlow).toBe(false)
   })
 })
 

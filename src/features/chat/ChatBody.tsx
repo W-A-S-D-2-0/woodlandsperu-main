@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { brigitte } from '../../content/site'
 import { EngravingBoard } from '../engraving/EngravingBoard'
 import { positionLabel, whatsappUrl, type PreviewMarker, type WhatsappMarker } from '../engraving/preview-marker'
-import { formatSizes, parseBody, photoForModel, typedLength, type BodyBlock } from './chat-logic'
+import { formatSizes, parseBody, photoForModel, splitFlowFooter, typedLength, type BodyBlock } from './chat-logic'
 import { useDragScroll } from './useDragScroll'
 
 /** Texto que se escribe solo, letra a letra, en poco más de un segundo. El lector de pantalla recibe el texto completo desde el inicio. */
@@ -114,8 +114,30 @@ function WhatsappButton({ marker }: { marker: WhatsappMarker }) {
   )
 }
 
+/**
+ * Un mensaje del asistente. Si es una pregunta del pedido paso a paso, la frase «escribe cancelar» no se muestra:
+ * en su lugar va el botón «Cancelar» (`onCancel`, solo en el último mensaje, que es el que está esperando respuesta).
+ */
+export function ChatBody({ body, typing = false, onAsk, onSeeAll, onCancel }: { body: string; typing?: boolean; onAsk?: (message: string) => void; onSeeAll?: () => void; onCancel?: () => void }) {
+  const { text, inFlow } = splitFlowFooter(body)
+  return (
+    <>
+      <ChatContent body={text} typing={typing} onAsk={onAsk} onSeeAll={onSeeAll} />
+      {inFlow && onCancel && (
+        <button
+          type="button"
+          className="mt-2 inline-flex min-h-9 items-center rounded-full border border-madera-700/60 px-4 text-xs font-semibold text-madera-700 transition-colors hover:bg-madera-700 hover:text-marfil"
+          onClick={onCancel}
+        >
+          Cancelar
+        </button>
+      )}
+    </>
+  )
+}
+
 /** Texto de un mensaje del asistente: precios en tarjetas, líneas de pedido y total destacado. `typing` escribe el texto simple poco a poco. */
-export function ChatBody({ body, typing = false, onAsk, onSeeAll }: { body: string; typing?: boolean; onAsk?: (message: string) => void; onSeeAll?: () => void }) {
+function ChatContent({ body, typing = false, onAsk, onSeeAll }: { body: string; typing?: boolean; onAsk?: (message: string) => void; onSeeAll?: () => void }) {
   const blocks = parseBody(body)
   if (blocks.every((b) => b.kind === 'text')) return typing ? <Typed text={body} /> : <>{body}</>
   return (
