@@ -231,7 +231,7 @@ Decisión del usuario: Teca pide primero los datos del cliente (nombre, correo, 
 pedido pide el pago inmediato al Yape de Alex (`src/content/payment.ts`). El cliente sube la captura con el clip del
 chat; al recibirla, el pedido queda **pagado, confirmado y en producción** y Teca le responde «recibimos tu pago».
 
-- Flujo guiado (`worker/services/guided-flow.ts`): nombre → correo → celular → dirección → persona/empresa → tablas → confirmar.
+- Flujo guiado (`worker/services/guided-flow.ts`): nombre → persona/empresa → tablas → celular, correo y dirección (en un solo mensaje, al concretar el pedido) → confirmar. Decisión del usuario (2026-10-24): al empezar solo se pide el nombre.
   Ya no hay pasos «contacto» ni «indicaciones»; la dirección va a `orders.shipping_address`.
 - Captura: `POST /api/chat/payment-proof` (multipart: `token` + `file`; JPG/PNG/WebP ≤ 5 MB, se revisan los bytes).
   Servicio: `worker/services/payment-proof.ts`. Se guarda en el bucket privado `payment-proofs`.

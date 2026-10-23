@@ -19,7 +19,7 @@ const preview = (reply: string | null) => markers(reply).find((m): m is PreviewM
 const whatsapp = (reply: string | null) => markers(reply).find((m): m is WhatsappMarker => m.kind === 'whatsapp')
 
 const WEB = 'Quiero pedir Ya Vuelta · Circular. Grabado: "Ana" · Posición: Esquina inferior derecha · Letra: Clásica'
-const DATA_ASK = 'Envíamelos en un solo mensaje: nombre completo, correo, celular y dirección de entrega'
+const DATA_ASK = '¿A nombre de quién registro el pedido? Escribe tu nombre completo.'
 
 describe('posición que pide el cliente', () => {
   it('entiende esquinas, centro y arriba/abajo', () => {
@@ -66,7 +66,7 @@ describe('dudas de personalización', () => {
   })
 
   it('usa el nombre del cliente en el mensaje de WhatsApp cuando ya dio sus datos', () => {
-    const history = [customer('quiero hacer un pedido'), teca(DATA_ASK), customer('María Ríos, maria@x.com, 987654321, Jr. Lima 123, Tarapoto'), teca('...'), customer(WEB), teca('ok'), customer('no me gusta')]
+    const history = [customer('quiero hacer un pedido'), teca(DATA_ASK), customer('María Ríos'), teca('...'), customer(WEB), teca('ok'), customer('no me gusta')]
     expect(whatsapp(engravingHelpReply(history, catalog))!.message).toContain('soy María Ríos')
   })
 
@@ -101,7 +101,7 @@ describe('dudas de personalización', () => {
   })
 
   it('en pleno pedido, una duda del grabado se atiende sin perder el paso', () => {
-    const data = 'Ana Pérez, ana@example.com, 987654321, Jr. Lima 123, Tarapoto'
+    const data = 'Ana Pérez'
     const history: HistoryMessage[] = [customer('quiero hacer un pedido')]
     const step = (body: string) => {
       const out = guidedFlowFirst(history, catalog)!
@@ -171,7 +171,8 @@ describe('con todas las tablas del catálogo', () => {
 })
 
 describe('dudas en cualquier paso del pedido', () => {
-  const data = 'Ana Pérez, ana@example.com, 987654321, Jr. Lima 123, Tarapoto'
+  const data = 'Ana Pérez'
+  const contact = '987654321, ana@example.com, Jr. Lima 123, Tarapoto'
   /** Lleva el pedido hasta el paso pedido y devuelve la conversación y la pregunta de ese paso. */
   function until(steps: string[]) {
     const history: HistoryMessage[] = [customer('quiero hacer un pedido')]
@@ -203,7 +204,7 @@ describe('dudas en cualquier paso del pedido', () => {
   })
 
   it('en la confirmación, «no me gusta cómo queda» no cancela el pedido', () => {
-    const { out } = until(['Ana', 'no', 'no me gusta cómo queda'])
+    const { out } = until(['Ana', 'no', contact, 'no me gusta cómo queda'])
     expect(out.text).not.toMatch(/cancelé/)
     expect(preview(out.text)).toBeDefined()
     expect(out.text).toContain('¿Confirmas')

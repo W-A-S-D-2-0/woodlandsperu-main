@@ -123,8 +123,9 @@ function recommend(exclude: readonly EngravingPosition[], count: number, avoid: 
 /** Nombre que dio el cliente al comenzar su pedido, si lo hizo. */
 function customerName(history: readonly HistoryMessage[]): string | undefined {
   for (let i = 1; i < history.length; i++) {
-    if (history[i - 1]!.role === 'assistant' && history[i - 1]!.body.includes('en un solo mensaje: nombre completo') && history[i]!.role === 'customer') {
-      return parseCustomerData(history[i]!.body).name
+    if (history[i - 1]!.role === 'assistant' && history[i - 1]!.body.includes('¿A nombre de quién') && history[i]!.role === 'customer') {
+      const answer = history[i]!.body
+      return parseCustomerData(answer).name ?? (answer.trim().length > 1 && answer.trim().length <= 60 && !/\d|@/.test(answer) ? answer.trim() : undefined)
     }
   }
   return undefined

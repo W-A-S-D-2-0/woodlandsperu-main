@@ -10,7 +10,8 @@ export interface CustomerData {
  * Lee los datos del cliente de un solo mensaje: «Ana Pérez, ana@correo.com, 987654321, Jr. Lima 123, Tarapoto».
  * Acepta también líneas con etiqueta («Nombre: …»). Lo que no encuentra queda sin llenar y el flujo lo pide aparte.
  */
-export function parseCustomerData(raw: string): CustomerData {
+export function parseCustomerData(raw: string, options: { withName?: boolean } = {}): CustomerData {
+  const withName = options.withName ?? true
   let rest = raw
   const email = rest.match(/[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+/)?.[0]
   if (email) rest = rest.replace(email, ' ')
@@ -35,7 +36,7 @@ export function parseCustomerData(raw: string): CustomerData {
     if (!value) continue
     if (/^nombre/.test(tag)) out.name = value.slice(0, 160)
     else if (/^dir/.test(tag)) addressParts.push(value)
-    else if (index === 0 && !out.name && !tag && /\p{L}/u.test(value) && !/\d/.test(value)) out.name = value.replace(/^(me llamo|mi nombre es|soy)\s+/i, '').slice(0, 160)
+    else if (withName && index === 0 && !out.name && !tag && /\p{L}/u.test(value) && !/\d/.test(value)) out.name = value.replace(/^(me llamo|mi nombre es|soy)\s+/i, '').slice(0, 160)
     else if (value.length > 1 && !/^(correo|celular|tel[eé]fono)$/i.test(value)) addressParts.push(value)
   }
   const address = addressParts.join(', ')

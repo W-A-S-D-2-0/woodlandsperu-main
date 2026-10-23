@@ -32,9 +32,9 @@ const TAGS: Record<Exclude<Step, 'big' | 'done'>, string> = {
   confirm: '¿Confirmas',
 }
 
-/** Lo primero que el flujo pide: los datos de quien compra. */
+/** Lo que se pide al concretar el pedido, después de elegir las tablas. */
 const DATA_REQUEST =
-  'Para dejar tu pedido listo necesito primero tus datos. Envíamelos en un solo mensaje: nombre completo, correo, celular y dirección de entrega (calle, número, distrito y ciudad).\n\nEjemplo: Ana Pérez, ana@correo.com, 987654321, Jr. Lima 123, Tarapoto'
+  'Ya casi. Para registrar tu pedido necesito tu celular, tu correo y tu dirección de entrega. Envíamelos en un solo mensaje (calle, número, distrito y ciudad en la dirección).\n\nEjemplo: 987654321, ana@correo.com, Jr. Lima 123, Tarapoto'
 
 const CUSTOM = /a medida|medida propia|otra medida|diseno propio|diseno especial|personalizad[ao] aparte|no esta en|ninguno de/
 const CUSTOM_LABEL = 'Pieza a medida o diseño propio'
@@ -89,12 +89,8 @@ function parseQty(text: string): number | null {
 // --- Qué pregunta toca ---------------------------------------------------------
 
 function nextStep(f: Flow): Step {
-  // Primero los datos de quien compra; después, las tablas.
-  if (!f.name && !f.email && !f.phone && !f.address) return 'data'
+  // Al empezar solo se pide el nombre; el celular, el correo y la dirección se piden al concretar el pedido.
   if (!f.name) return 'name'
-  if (!f.email) return 'email'
-  if (!f.phone) return 'phone'
-  if (!f.address) return 'address'
   if (!f.type) return 'type'
   if (f.type === 'business' && !f.company) return 'company'
   if (!f.moreDone) {
@@ -104,6 +100,10 @@ function nextStep(f: Flow): Step {
     if (c.engraving === undefined) return 'engrave'
     return 'more'
   }
+  if (!f.email && !f.phone && !f.address) return 'data'
+  if (!f.email) return 'email'
+  if (!f.phone) return 'phone'
+  if (!f.address) return 'address'
   if (f.big) return 'big'
   return f.confirmed ? 'done' : 'confirm'
 }
@@ -161,7 +161,7 @@ function question(step: Step, f: Flow, catalog: CatalogResponse): string {
     case 'data':
       return DATA_REQUEST
     case 'name':
-      return `Me faltó tu nombre. ${TAGS.name} registro el pedido? Escribe tu nombre completo.`
+      return `Para empezar: ${TAGS.name} registro el pedido? Escribe tu nombre completo.`
     case 'email':
       return `Me falta tu correo. Escribe ${TAGS.email}, para enviarte la confirmación.`
     case 'phone':
@@ -235,11 +235,10 @@ function apply(step: Step, raw: string, f: Flow, catalog: CatalogResponse): stri
       f.company = text.slice(0, 200)
       return null
     case 'data': {
-      const found = parseCustomerData(text)
-      Object.assign(f, found)
-      return found.name || found.email || found.phone || found.address
-        ? null
-        : 'No pude leer tus datos. Envíalos en un solo mensaje: nombre completo, correo, celular y dirección.'
+      // El nombre ya se pidió al empezar: aquí solo se leen celular, correo y dirección.
+      const { email, phone, address } = parseCustomerData(text, { withName: false })
+      Object.assign(f, { ...(email ? { email } : {}), ...(phone ? { phone } : {}), ...(address ? { address } : {}) })
+      return email || phone || address ? null : 'No pude leer tus datos. Envíame en un solo mensaje tu celular, tu correo y tu dirección de entrega.'
     }
     case 'name': {
       const name = text.replace(/^(me llamo|mi nombre es|soy|nombre:?)\s+/i, '').trim()
