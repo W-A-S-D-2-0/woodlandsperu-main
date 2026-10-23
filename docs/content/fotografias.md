@@ -93,3 +93,19 @@ Entregadas por el equipo o bajadas de la página de Canva de Woodland (woodlandp
 | `landing/cocina-moshaco.jpg` | Colecciones · Cocina | 799×533 de Canva |
 | `trabajos/*.jpg` (11) | Franja de trabajos grabados y tarjeta Personalizadas | 960×1280; Tambo viene de una captura de pantalla (739 px de ancho) |
 | `brand/logo-mark.png` | Encabezado, footer, favicon | De Canva (425×307 con transparencia); falta el vector |
+
+## Actualización 2026-10-21: fotos del catálogo oficial
+
+Los recortes provisionales del Instagram (`parrilla-corte`, `kit-hotel-bar`, `hero-piqueo`, `mesa-compartir`, `origen-madera`) y `landing/cocina-moshaco.jpg`
+se eliminaron. Ahora las colecciones usan fotos del PDF B2B y del sitio de Canva (originales y rotulado completo en
+`docs/marca/imagenes-oficiales/`; datos en `docs/marca/CATALOGO-OFICIAL.md`):
+
+| Archivo en `public/images/oficial/` | Clave en `landingImages` | Uso |
+| --- | --- | --- |
+| `huambrilla-piqueo.jpg` (533×800) | `serving` | Colecciones · Piqueo y Servir |
+| `moshaco.jpg` (799×533) | `grill` | Colecciones · Moshaco |
+| `ya-vuelta.jpg` (800×533) | `kitchen` | Colecciones · Ya Vuelta y Sacha Paleta |
+| `mujer-en-el-bosque.jpg` (1400×937, de 1599×1070) | `purpose` | Nosotros · Nuestro propósito |
+
+Pendiente: pedir a Woodland los originales en alta resolución (las de ~533–800 px se ven suaves en pantallas grandes) y confirmar el permiso de uso de las
+personas que aparecen.

@@ -33,7 +33,7 @@ function FramedPhoto({ image, className = '' }: { image: LandingImage | null; cl
  */
 export function AboutPage() {
   useDocumentTitle('Nosotros')
-  const { origin, seed, grain, highlights, commitment } = homeContent
+  const { origin, seed, grain, highlights, commitment, purpose } = homeContent
 
   return (
     <>
@@ -55,6 +55,30 @@ export function AboutPage() {
           </Reveal>
           <Reveal index={1}>
             <FramedPhoto image={landingImages.plantation} />
+          </Reveal>
+        </Container>
+      </section>
+
+      {/* Propósito: reforestar la selva (catálogo oficial). */}
+      <section className="grain bg-beige/50 py-20 sm:py-28" aria-labelledby="about-purpose">
+        <Container className="grid items-center gap-14 lg:grid-cols-2 lg:gap-20">
+          <Reveal>
+            <FramedPhoto image={landingImages.purpose} />
+          </Reveal>
+          <Reveal index={1}>
+            <p className="text-xs font-semibold tracking-[0.22em] text-madera-700 uppercase">{purpose.eyebrow}</p>
+            <h2 id="about-purpose" className="mt-4 text-3xl sm:text-5xl">
+              {purpose.title}
+            </h2>
+            <p className="mt-5 max-w-md text-lg leading-relaxed text-carbon-600">{purpose.body}</p>
+            <ul className="mt-8 grid gap-4">
+              {purpose.facts.map((fact) => (
+                <li key={fact} className="border-l-2 border-madera pl-4 text-carbon-600">
+                  {fact}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-8 max-w-md text-sm text-carbon-600">{purpose.note}</p>
           </Reveal>
         </Container>
       </section>

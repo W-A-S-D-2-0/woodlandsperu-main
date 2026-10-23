@@ -13,16 +13,20 @@ export const assistantKnowledge = {
     'Su lema es "Sostenibilidad hecha lujo." y dice "Conocemos el producto desde la semilla".',
     'Todo empezó con la siembra de teca para reforestar la selva (año 2019). Sus bosques de reforestación propios están en San Martín.',
     'Instagram: @woodland.peru.',
+    'Lleva 15 años reforestando en San Martín (Amazonía peruana) y gestiona su propia reforestadora (@reforestadorafuturoverde): hay trazabilidad desde la semilla hasta la pieza final. Con cada compra el cliente ayuda a seguir sembrando.',
+    'Woodland publica que su teca cuenta con el respaldo de certificaciones de SERFOR y procesos food-friendly de estándar internacional; no se conocen más detalles, el equipo los confirma.',
+    'La teca tiene aceites naturales que la protegen del calor, la humedad y los microorganismos; es resistente a hongos, humedad y calor, y repele el agua, las grasas y las manchas.',
+    'Los nombres de las tablas son palabras de la región de San Martín, en honor al legado cultural del Oriente Peruano.',
   ],
   product: [
     'Hace tablas de teca: para parrilla, cocina, presentación de alimentos (quesos, piqueos) y piezas personalizadas.',
     'Cada tabla se trabaja y termina a mano por maestros artesanos, con acabado natural y sin lacas químicas.',
-    'Ofrece garantía de por vida y mantenimiento anual. Los detalles y las condiciones de la garantía los confirma el equipo.',
-    'Colecciones: Presentación, Parrilla, Cocina y Personalizadas.',
+    'Ofrece certificado de garantía de por vida y mantenimiento gratuito al año. Los detalles y las condiciones de la garantía los confirma el equipo.',
+    'Colecciones oficiales: Parrilla y Cocina (The Master Series: Moshaco, Ya Vuelta y Sacha Paleta) y Piqueo y Servir (The Social Series: Bosques Amazónicos, Huambrilla y Ñañito). Además, grabado personalizado. Los precios y medidas vigentes son los del catálogo de abajo.',
     'La mayoría de las tablas son planas; algunas llevan un canal (por ejemplo, para jugos de la carne).',
   ],
   customers: [
-    'Atiende a personas (para uso propio o regalo) y a empresas: restaurantes, hoteles, clubes y regalos corporativos.',
+    'Atiende a personas (para uso propio o regalo) y a empresas: restaurantes, hoteles, bares, clubes y regalos corporativos. Desarrolla proyectos corporativos a medida; para empresas, desde 10 unidades.',
     'Los pedidos corporativos suelen llevar el logo de la empresa grabado; el logo lo coordina el equipo después del pedido.',
   ],
   engraving: [
@@ -50,7 +54,7 @@ export const assistantKnowledge = {
     'otros medios de pago distintos de Yape y Plin (tarjeta, transferencia bancaria) y cuentas bancarias',
     'cantidades en stock o disponibilidad',
     'precios que no figuren en el catálogo, descuentos y promociones',
-    'certificaciones, premios o cifras de ventas',
+    'qué certificaciones exactas tiene, premios o cifras de ventas',
   ],
 } as const
 

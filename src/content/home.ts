@@ -1,7 +1,7 @@
 /**
- * Textos de la portada. Provienen de lo que Woodland confirmó en las entrevistas y de lo que la
- * propia empresa publica en su Instagram (@woodland.peru); cada dato indica su publicación de
- * origen. Sin cifras de ventas, testimonios ni certificaciones que la empresa no haya publicado.
+ * Textos de la portada. Provienen de lo que Woodland confirmó en las entrevistas, de lo que la
+ * propia empresa publica en su Instagram (@woodland.peru) y de su catálogo oficial (PDF B2B y sitio de Canva,
+ * entregados el 2026-10-21; ver docs/marca/CATALOGO-OFICIAL.md); cada dato indica su publicación de origen. Sin cifras de ventas, testimonios ni certificaciones que la empresa no haya publicado.
  * Pendiente: que Woodland valide la redacción final (en especial garantía y mantenimiento).
  */
 
@@ -18,7 +18,7 @@ export interface LandingImage {
   focus?: string
 }
 
-type ImageKey = 'hero' | 'heroDetail' | 'origin' | 'grill' | 'serving' | 'engraveBoard' | 'kitchen' | 'custom' | 'plantation' | 'workshop' | 'boards'
+type ImageKey = 'hero' | 'heroDetail' | 'grill' | 'serving' | 'engraveBoard' | 'kitchen' | 'custom' | 'plantation' | 'workshop' | 'boards' | 'purpose'
 
 /**
  * Fotografías de la portada (ver docs/content/fotografias.md). Cada foto aparece una sola vez.
@@ -53,11 +53,18 @@ export const landingImages: Record<ImageKey, LandingImage | null> = {
     width: 1540,
     height: 940,
   },
-  /** Tabla Moshaco con cuchillo de la página de Canva de Woodland (foto propia, 799×533). */
-  kitchen: {
-    src: '/images/landing/cocina-moshaco.jpg',
-    alt: 'Tabla de teca con canal para jugos, costillas en un sartén blanco y un cuchillo santoku, vista desde arriba',
+  /** Catálogo oficial (Canva, 2026-10-21): Moshaco, la joya de la colección Parrilla y Cocina. */
+  grill: {
+    src: '/images/oficial/moshaco.jpg',
+    alt: 'Tabla Moshaco de teca con canal para jugos, costillas en un sartén blanco y un cuchillo, vista desde arriba',
     width: 799,
+    height: 533,
+  },
+  /** Catálogo oficial: Ya Vuelta, la tabla redonda. */
+  kitchen: {
+    src: '/images/oficial/ya-vuelta.jpg',
+    alt: 'Tabla redonda Ya Vuelta con pan, queso, aceitunas y tomates, vista desde arriba',
+    width: 800,
     height: 533,
   },
   /** Grabado real de Woodland sobre teca (entregada por el equipo, 2026-10-17). */
@@ -82,23 +89,19 @@ export const landingImages: Record<ImageKey, LandingImage | null> = {
     width: 900,
     height: 900,
   },
-  origin: {
-    src: '/images/landing/origen-madera-provisional.jpg', // recorte de la publicación DMBN8VAPOtD
-    alt: 'Detalle de la veta y un nudo natural en la superficie de una tabla de madera',
-    width: 533,
-    height: 400,
-  },
-  grill: {
-    src: '/images/landing/mesa-compartir-provisional.jpg', // recorte del reel DdKwV9ixBFP
-    alt: 'Carne a la parrilla con guarniciones servida sobre una tabla de madera, junto a otras tablas con quesos y pizza',
-    width: 360,
-    height: 268,
-  },
+  /** Catálogo oficial: tabla con agarradera de la colección Piqueo y Servir, con embutidos, quesos y frutas. */
   serving: {
-    src: '/images/landing/hero-piqueo-provisional.jpg', // publicación DeaG8R_D4rC
-    alt: 'Bocaditos de embutido y piña servidos sobre una tabla de madera',
-    width: 640,
-    height: 639,
+    src: '/images/oficial/huambrilla-piqueo.jpg',
+    alt: 'Tabla de teca con agarradera cargada de embutidos, quesos y frutas sobre una mesa servida',
+    width: 533,
+    height: 800,
+  },
+  /** Foto del catálogo oficial (Canva, 1599×1070): el propósito de reforestar. */
+  purpose: {
+    src: '/images/oficial/mujer-en-el-bosque.jpg',
+    alt: 'Mujer con sombrero y atuendo tradicional junto a un árbol, en el bosque amazónico',
+    width: 1400,
+    height: 937,
   },
 }
 
@@ -106,7 +109,7 @@ export const homeContent = {
   hero: {
     eyebrow: 'Teca de nuestros bosques en San Martín', // posts Ddnb14mEWhZ y DeaEJDTvF85
     title: 'Sostenibilidad hecha lujo.',
-    body: 'Tablas de teca sembrada en nuestros propios bosques de reforestación y terminadas a mano. Para la parrilla, la cocina, la mesa y el regalo corporativo.',
+    body: 'Tablas de teca premium de nuestras propias plantaciones forestales en San Martín, con trazabilidad desde la semilla y terminadas a mano. Para la parrilla, la cocina, la mesa y el regalo corporativo.', // catálogo oficial
     primaryCta: { label: 'Ver los productos', chat: 'Ver los productos' },
     secondaryCta: { label: 'Pedido para mi empresa', chat: 'Quiero hacer un pedido para mi empresa' },
     badge: 'Piezas con origen peruano', // post DeaEJDTvF85: "WOODLAND PERÚ. Piezas con origen."
@@ -114,38 +117,15 @@ export const homeContent = {
   /** Atributos que la empresa publica sobre sus tablas. */
   highlights: [
     'Teca sembrada en San Martín', // Ddnb14mEWhZ
+    '15 años de reforestación', // catálogo oficial B2B
+    'Trazabilidad desde la semilla', // catálogo oficial
     'Terminadas a mano por maestros artesanos', // Ddnb14mEWhZ
     'Sin lacas químicas', // Ddnb14mEWhZ
-    'Garantía de por vida', // DdvHkr7ERVi
-    'Mantenimiento anual', // DdvHkr7ERVi
+    'Garantía de por vida', // catálogo oficial
+    'Mantenimiento gratuito al año', // catálogo oficial
+    'Resistentes a hongos, humedad y calor', // catálogo oficial
     'Empresa familiar peruana', // DdKwV9ixBFP
   ],
-  lines: {
-    eyebrow: 'Colecciones',
-    title: 'Una tabla para cada momento',
-    items: [
-      {
-        key: 'serving',
-        title: 'Presentación',
-        body: 'De la preparación a la mesa: piezas para servir piqueos, quesos y platos para compartir.',
-      },
-      {
-        key: 'grill',
-        title: 'Parrilla',
-        body: 'Tablas para cortar y servir carnes recién salidas del fuego, con superficie generosa para trabajar con libertad.',
-      },
-      {
-        key: 'kitchen',
-        title: 'Cocina',
-        body: 'Tablas compactas para preparaciones rápidas y sets con la medida adecuada a la mano.', // DdZe1_bESLB
-      },
-      {
-        key: 'custom',
-        title: 'Personalizadas',
-        body: 'Diseños y medidas a pedido para regalos y proyectos especiales.',
-      },
-    ],
-  },
   origin: {
     eyebrow: 'Nuestra historia',
     year: '2019', // el usuario (2026-10-18) pidió 2019; el Instagram de Woodland (publicación DLBRs2RP220) dice 2006: confirmar con la empresa
@@ -188,11 +168,11 @@ export const homeContent = {
       },
       {
         title: 'Restaurantes, hoteles y bares',
-        body: 'Kits de teca para el servicio diario y para convertir una bienvenida en una experiencia.', // Dd4_yUDRWae
+        body: 'Menaje personalizado en teca para el servicio diario y para convertir una bienvenida en una experiencia.', // Dd4_yUDRWae y catálogo oficial
       },
       {
         title: 'Empresas',
-        body: 'Regalos corporativos personalizados con cotización por volumen y atención directa.',
+        body: 'Regalos corporativos personalizados y proyectos a medida, desde 10 unidades, con atención directa.', // catálogo oficial
       },
     ],
   },
@@ -201,10 +181,23 @@ export const homeContent = {
     title: 'Una inversión que perdura.', // DdmvpUED7xP
     body: 'La calidad no termina con la venta. Cuando tu tabla necesite renovarse, la recibimos, la restauramos y te la devolvemos lista para muchos años más.', // DdmvpUED7xP
     points: [
-      { title: 'Garantía de por vida', body: 'Cada tabla se entrega con su certificado de garantía.' }, // DdvHkr7ERVi
-      { title: 'Mantenimiento anual', body: 'Una restauración al año para que tu tabla luzca como nueva.' }, // DdvHkr7ERVi
-      { title: 'Acabado natural', body: 'Sin lacas químicas: se siente la textura real de la madera.' }, // Ddnb14mEWhZ
+      { title: 'Garantía de por vida', body: 'Cada tabla se entrega con su certificado de garantía.' }, // catálogo oficial
+      { title: 'Mantenimiento gratuito al año', body: 'Una restauración gratuita cada año para que tu tabla luzca como nueva.' }, // catálogo oficial
+      { title: 'Resistente por naturaleza', body: 'La teca resiste hongos, humedad y calor, y repele el agua, las grasas y las manchas.' }, // catálogo oficial
     ],
+  },
+  /** Propósito de la marca (catálogo oficial B2B y Canva). */
+  purpose: {
+    eyebrow: 'Nuestro propósito',
+    title: 'Recuperemos nuestra selva amazónica.',
+    body: 'Con cada compra nos ayudas a seguir sembrando. Woodland gestiona su propia reforestadora en San Martín: conocemos cada tabla desde que es una semilla.',
+    facts: [
+      '15 años de reforestación en San Martín, Amazonía peruana.',
+      'Trazabilidad absoluta, desde la semilla hasta la pieza final en tu mesa.',
+      'Teca con aceites naturales que la protegen del calor, la humedad y los microorganismos.',
+      'Respaldo de certificaciones de SERFOR y procesos food-friendly de estándar internacional.',
+    ],
+    note: 'Los nombres de nuestras tablas vienen de palabras de San Martín, en honor al legado cultural del Oriente Peruano.',
   },
   closing: {
     title: '¿Necesitas varias piezas o un diseño especial?',
