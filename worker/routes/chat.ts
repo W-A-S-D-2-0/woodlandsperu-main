@@ -1,10 +1,11 @@
 import type { Context, MiddlewareHandler } from 'hono'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
-import { chatPollQuery, chatSendBody, type ChatResponse } from '../../shared/api/chat'
+import { chatPollQuery, chatSendBody, chatToken, type ChatResponse } from '../../shared/api/chat'
 import { ChatDataError, type ChatDataFactory } from '../data/chat-data'
 import type { PublicDataFactory } from '../data/public-data'
 import { handleCustomerMessage, type AssistantModelFactory } from '../services/chat'
+import { handlePaymentProof, PROOF_MAX_BYTES, sniffImage } from '../services/payment-proof'
 import type { AppBindings } from '../types'
 import { clientKey } from './client-key'
 import { fail, parseBody, validate } from './http'
@@ -53,6 +54,32 @@ export function chatRoutes(chatData: ChatDataFactory, publicData: PublicDataFact
           if (err instanceof ChatDataError) {
             return err.code === 'rate_limited' ? fail(c, 429, 'rate_limited', err.message) : fail(c, 422, 'invalid_request', err.message)
           }
+          throw err
+        }
+      },
+    )
+
+    // Captura del pago por Yape: deja el pedido pagado y en producción. Sin sesión; el token del navegador identifica la conversación.
+    .post(
+      '/chat/payment-proof',
+      rateLimit,
+      bodyLimit({ maxSize: PROOF_MAX_BYTES + 64 * 1024, onError: (c) => fail(c as Context<AppBindings>, 413, 'payload_too_large', 'La imagen es muy pesada (máximo 5 MB).') }),
+      async (c) => {
+        const chat = chatData(c.env)
+        if (!chat) return unavailable(c)
+        const form = await c.req.formData().catch(() => null)
+        const token = chatToken.safeParse(form?.get('token'))
+        const file = form?.get('file')
+        if (!token.success || !(file instanceof File)) return fail(c, 400, 'invalid_request', 'Adjunta la imagen de tu pago.')
+        if (file.size > PROOF_MAX_BYTES) return fail(c, 413, 'payload_too_large', 'La imagen es muy pesada (máximo 5 MB).')
+        const bytes = new Uint8Array(await file.arrayBuffer())
+        const kind = sniffImage(bytes)
+        if (!kind) return fail(c, 400, 'invalid_request', 'Sube la captura como imagen (JPG, PNG o WebP).')
+        try {
+          const done = await handlePaymentProof({ chat }, { channel: 'web_chat', ref: await hashToken(token.data), image: { bytes, ...kind } })
+          return c.json<ChatResponse>(done)
+        } catch (err) {
+          if (err instanceof ChatDataError) return fail(c, err.code === 'rate_limited' ? 429 : 422, err.code, err.message)
           throw err
         }
       },

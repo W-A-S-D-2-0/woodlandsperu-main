@@ -224,3 +224,21 @@ sándwich, tablas con aguacate, papas); confirmar con Woodland si son reales ant
 > de la sección 2: no pegues claves en el chat, no apliques migraciones a Supabase ni hagas commits sin mi
 > OK, y no inventes datos de Woodland. Empieza por el punto 1 de la sección 5 (ver y pulir el panel en
 > pantalla) y trabaja por etapas verificables.
+
+## 8. Pago por Yape desde el chat (2026-10-22)
+
+Decisión del usuario: Teca pide primero los datos del cliente (nombre, correo, celular y dirección), y al crear el
+pedido pide el pago inmediato al Yape de Alex (`src/content/payment.ts`). El cliente sube la captura con el clip del
+chat; al recibirla, el pedido queda **pagado, confirmado y en producción** y Teca le responde «recibimos tu pago».
+
+- Flujo guiado (`worker/services/guided-flow.ts`): nombre → correo → celular → dirección → persona/empresa → tablas → confirmar.
+  Ya no hay pasos «contacto» ni «indicaciones»; la dirección va a `orders.shipping_address`.
+- Captura: `POST /api/chat/payment-proof` (multipart: `token` + `file`; JPG/PNG/WebP ≤ 5 MB, se revisan los bytes).
+  Servicio: `worker/services/payment-proof.ts`. Se guarda en el bucket privado `payment-proofs`.
+- Base: migración `20261022100000_pago_yape_chat.sql` (tabla `order_payments`, bucket, función
+  `record_chat_payment`, política de lectura para el panel). **Pendiente de aplicar a la nube** (hace falta el OK del
+  usuario). Sin ella, subir la captura responde el aviso de error y deja el caso anotado para el equipo.
+- Panel: el detalle del pedido muestra el pago y un enlace «Ver captura» (URL firmada de 1 hora).
+- Riesgo conocido: el pago se da por recibido con cualquier imagen válida; no se compara con la app de Yape. El pedido
+  lleva una nota interna «verificar en la app de Yape». Mejora posible: revisar la captura (monto, fecha, código) o
+  dejar el pago en «pendiente» hasta que el equipo lo valide.

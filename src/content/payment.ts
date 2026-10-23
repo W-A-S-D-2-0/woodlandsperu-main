@@ -43,3 +43,16 @@ export function paymentChatText(code?: string, amount?: number): string | null {
   const lines = paymentLines(code, amount)
   return lines ? `Para pagar: ${lines.join(' ')}` : null
 }
+
+/** Nombre del botón del chat para adjuntar la captura del pago. El widget lo reconoce en la respuesta de Teca. */
+export const PROOF_BUTTON_LABEL = 'Subir captura de pago'
+
+/**
+ * Pago inmediato de un pedido del chat (precio ya conocido): monto completo por Yape y subida de la captura.
+ * Null si no hay número cargado.
+ */
+export function paymentRequestText(code: string, amount: number): string | null {
+  if (!paymentConfigured()) return null
+  const holder = yapePlin.holder ? ` (a nombre de ${yapePlin.holder.trim()})` : ''
+  return `Para empezar a producir tu pedido, paga ahora S/ ${amount.toFixed(2)} por Yape al ${yapePlin.number!.trim()}${holder} y escribe tu código ${code} en el mensaje del pago.\n\nCuando pagues, toca «${PROOF_BUTTON_LABEL}» (el clip junto al mensaje) y sube la captura: te confirmo al instante.`
+}

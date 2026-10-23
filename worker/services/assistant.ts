@@ -3,7 +3,7 @@ import { quoteRequestSchema, WEB_ORDER_MAX_UNITS, type QuoteRequestInput } from 
 import { assistantKnowledge, knowledgeForPrompt } from '../../src/content/assistant-knowledge'
 import { alliancesContent } from '../../src/content/alliances'
 import { deliveryBands, deliveryNote, deliveryUnknown } from '../../src/content/delivery'
-import { paymentChatText, paymentConfigured, paymentLines } from '../../src/content/payment'
+import { paymentChatText, paymentConfigured, paymentLines, paymentRequestText } from '../../src/content/payment'
 import { guidedFlowReply } from './guided-flow'
 
 /**
@@ -241,6 +241,7 @@ export function parseQuoteCall(args: Record<string, unknown>, catalog: CatalogRe
       phone: str(args.phone),
     },
     message: str(args.message),
+    shippingAddress: str(args.shippingAddress),
     items: rawItems.map((item: Record<string, unknown>) => ({
       variantId: str(item?.variantId),
       quantity: Number(item?.quantity),
@@ -270,8 +271,8 @@ export function parseOrderCall(args: Record<string, unknown>, catalog: CatalogRe
 }
 
 function orderReply(order: OrderSubmittedResponse): string {
-  const pay = paymentChatText(order.code, order.total)
-  return `Listo, tu pedido ${order.code} quedó registrado por ${money(order.total)}. ${deliveryNote}${pay ? `\n\n${pay}` : ''}\n\nPuedes seguirlo en la web, en "Consulta tu pedido", con ese código y tu correo o teléfono.`
+  const pay = paymentRequestText(order.code, order.total) ?? paymentChatText(order.code, order.total)
+  return `Listo, tu pedido ${order.code} quedó registrado por ${money(order.total)}.${pay ? `\n\n${pay}` : ''}\n\n${deliveryNote} Puedes seguirlo en la web, en "Consulta tu pedido", con ese código y tu correo o teléfono.`
 }
 
 function quoteReply(quote: QuoteSubmittedResponse): string {
@@ -310,7 +311,6 @@ export async function runAssistant(ctx: AssistantContext): Promise<AssistantTurn
         return {
           reply: orderReply(created),
           order: created,
-          handoffReason: `Pedido ${created.code} hecho por el chat (${created.confirmed ? 'confirmado' : 'pendiente de confirmación'}): verificar el pago por Yape/Plin.`,
         }
       } catch {
         // Sin precio publicado, sin stock reservable o error de la base: se registra como cotización (abajo).

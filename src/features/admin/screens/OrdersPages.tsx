@@ -245,6 +245,19 @@ export function OrderDetailPage() {
                   </p>
                   {order.cancelReason && <p className="mt-2 text-xs text-carbon-600">Motivo de cancelación: {order.cancelReason}</p>}
                   {order.deliveryEstimateNote && <p className="mt-2 text-xs text-carbon-600">Plazo estimado: {order.deliveryEstimateNote}</p>}
+                  {order.payments.map((p) => (
+                    <p key={p.id} className="mt-3 rounded-lg border border-selva/30 bg-selva/10 px-3 py-2 text-xs text-carbon">
+                      Pago por Yape de {formatMoney(p.amount)} · {formatDateTime(p.createdAt)}
+                      {p.proofUrl && (
+                        <>
+                          {' · '}
+                          <a href={p.proofUrl} target="_blank" rel="noreferrer" className="font-medium text-madera-700 hover:underline">
+                            Ver captura
+                          </a>
+                        </>
+                      )}
+                    </p>
+                  ))}
                   {order.quoteId && staff.role === 'admin' && (
                     <Link to={`/cotizaciones/${order.quoteId}`} className="mt-3 inline-block text-sm font-medium text-madera-700 hover:underline">
                       Ver cotización →

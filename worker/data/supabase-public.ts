@@ -147,6 +147,7 @@ export function toOrderRpcPayload(request: QuoteRequestInput, channel: 'web_chat
       custom_dimensions: item.customDimensions ?? null,
       customization: item.customization ?? null,
     })),
+    shipping_address: request.shippingAddress ?? null,
     internal_notes: request.message ? `${CHAT_ORDER_NOTE} Cliente: ${request.message}` : CHAT_ORDER_NOTE,
     customer_confirmed: true,
     confirm,

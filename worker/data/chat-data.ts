@@ -40,6 +40,30 @@ export interface ConversationInfo {
   contactPhone: string | null
 }
 
+/** Pedido de la conversación que espera (o ya tiene) su pago. */
+export interface PaymentTarget {
+  conversationId: string
+  orderId: string
+  code: string
+  total: number
+  status: string
+  paymentStatus: string
+}
+
+/** Captura de pago ya validada (tipo y tamaño). */
+export interface ProofImage {
+  bytes: Uint8Array
+  contentType: string
+  ext: string
+}
+
+export interface PaymentResult {
+  code: string
+  status: string
+  paymentStatus: string
+  alreadyPaid: boolean
+}
+
 /** Persistencia de las conversaciones. Se inyecta para probar sin red; la real usa la clave de servicio. */
 export interface ChatData {
   record(input: RecordInput): Promise<RecordedMessage>
@@ -48,6 +72,10 @@ export interface ChatData {
   info(conversationId: string): Promise<ConversationInfo | null>
   handoff(conversationId: string, reason: string): Promise<void>
   linkQuote(conversationId: string, quoteId: string): Promise<void>
+  /** El último pedido que Teca registró en esta conversación, o null si no hay. */
+  findPaymentTarget(channel: ChatChannel, ref: string): Promise<PaymentTarget | null>
+  /** Guarda la captura y registra el pago: el pedido queda pagado, confirmado y en producción. */
+  recordPayment(input: { orderId: string; conversationId: string; image: ProofImage }): Promise<PaymentResult>
   /** Mensajes visibles para el cliente posteriores a `afterId`. Null si la conversación no existe. */
   messagesAfter(channel: ChatChannel, ref: string, afterId: number): Promise<{ status: ChatStatus; messages: ChatMessage[] } | null>
 }

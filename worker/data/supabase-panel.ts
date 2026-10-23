@@ -401,7 +401,16 @@ export const createSupabasePanelData: PanelDataFactory = (env, accessToken) => {
       const row = check(await db.from('orders').select(ORDER_DETAIL_SELECT).eq('id', id).maybeSingle()) as Row | null
       if (!row) return null
       const items = [...(row.items as Row[])].sort(bySortOrder).map(({ sort_order: _s, ...item }) => item)
-      return camelize<OrderDetail>({ ...row, items })
+      const paymentRows = check(
+        await db.from('order_payments').select('id, method, amount, proof_path, created_at').eq('order_id', id).order('created_at', { ascending: false }),
+      ) as Row[]
+      const payments = await Promise.all(
+        paymentRows.map(async ({ proof_path, ...payment }) => {
+          const signed = proof_path ? await db.storage.from('payment-proofs').createSignedUrl(proof_path as string, 3600) : null
+          return { ...payment, amount: Number(payment.amount), proof_url: signed?.data?.signedUrl ?? null }
+        }),
+      )
+      return camelize<OrderDetail>({ ...row, items, payments })
     },
     async createDirectOrder(input) {
       return (await rpc('create_direct_order', { p_request: toDirectOrderPayload(input) })) as string

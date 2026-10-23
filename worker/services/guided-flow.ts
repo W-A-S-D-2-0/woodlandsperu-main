@@ -13,20 +13,24 @@ import type { HistoryMessage, ModelOutput } from './assistant'
 /** Cierra cada pregunta del flujo: así se reconoce, en el historial, que el flujo sigue en marcha. */
 const FOOTER = '(Pedido paso a paso · escribe «cancelar» para salir)'
 
-type Step = 'done' | 'product' | 'qty' | 'engrave' | 'more' | 'type' | 'company' | 'name' | 'contact' | 'note' | 'confirm' | 'big'
+type Step = 'done' | 'name' | 'email' | 'phone' | 'address' | 'type' | 'company' | 'product' | 'qty' | 'engrave' | 'more' | 'confirm' | 'big'
 
 const TAGS: Record<Exclude<Step, 'big' | 'done'>, string> = {
+  name: '¿A nombre de quién',
+  email: 'tu correo',
+  phone: 'tu celular',
+  address: 'tu dirección',
+  type: '¿Es para ti o para una empresa',
+  company: '¿Cómo se llama tu empresa',
   product: 'Responde con el número o el nombre',
   qty: '¿Cuántas unidades',
   engrave: '¿Quieres grabado',
   more: '¿Agregas otro producto',
-  type: '¿Es para ti o para una empresa',
-  company: '¿Cómo se llama tu empresa',
-  name: '¿A nombre de quién',
-  contact: 'tu correo o tu teléfono',
-  note: '¿Alguna indicación',
   confirm: '¿Confirmas',
 }
+
+/** Lo primero que el flujo pide: los datos de quien compra. */
+const INTRO = 'Para dejar tu pedido listo necesito primero unos datos tuyos (nombre, correo, celular y dirección) y luego eliges tus tablas.'
 
 const CUSTOM = /a medida|medida propia|otra medida|diseno propio|diseno especial|personalizad[ao] aparte|no esta en|ninguno de/
 const CUSTOM_LABEL = 'Pieza a medida o diseño propio'
@@ -51,7 +55,7 @@ interface Flow {
   name?: string
   email?: string
   phone?: string
-  note?: string | null
+  address?: string
   confirmed?: boolean
   /** Pedido corporativo con logo: el archivo lo coordina el equipo, así que siempre queda como cotización. */
   logo?: string
@@ -81,6 +85,13 @@ function parseQty(text: string): number | null {
 // --- Qué pregunta toca ---------------------------------------------------------
 
 function nextStep(f: Flow): Step {
+  // Primero los datos de quien compra; después, las tablas.
+  if (!f.name) return 'name'
+  if (!f.email) return 'email'
+  if (!f.phone) return 'phone'
+  if (!f.address) return 'address'
+  if (!f.type) return 'type'
+  if (f.type === 'business' && !f.company) return 'company'
   if (!f.moreDone) {
     const c = f.cur
     if (!c?.variant) return 'product'
@@ -88,12 +99,7 @@ function nextStep(f: Flow): Step {
     if (c.engraving === undefined) return 'engrave'
     return 'more'
   }
-  if (!f.type) return 'type'
-  if (f.type === 'business' && !f.company) return 'company'
-  if (!f.name) return 'name'
-  if (!f.email && !f.phone) return 'contact'
   if (f.big) return 'big'
-  if (f.note === undefined) return 'note'
   return f.confirmed ? 'done' : 'confirm'
 }
 
@@ -120,13 +126,13 @@ function summary(f: Flow): { text: string; allPriced: boolean; units: number } {
     const price = sum === null ? 'precio por confirmar' : money(sum)
     return `• ${l.qty} × ${entryLabel(l)} — ${price}${l.engraving ? ` (grabado: «${l.engraving}»)` : ''}`
   })
-  const who = [f.name, f.company ? `(${f.company})` : null, f.email ?? f.phone].filter(Boolean).join(' · ')
+  const who = [f.name, f.company ? `(${f.company})` : null, f.email, f.phone].filter(Boolean).join(' · ')
   const tail = f.logo
     ? 'Como lleva el logo de tu empresa, lo registro y el equipo coordina el logo contigo y confirma el precio final.'
     : allPriced
-    ? `Total estimado: ${money(total)}\nSe registra como pedido y se reserva lo necesario.`
+    ? `Total a pagar: ${money(total)}\nLo registro como pedido y te paso los datos para pagar por Yape ahora mismo.`
     : 'Hay productos sin precio publicado: lo registro y el equipo confirma el precio final.'
-  return { text: `Este es tu pedido:\n${lines.join('\n')}\n${tail}\nA nombre de: ${who}${f.note ? `\nIndicaciones: ${f.note}` : ''}`, allPriced, units }
+  return { text: `Este es tu pedido:\n${lines.join('\n')}\n${tail}\nA nombre de: ${who}\nEntrega en: ${f.address}`, allPriced, units }
 }
 
 function question(step: Step, f: Flow, catalog: CatalogResponse): string {
@@ -148,11 +154,13 @@ function question(step: Step, f: Flow, catalog: CatalogResponse): string {
     case 'company':
       return `${TAGS.company}?`
     case 'name':
-      return `${TAGS.name} registro el pedido? Escribe tu nombre.`
-    case 'contact':
-      return `¿A qué contacto te confirmamos? Escribe ${TAGS.contact}.`
-    case 'note':
-      return `${TAGS.note} o dirección de entrega? Escríbela o responde «no».`
+      return `${TAGS.name} registro el pedido? Escribe tu nombre completo.`
+    case 'email':
+      return `Escribe ${TAGS.email}, para enviarte la confirmación.`
+    case 'phone':
+      return `Escribe ${TAGS.phone} (con el que te contactamos para la entrega).`
+    case 'address':
+      return `Escribe ${TAGS.address} de entrega (calle, número, distrito y ciudad).`
     case 'confirm':
       return `${summary(f).text}\n\n${TAGS.confirm} el pedido? (sí/no)`
     case 'big':
@@ -221,16 +229,24 @@ function apply(step: Step, raw: string, f: Flow, catalog: CatalogResponse): stri
       f.name = name.slice(0, 160)
       return null
     }
-    case 'contact': {
-      const email = text.match(/[^@\s]+@[^@\s]+\.[^@\s]+/)?.[0]
-      const phone = text.match(/\+?\d[\d\s()-]{5,}\d/)?.[0].replace(/[\s()-]/g, '')
-      if (email) f.email = email
-      if (phone && /^\+?[0-9]{7,15}$/.test(phone)) f.phone = phone
-      return f.email || f.phone ? null : 'No vi un correo ni un teléfono válido.'
-    }
-    case 'note':
-      f.note = no(text) ? null : text.slice(0, 500)
+    case 'email': {
+      const email = text.match(/[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+/)?.[0]
+      if (!email) return 'No vi un correo válido (por ejemplo, nombre@correo.com).'
+      f.email = email.slice(0, 254)
       return null
+    }
+    case 'phone': {
+      const phone = text.match(/\+?\d[\d\s()-]{5,}\d/)?.[0].replace(/[\s()-]/g, '')
+      if (!phone || !/^\+?[0-9]{7,15}$/.test(phone)) return 'No vi un celular válido (por ejemplo, 987654321).'
+      f.phone = phone
+      return null
+    }
+    case 'address': {
+      const address = text.replace(/^(mi direcci[oó]n es|direcci[oó]n:?|vivo en)\s+/i, '').trim()
+      if (address.length < 6 || !/\p{L}/u.test(address)) return 'Escribe tu dirección de entrega completa (calle, número, distrito y ciudad).'
+      f.address = address.slice(0, 300)
+      return null
+    }
     case 'confirm':
       if (!yes(text)) return no(text) ? 'cancel' : 'Responde «sí» para confirmar o «no» para cancelar.'
       f.confirmed = true
@@ -340,16 +356,18 @@ export function guidedFlowReply(history: readonly HistoryMessage[], catalog: Cat
   const lastMessage = history[last]
   if (lastMessage?.role !== 'customer') return null
   // El flujo arranca solo si se permite; si ya estaba en marcha, continúa siempre.
+  let fresh = false
   if (!flow) {
     if (!options.allowStart || !candidate) return null
     flow = candidate
+    fresh = true
   }
 
   const step = nextStep(flow)
   if (step === 'big') {
     const big = flow.big!
     const lines = [...flow.lines.map((l) => `${l.qty} × ${entryLabel(l)}`), big.qty > 0 ? `${big.qty} × ${big.label}` : big.label].join('; ')
-    const who = [flow.name, flow.company, flow.email ?? flow.phone].filter(Boolean).join(' · ')
+    const who = [flow.name, flow.company, flow.email, flow.phone, flow.address].filter(Boolean).join(' · ')
     return {
       text: big.qty > 0 ? `Los pedidos de más de ${WEB_ORDER_MAX_UNITS} unidades los cotiza directamente el equipo. Ya tengo tu nombre y contacto.` : 'Las piezas a medida las prepara directamente el equipo. Ya tengo tu nombre y contacto.',
       call: { name: 'flag_for_team', args: { reason: `${big.qty > 0 ? 'Pedido grande' : 'Pieza a medida'} por chat: ${lines}. Contacto: ${who}.` } },
@@ -363,12 +381,14 @@ export function guidedFlowReply(history: readonly HistoryMessage[], catalog: Cat
       companyName: flow.company,
       email: flow.email,
       phone: flow.phone,
-      message: [flow.note, flow.logo ? `Pedido con logo: ${flow.logo}` : null].filter(Boolean).join(' · ') || undefined,
+      shippingAddress: flow.address,
+      message: [`Dirección de entrega: ${flow.address}`, flow.logo ? `Pedido con logo: ${flow.logo}` : null].filter(Boolean).join(' · '),
       items: flow.lines.map((l) => ({ variantId: l.variant.id, quantity: l.qty, customization: l.engraving ?? undefined })),
     }
     return { text: '', call: { name: s.allPriced && !flow.logo && s.units <= WEB_ORDER_MAX_UNITS ? 'create_order' : 'create_quote_request', args } }
   }
-  const prompt = `${question(step, flow, catalog)}
+  const intro = fresh && step === 'name' ? `${INTRO}\n\n` : ''
+  const prompt = `${intro}${question(step, flow, catalog)}
 ${FOOTER}`
   if (lastError) {
     const info = options.info(history[last]!.body)

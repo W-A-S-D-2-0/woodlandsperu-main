@@ -156,6 +156,16 @@ export interface OrderListItem {
   customer: Pick<CustomerRef, 'fullName' | 'companyName'> | null
 }
 
+/** Pago registrado de un pedido (hoy, Yape con captura desde el chat). */
+export interface OrderPayment {
+  id: string
+  method: 'yape'
+  amount: number
+  createdAt: string
+  /** URL firmada (temporal) de la captura; null si no hay captura o no se pudo firmar. */
+  proofUrl: string | null
+}
+
 export interface OrderDetail extends OrderListItem {
   channel: string
   quoteId: string | null
@@ -168,6 +178,7 @@ export interface OrderDetail extends OrderListItem {
   shippingAddress: string | null
   internalNotes: string | null
   cancelReason: string | null
+  payments: OrderPayment[]
   customer: CustomerRef | null
   items: {
     id: string

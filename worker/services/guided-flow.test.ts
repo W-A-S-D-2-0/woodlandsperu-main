@@ -36,9 +36,35 @@ async function chat(...messages: string[]) {
   return { out, history }
 }
 
+/** Los datos de quien compra se piden primero: nombre, correo, celular, dirección y si es persona o empresa. */
+const DATA = ['Ana Pérez', 'ana@example.com', '987 654 321', 'Jr. Lima 123, Tarapoto', 'persona']
+
 describe('pedido paso a paso sin IA', () => {
+  it('pide primero nombre, correo, celular y dirección, y recién después las tablas', async () => {
+    const first = await chat('quiero hacer un pedido')
+    expect(first.out.text).toMatch(/nombre, correo, celular y dirección/)
+    expect(first.out.text).toMatch(/A nombre de quién/)
+    const steps = [
+      ['Ana Pérez', /Escribe tu correo/],
+      ['ana@example.com', /Escribe tu celular/],
+      ['987654321', /Escribe tu dirección/],
+      ['Jr. Lima 123, Tarapoto', /persona.*empresa/],
+      ['persona', /Responde con el número/],
+    ] as const
+    for (let i = 0; i < steps.length; i++) {
+      const { out } = await chat('quiero hacer un pedido', ...steps.slice(0, i + 1).map(([answer]) => answer))
+      expect(out.text).toMatch(steps[i]![1])
+    }
+  })
+
+  it('no avanza con un correo, un celular o una dirección que no sirven', async () => {
+    expect((await chat('quiero hacer un pedido', 'Ana Pérez', 'ana arroba correo')).out.text).toMatch(/No vi un correo válido/)
+    expect((await chat('quiero hacer un pedido', 'Ana Pérez', 'ana@example.com', '123')).out.text).toMatch(/No vi un celular válido/)
+    expect((await chat('quiero hacer un pedido', 'Ana Pérez', 'ana@example.com', '987654321', 'Lima')).out.text).toMatch(/dirección de entrega completa/)
+  })
+
   it('lleva un pedido completo hasta crear la orden', async () => {
-    const { out } = await chat('quiero cotizar', '1', '1', 'Ana', 'no', 'persona', 'Ana Pérez', 'ana@example.com', 'no', 'sí')
+    const { out } = await chat('quiero cotizar', ...DATA, '1', '1', 'Ana', 'no', 'sí')
     expect(out.call?.name).toBe('create_order')
     const created: unknown[] = []
     const turn = await runAssistant({
@@ -55,44 +81,46 @@ describe('pedido paso a paso sin IA', () => {
       },
     })
     expect(turn.order?.code).toBe('PED-000001')
+    expect(out.call?.args).toMatchObject({ shippingAddress: 'Jr. Lima 123, Tarapoto', phone: '987654321' })
     expect(created[0]).toMatchObject({ customer: { fullName: 'Ana Pérez', email: 'ana@example.com' }, items: [{ variantId: V1, quantity: 1, customization: 'Ana' }] })
   })
 
   it('un producto sin precio termina como cotización, y el modelo se reconoce por nombre', async () => {
-    const { out } = await chat('quiero pedir Serving Board Grande', '5', 'no', 'no', 'persona', 'Luis', '999 888 777', 'no', 'si')
+    const { out } = await chat('quiero pedir Serving Board Grande', 'Luis', 'luis@example.com', '999 888 777', 'Av. Perú 456, Lima', 'persona', '5', 'no', 'no', 'si')
     expect(out.call?.name).toBe('create_quote_request')
     expect(out.call?.args).toMatchObject({ phone: '999888777', items: [{ variantId: V3, quantity: 5 }] })
   })
 
   it('pregunta cada dato que falta y no se pierde con respuestas inválidas', async () => {
-    const { out, history } = await chat('quiero cotizar', '1', 'muchas')
+    const { out, history } = await chat('quiero cotizar', ...DATA, '1', 'muchas')
     expect(out.text).toMatch(/Escribe cuántas unidades/)
     expect(out.text).toMatch(/¿Cuántas unidades/)
     expect(history.at(-1)!.body).toContain('Pedido paso a paso')
-    const { out: price } = await chat('quiero cotizar', '1', '¿cuánto cuesta?')
+    const { out: price } = await chat('quiero cotizar', ...DATA, '1', '¿cuánto cuesta?')
     expect(price.text).toContain('S/ 100.00')
     expect(price.text).toMatch(/¿Cuántas unidades/)
   })
 
   it('más de 100 unidades lo anota para el equipo', async () => {
-    const { out } = await chat('quiero cotizar', '1', '500', 'persona', 'Ana', 'ana@example.com')
+    const { out } = await chat('quiero cotizar', ...DATA, '1', '500')
     expect(out.call?.name).toBe('flag_for_team')
     expect(String(out.call?.args.reason)).toContain('500')
+    expect(String(out.call?.args.reason)).toContain('Jr. Lima 123')
   })
 
   it('se puede cancelar y empezar de nuevo', async () => {
-    const { out } = await chat('quiero cotizar', '1', 'cancelar')
+    const { out } = await chat('quiero cotizar', 'Ana Pérez', 'cancelar')
     expect(out.text).toMatch(/cancelé/)
-    const again = await chat('quiero cotizar', '1', 'cancelar', 'quiero cotizar')
-    expect(again.out.text).toMatch(/Responde con el número/)
+    const again = await chat('quiero cotizar', 'Ana Pérez', 'cancelar', 'quiero cotizar')
+    expect(again.out.text).toMatch(/A nombre de quién/)
   })
 
   it('guidedFlowFirst inicia el pedido al pedir cotizar y no interviene en otras consultas', async () => {
-    expect(guidedFlowFirst([{ role: 'customer', body: 'quiero cotizar' }], catalog)?.text).toMatch(/Responde con el número/)
+    expect(guidedFlowFirst([{ role: 'customer', body: 'quiero cotizar' }], catalog)?.text).toMatch(/A nombre de quién/)
     expect(guidedFlowFirst([{ role: 'customer', body: 'cuéntame sobre la teca' }], catalog)).toBeNull()
     const { history } = await chat('quiero cotizar')
-    const next = guidedFlowFirst([...history, { role: 'customer', body: '1' }], catalog)
-    expect(next?.text).toMatch(/¿Cuántas unidades/)
+    const next = guidedFlowFirst([...history, { role: 'customer', body: 'Ana Pérez' }], catalog)
+    expect(next?.text).toMatch(/Escribe tu correo/)
   })
 
   it('una consulta de precios no inicia el pedido', async () => {
@@ -101,26 +129,26 @@ describe('pedido paso a paso sin IA', () => {
     expect(out.text).not.toContain('Pedido paso a paso')
   })
   it('un pedido que llega de la web con el modelo y el grabado ya escritos no los vuelve a preguntar', async () => {
-    const { out } = await chat('Quiero pedir Super Grill · XL. Grabado: "Ana" / "Luis" · Posición: Esquina · Letra: Clásica')
+    const { out } = await chat('Quiero pedir Super Grill · XL. Grabado: "Ana" / "Luis" · Posición: Esquina · Letra: Clásica', ...DATA)
     expect(out.text).toMatch(/¿Cuántas unidades quieres de Super Grill · XL/)
-    const done = await chat('Quiero pedir Super Grill · XL. Grabado: "Ana" · Posición: Esquina', '2', 'no', 'persona', 'Ana', 'ana@example.com', 'no', 'sí')
+    const done = await chat('Quiero pedir Super Grill · XL. Grabado: "Ana" · Posición: Esquina', ...DATA, '2', 'no', 'sí')
     expect(done.out.call?.args).toMatchObject({ items: [{ variantId: V1, quantity: 2, customization: 'Ana' }] })
   })
 
   it('un pedido con logo siempre queda como cotización para que el equipo coordine el archivo', async () => {
-    const { out } = await chat('Quiero cotizar 20 tablas con el logo de mi empresa (archivo logo.png)', '1', 'no', 'no', 'empresa', 'Acme SAC', 'Luis', 'luis@acme.pe', 'no', 'sí')
+    const { out } = await chat('Quiero cotizar 20 tablas con el logo de mi empresa (archivo logo.png)', 'Luis', 'luis@acme.pe', '987654321', 'Av. Industrial 99, Lima', 'empresa', 'Acme SAC', '1', 'no', 'no', 'sí')
     expect(out.call?.name).toBe('create_quote_request')
     expect(JSON.stringify(out.call?.args)).toContain('logo.png')
     expect(out.call?.args).toMatchObject({ customerType: 'business', companyName: 'Acme SAC', items: [{ quantity: 20 }] })
   })
 
   it('el nombre de una medida corta («L») no se confunde con letras de otras palabras', async () => {
-    const { out } = await chat('Quiero cotizar 20 tablas con el logo de mi empresa')
+    const { out } = await chat('Quiero cotizar 20 tablas con el logo de mi empresa', ...DATA)
     expect(out.text).toMatch(/Responde con el número/)
   })
 
   it('si la pieza no está en el catálogo, la anota para el equipo', async () => {
-    const { out } = await chat('Quiero cotizar una tabla a medida', 'es un diseño propio', 'persona', 'Ana', 'ana@example.com')
+    const { out } = await chat('Quiero cotizar una tabla a medida', ...DATA)
     expect(out.call?.name).toBe('flag_for_team')
   })
 })

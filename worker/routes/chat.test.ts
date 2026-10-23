@@ -46,6 +46,7 @@ function fakeChat() {
   const messages: (ChatMessage & { conversationId: string; externalId?: string })[] = []
   const conversations = new Map<string, ConversationInfo & { ref: string; handoffReason?: string }>()
   const byRef = new Map<string, string>()
+  const orderState = { status: 'confirmed', paymentStatus: 'unpaid', stock: true }
   const chat: ChatData = {
     record: vi.fn(async (input: RecordInput) => {
       const key = `${input.channel}:${input.ref}`
@@ -76,13 +77,23 @@ function fakeChat() {
     linkQuote: vi.fn(async (id: string, quoteId: string) => {
       conversations.get(id)!.quoteId = quoteId
     }),
+    findPaymentTarget: vi.fn(async (channel, ref) => {
+      const id = byRef.get(`${channel}:${ref}`)
+      const code = messages.findLast((m) => m.conversationId === id && m.role === 'assistant' && m.body.includes('Subir captura de pago'))?.body.match(/PED-\d{6,}/)?.[0]
+      return id && code ? { conversationId: id, orderId: 'o-1', code, total: 200, status: orderState.status, paymentStatus: orderState.paymentStatus } : null
+    }),
+    recordPayment: vi.fn(async () => {
+      orderState.paymentStatus = 'paid'
+      orderState.status = orderState.stock ? 'in_production' : 'pending_confirmation'
+      return { code: 'PED-000012', status: orderState.status, paymentStatus: 'paid', alreadyPaid: false }
+    }),
     messagesAfter: vi.fn(async (channel, ref, after) => {
       const id = byRef.get(`${channel}:${ref}`)
       if (!id) return null
       return { status: conversations.get(id)!.status as ChatStatus, messages: messages.filter((m) => m.conversationId === id && m.id > after) }
     }),
   }
-  return { chat, messages, conversations }
+  return { chat, messages, conversations, orderState }
 }
 
 const order = { orderId: 'o-1', code: 'PED-000012', status: 'confirmed', confirmed: true, total: 200, currency: 'PEN' as const }
@@ -312,12 +323,13 @@ describe('POST /api/chat/messages', () => {
     const reply = body.messages.at(-1)?.body ?? ''
     expect(reply).toContain('PED-000012')
     expect(reply).toContain('S/ 200.00')
-    expect(reply).toContain('Para pagar: Yape o Plin al número 965 402 725')
+    expect(reply).toContain('paga ahora S/ 200.00 por Yape al 965 402 725')
+    expect(reply).toContain('Subir captura de pago')
     // Nunca se habla de stock.
     expect(reply).not.toMatch(/stock|agotad|disponib|reserv/i)
-    // El equipo lo ve como "Por revisar" para verificar el pago.
-    expect(body.status).toBe('needs_human')
-    expect([...conversations.values()][0]?.handoffReason).toMatch(/PED-000012.*verificar el pago/)
+    // El pago es automático: el pedido no deja la conversación esperando a una persona.
+    expect(body.status).toBe('open')
+    expect([...conversations.values()][0]?.handoffReason).toBeUndefined()
   })
 
   it('no se crea un segundo pedido en la misma conversación', async () => {
@@ -594,5 +606,77 @@ describe('panel · conversaciones (solo supervisión)', () => {
       const res = await admin('POST', `/conversations/${CONV_ID}/${path}`, data, { body: { body: 'Hola, soy Brigitte' } })
       expect(res.status).toBe(404)
     }
+  })
+})
+
+describe('POST /api/chat/payment-proof', () => {
+  const png = () => new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0, 1, 2, 3])], 'yape.png', { type: 'image/png' })
+  const upload = (app: ReturnType<typeof createApp>, file: File | string, token = TOKEN) => {
+    const form = new FormData()
+    form.set('token', token)
+    form.set('file', file)
+    return app.request('/api/chat/payment-proof', { method: 'POST', body: form }, { APP_ENV: 'development' } as Env)
+  }
+  const orderCall = { name: 'create_order' as const, args: { fullName: 'Ana', email: 'ana@example.com', items: [{ variantId: VARIANT, quantity: 2 }] } }
+  const withOrder = async () => {
+    const fake = fakeChat()
+    const app = createApp({ chatData: () => fake.chat, publicData: () => publicData(), assistantModel: scripted({ text: '', call: orderCall }) })
+    await send(app, 'Sí, confirmo el pedido')
+    return { ...fake, app }
+  }
+
+  it('sin un pedido esperando pago lo dice y no registra nada', async () => {
+    const fake = fakeChat()
+    const app = createApp({ chatData: () => fake.chat, publicData: () => publicData(), assistantModel: scripted() })
+    const res = await upload(app, png())
+    const body = (await res.json()) as ChatResponse
+    expect(res.status).toBe(200)
+    expect(body.messages.at(-1)?.body).toMatch(/Todavía no tengo un pedido/)
+    expect(fake.chat.recordPayment).not.toHaveBeenCalled()
+  })
+
+  it('con el pedido creado, la captura lo deja pagado y en producción y se lo confirma al cliente', async () => {
+    const { app, chat } = await withOrder()
+    const res = await upload(app, png())
+    const body = (await res.json()) as ChatResponse
+    expect(res.status).toBe(200)
+    expect(chat.recordPayment).toHaveBeenCalledWith(expect.objectContaining({ orderId: 'o-1', image: expect.objectContaining({ contentType: 'image/png', ext: 'png' }) }))
+    const reply = body.messages.at(-1)?.body ?? ''
+    expect(reply).toMatch(/recibimos tu pago de S\/ 200\.00/)
+    expect(reply).toContain('PED-000012')
+    expect(reply).toMatch(/en producción/)
+    expect(body.status).toBe('open')
+  })
+
+  it('una segunda captura no vuelve a registrar el pago', async () => {
+    const { app, chat } = await withOrder()
+    await upload(app, png())
+    const body = (await (await upload(app, png())).json()) as ChatResponse
+    expect(chat.recordPayment).toHaveBeenCalledTimes(1)
+    expect(body.messages.at(-1)?.body).toMatch(/ya figura como pagado/)
+  })
+
+  it('si el pedido no se pudo confirmar solo (sin stock), el pago queda y el equipo recibe el aviso', async () => {
+    const { app, orderState } = await withOrder()
+    orderState.stock = false
+    const body = (await (await upload(app, png())).json()) as ChatResponse
+    expect(body.messages.at(-1)?.body).toMatch(/recibimos tu pago/)
+    expect(body.messages.at(-1)?.body).not.toMatch(/en producción/)
+    expect(body.status).toBe('needs_human')
+  })
+
+  it('solo acepta imágenes reales (se revisan los bytes, no el nombre)', async () => {
+    const { app, chat } = await withOrder()
+    const fake = new File([new TextEncoder().encode('esto no es una imagen, aunque se llame yape.png')], 'yape.png', { type: 'image/png' })
+    const res = await upload(app, fake)
+    expect(res.status).toBe(400)
+    expect(((await res.json()) as ApiErrorBody).error.message).toMatch(/imagen/)
+    expect(chat.recordPayment).not.toHaveBeenCalled()
+  })
+
+  it('exige la imagen y una sesión de chat válida', async () => {
+    const { app } = await withOrder()
+    expect((await upload(app, 'sin archivo')).status).toBe(400)
+    expect((await upload(app, png(), 'corto')).status).toBe(400)
   })
 })

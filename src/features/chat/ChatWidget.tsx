@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { useLocation } from 'react-router'
 import { CHAT_MESSAGE_MAX, type ChatMessage, type ChatResponse, type ChatStatus } from '../../../shared/api/chat'
+import { PROOF_BUTTON_LABEL } from '../../content/payment'
 import { useBackdropTone } from '../../hooks/useBackdropTone'
 import { ApiError, apiFetch } from '../../lib/api'
 import { createChatToken, lastMessageId, mergeMessages, messageTime, parseBody, statusNotice } from './chat-logic'
@@ -8,6 +9,7 @@ import { ChatBody } from './ChatBody'
 import { ChatChips } from './ChatChips'
 import { OPEN_CHAT_EVENT } from './open-chat'
 
+const PROOF_MAX_BYTES = 5 * 1024 * 1024
 const POLL_MS = 6000
 const TEASER_DELAY_MS = 6000
 const CATALOG_SELECTOR = '[aria-labelledby="catalog-pan-title"]'
@@ -41,6 +43,14 @@ function Avatar({ size = 'size-10', pulse = false }: { size?: string; pulse?: bo
   )
 }
 
+function ClipIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m21 11-8.6 8.6a5 5 0 0 1-7.1-7.1l9-9a3.3 3.3 0 0 1 4.7 4.7l-9 9a1.7 1.7 0 0 1-2.4-2.4l8.3-8.3" />
+    </svg>
+  )
+}
+
 function TypingDots() {
   return (
     <span className="inline-flex items-center gap-1 py-1" aria-hidden="true">
@@ -61,6 +71,7 @@ export function ChatWidget() {
   const [typingId, setTypingId] = useState<number | null>(null)
   const [away, setAway] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [status, setStatus] = useState<ChatStatus>('open')
   const [text, setText] = useState('')
@@ -68,6 +79,8 @@ export function ChatWidget() {
   // Mensaje ya enviado a la espera de respuesta: se ve al instante en la conversación.
   const [pending, setPending] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Captura del pago en camino al servidor.
+  const [uploading, setUploading] = useState(false)
   const tokenRef = useRef<string | null>(null)
   const listRef = useRef<HTMLOListElement>(null)
   const lastIdRef = useRef(0)
@@ -162,6 +175,37 @@ export function ChatWidget() {
     }
   }
 
+  // Captura del pago: se sube al servidor, que deja el pedido pagado y responde en el chat.
+  async function uploadProof(file: File) {
+    if (uploading || sending) return
+    if (!file.type.startsWith('image/')) {
+      setError('Sube la captura como imagen (JPG, PNG o WebP).')
+      return
+    }
+    if (file.size > PROOF_MAX_BYTES) {
+      setError('La imagen es muy pesada (máximo 5 MB).')
+      return
+    }
+    setError(null)
+    setUploading(true)
+    sendingRef.current = true
+    try {
+      const form = new FormData()
+      form.set('token', token())
+      form.set('file', file)
+      const res = await apiFetch<ChatResponse>('/api/chat/payment-proof', { method: 'POST', body: form })
+      setStatus(res.status)
+      setMessages((current) => mergeMessages(current, res.messages))
+      setTypingId(res.messages.filter((m) => m.role === 'assistant').at(-1)?.id ?? null)
+    } catch (err) {
+      setError(err instanceof ApiError && err.status !== 0 ? err.message : 'No pude subir la captura. Revisa tu conexión e inténtalo de nuevo.')
+    } finally {
+      sendingRef.current = false
+      setUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
   // Desde cualquier botón de la web se abre el chat, a veces con el primer mensaje ya escrito.
   const onScroll = () => {
     const list = listRef.current
@@ -194,7 +238,9 @@ export function ChatWidget() {
   const last = messages.at(-1)
   const asked = new Set(messages.filter((m) => m.role === 'customer').map((m) => m.body))
   const inFlow = !!last && last.body.includes('Pedido paso a paso')
-  const chips = pending
+  // Teca pidió el pago y espera la captura: el botón para subirla se destaca.
+  const awaitingProof = !uploading && !!last && last.role !== 'customer' && last.body.includes(PROOF_BUTTON_LABEL)
+  const chips = pending || uploading || awaitingProof
     ? []
     : !last
       ? QUICK_REPLIES
@@ -236,6 +282,14 @@ export function ChatWidget() {
                 {messageTime(m.createdAt) && <time dateTime={m.createdAt} className={`mt-1 block text-[0.65rem] ${m.role === 'customer' ? 'text-beige/70' : 'text-carbon-600'}`}>{messageTime(m.createdAt)}</time>}
               </li>
             ))}
+            {uploading && (
+              <>
+                <li className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-wrap ${bubble.customer}`}>📎 Subiendo tu captura…</li>
+                <li className={`rounded-2xl px-3.5 py-2 ${bubble.assistant}`} aria-label="Teca está revisando tu pago">
+                  <TypingDots />
+                </li>
+              </>
+            )}
             {pending && (
               <>
                 <li className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-wrap ${bubble.customer}`}>{pending}</li>
@@ -262,6 +316,19 @@ export function ChatWidget() {
 
           {chips.length > 0 && <ChatChips options={chips} onPick={(q) => void submit(undefined, q)} />}
 
+          {awaitingProof && (
+            <div className="animate-chip-in border-t border-linea px-3 pt-3">
+              <button
+                type="button"
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-brasa px-4 py-2.5 text-sm font-semibold text-nogal-800 shadow-sm transition-colors hover:bg-ambar"
+                onClick={() => fileRef.current?.click()}
+              >
+                <ClipIcon />
+                {PROOF_BUTTON_LABEL}
+              </button>
+            </div>
+          )}
+
           {notice && <p className="border-t border-linea bg-madera/10 px-4 py-2 text-xs">{notice}</p>}
           {error && (
             <div role="alert" className="flex animate-chip-in items-center justify-between gap-3 border-t border-madera-700/40 bg-madera-700/10 px-4 py-2 text-xs">
@@ -273,6 +340,28 @@ export function ChatWidget() {
           )}
 
           <form onSubmit={(e) => void submit(e)} className="flex items-end gap-2 border-t border-linea p-3">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              tabIndex={-1}
+              aria-hidden="true"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) void uploadProof(file)
+              }}
+            />
+            <button
+              type="button"
+              aria-label={PROOF_BUTTON_LABEL}
+              title={PROOF_BUTTON_LABEL}
+              disabled={uploading || sending}
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-full border border-linea bg-white text-nogal transition-all duration-200 hover:scale-105 hover:bg-beige active:scale-95 disabled:scale-100 disabled:opacity-40"
+              onClick={() => fileRef.current?.click()}
+            >
+              <ClipIcon />
+            </button>
             <label className="grid flex-1">
               <span className="sr-only">Tu mensaje</span>
               <textarea

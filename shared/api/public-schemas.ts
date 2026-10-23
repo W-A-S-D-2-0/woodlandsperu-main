@@ -73,6 +73,8 @@ export const quoteRequestSchema = z.object({
   requestId: z.uuid(),
   customer: customerSchema,
   message: optionalText(2000),
+  /** Dirección de entrega (pedidos del chat). */
+  shippingAddress: optionalText(300),
   items: z.array(quoteItemSchema).min(1, 'Agrega al menos un producto.').max(50),
 })
 
