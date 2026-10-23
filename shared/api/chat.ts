@@ -11,6 +11,8 @@ export const chatToken = z.string().regex(/^[A-Za-z0-9_-]{24,100}$/, 'Sesión de
 export const chatSendBody = z.object({
   token: chatToken,
   message: z.string().trim().min(1, 'Escribe un mensaje.').max(CHAT_MESSAGE_MAX, `El mensaje admite hasta ${CHAT_MESSAGE_MAX} caracteres.`),
+  /** El chat ya mostró el saludo de Teca: si la conversación es nueva, el servidor lo guarda como primer mensaje. */
+  greeted: z.boolean().optional(),
 })
 
 export const chatPollQuery = z.object({

@@ -3,9 +3,10 @@ import { quoteRequestSchema, WEB_ORDER_MAX_UNITS, type QuoteRequestInput } from 
 import { assistantKnowledge, knowledgeForPrompt } from '../../src/content/assistant-knowledge'
 import { alliancesContent } from '../../src/content/alliances'
 import { deliveryBands, deliveryNote, deliveryUnknown } from '../../src/content/delivery'
+import { GREETING_ASK } from '../../src/content/chat-greeting'
 import { engravingHelpReply } from './engraving-help'
 import { paymentChatText, paymentConfigured, paymentLines, paymentRequestText } from '../../src/content/payment'
-import { guidedFlowReply } from './guided-flow'
+import { guidedFlowReply, looksLikeName } from './guided-flow'
 
 /**
  * Asistente comercial de Woodland. Reglas que NO dependen del modelo (se cumplen en código):
@@ -472,6 +473,17 @@ const SMALL_TALK: ReadonlyArray<{ pattern: RegExp; reply: string }> = [
 ]
 
 /** Respuesta inmediata a una charla corta; null si el mensaje trae algo más (entonces lo atiende el resto del asistente). */
+/** Respuesta al nombre que el cliente dio cuando el saludo se lo preguntó («Ana» → «Mucho gusto, Ana…»); null si el mensaje es otra cosa. */
+export function greetingNameReply(history: readonly HistoryMessage[]): string | null {
+  const last = history.at(-1)
+  const before = history.at(-2)
+  if (last?.role !== 'customer' || before?.role !== 'assistant' || !before.body.includes(GREETING_ASK)) return null
+  const name = looksLikeName(last.body)
+  if (!name) return null
+  const first = name.split(/\s+/)[0]!
+  return `Mucho gusto, ${first.charAt(0).toUpperCase()}${first.slice(1)}. ¿Qué te interesa: precios, plazos, grabado o hacer un pedido?`
+}
+
 export function smallTalkReply(body: string): string | null {
   const text = normalizeText(body).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
   if (!text || text.length > 40) return null
@@ -526,6 +538,8 @@ export function createGuidedModel(catalog: CatalogResponse): AssistantModel {
       // Pedido o cotización paso a paso, sin IA: nunca depende de que el modelo esté disponible.
       const flow = guidedFlowReply(history, catalog, { allowStart: true, info: (t) => engravingHelpReply(history, catalog, t) ?? infoReply(normalizeText(t), catalog) })
       if (flow) return flow
+      const welcome = greetingNameReply(history)
+      if (welcome) return { text: welcome }
       const engraving = engravingHelpReply(history, catalog)
       if (engraving) return { text: engraving }
       const talk = smallTalkReply(history.findLast((m) => m.role === 'customer')?.body ?? '')

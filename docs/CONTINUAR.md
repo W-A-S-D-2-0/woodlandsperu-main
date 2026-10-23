@@ -265,3 +265,5 @@ Brigitte (948 467 431, `brigitte` en `src/content/site.ts`) con un mensaje corto
   Moshaco con canal, Ya Vuelta redonda, Sacha Paleta con mango, Bosques Amazónicos y Huambrilla alargadas, Ñañito con
   costados boleados. Sin modelo conocido se usa la tabla genérica. Son siluetas de referencia sobre la textura real de
   la teca; cuando Woodland entregue fotos limpias de cada modelo conviene cambiarlas por esas.
+
+- Saludo (2026-10-24): el primer mensaje de Teca pide el nombre (`src/content/chat-greeting.ts`). El chat avisa `greeted` y el servidor guarda el saludo como primer mensaje de la conversación; si el cliente responde con su nombre, Teca lo saluda y el pedido no lo vuelve a preguntar (`nameFromGreeting`). Si responde con otra cosa, se atiende y el pedido pedirá el nombre.

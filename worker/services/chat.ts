@@ -1,9 +1,10 @@
 import type { ChatMessage, ChatStatus } from '../../shared/api/chat'
 import type { CatalogResponse } from '../../shared/api/contracts'
+import { chatGreeting } from '../../src/content/chat-greeting'
 import { createGeminiModel } from '../integrations/gemini'
 import type { ChatChannel, ChatData } from '../data/chat-data'
 import type { PublicData } from '../data/public-data'
-import { alliesReply, engravingFirst, guidedFlowFirst, createGuidedModel, historyHasOrder, quickInfoReply, runAssistant, smallTalkReply, wantsHuman, type AssistantModel } from './assistant'
+import { alliesReply, engravingFirst, greetingNameReply, guidedFlowFirst, createGuidedModel, historyHasOrder, quickInfoReply, runAssistant, smallTalkReply, wantsHuman, type AssistantModel } from './assistant'
 
 /** Cuántos mensajes previos ve el asistente: lo bastante para recordar nombre, productos y grabado de toda la charla. */
 const HISTORY_LIMIT = 40
@@ -25,6 +26,9 @@ export const createAssistantModel: AssistantModelFactory = (env, catalog) => {
       // Saludos y agradecimientos: respuesta inmediata, sin gastar una consulta a la IA.
       const talk = smallTalkReply(input.history.findLast((m) => m.role === 'customer')?.body ?? '')
       if (talk) return { text: talk }
+      // Respuesta al «¿cómo te llamas?» del saludo.
+      const welcome = greetingNameReply(input.history)
+      if (welcome) return { text: welcome }
       // Dudas de personalización: imágenes de la tabla con el nombre en otras posiciones y WhatsApp de Brigitte.
       const engraving = engravingFirst(input.history, catalog)
       if (engraving) return { text: engraving }
@@ -58,6 +62,8 @@ export interface CustomerMessage {
   contactName?: string
   contactPhone?: string
   externalId?: string
+  /** El chat web ya mostró el saludo de Teca (que pide el nombre). */
+  greeted?: boolean
 }
 
 export interface TurnResult {
@@ -80,6 +86,10 @@ const now = () => new Date().toISOString()
  */
 export async function handleCustomerMessage(services: ChatServices, message: CustomerMessage): Promise<TurnResult> {
   const { chat, publicData } = services
+  // El saludo que vio el cliente (donde Teca pide su nombre) se guarda primero, para que la respuesta se entienda en contexto.
+  if (message.greeted && (await chat.messagesAfter(message.channel, message.ref, 0)) === null) {
+    await chat.record({ channel: message.channel, ref: message.ref, role: 'assistant', body: chatGreeting })
+  }
   const recorded = await chat.record({
     channel: message.channel,
     ref: message.ref,

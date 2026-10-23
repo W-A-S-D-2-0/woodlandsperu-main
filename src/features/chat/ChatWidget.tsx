@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { useLocation } from 'react-router'
 import { CHAT_MESSAGE_MAX, type ChatMessage, type ChatResponse, type ChatStatus } from '../../../shared/api/chat'
+import { chatGreeting } from '../../content/chat-greeting'
 import { PROOF_BUTTON_LABEL } from '../../content/payment'
 import { useBackdropTone } from '../../hooks/useBackdropTone'
 import { ApiError, apiFetch } from '../../lib/api'
@@ -17,7 +18,7 @@ const CATALOG_SELECTOR = '[aria-labelledby="catalog-pan-title"]'
 const GREETING: ChatMessage = {
   id: 0,
   role: 'assistant',
-  body: '¡Hola! Soy Teca, tu guía en Woodland Perú. Cuéntame qué buscas y te ayudo con precios, plazos, grabado y pedidos. Te respondo al instante; lo que necesite al equipo lo dejo anotado.',
+  body: chatGreeting,
   createdAt: '',
 }
 
@@ -160,7 +161,8 @@ export function ChatWidget() {
       const res = await apiFetch<ChatResponse>('/api/chat/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: token(), message }),
+        // `greeted`: el saludo (que pide el nombre) ya se mostró; el servidor lo guarda como primer mensaje.
+        body: JSON.stringify({ token: token(), message, greeted: true }),
       })
       setStatus(res.status)
       setMessages((current) => mergeMessages(current, res.messages))
@@ -250,7 +252,8 @@ export function ChatWidget() {
           ? QUICK_REPLIES.filter((q) => q === ALWAYS_REPLY || !asked.has(q))
           : []
   const notice = statusNotice(status)
-  const shown = [GREETING, ...messages]
+  // El servidor guarda el saludo en la conversación: no se muestra dos veces.
+  const shown = [GREETING, ...messages.filter((m) => m.body !== GREETING.body)]
 
   return (
     <div className="fixed right-4 bottom-4 z-40 sm:right-6 sm:bottom-6">

@@ -53,14 +53,15 @@ export type BodyBlock =
   | { kind: 'price'; name: string; price: string }
   | { kind: 'product'; name: string; collection: string | null; sizes: string; description: string | null }
   | { kind: 'line'; label: string; amount: string | null }
-  | { kind: 'total'; amount: string; note: string }
+  | { kind: 'total'; amount: string; note: string; label?: string }
   | PreviewMarker
   | WhatsappMarker
 
 const PRICE_ROW = /^•\s*(.+?):\s*desde\s+(S\/\s?[\d.,]+)\s*$/
-const ORDER_ROW = /^•\s*(.+?)\s+—\s+(S\/\s?[\d.,]+)\s*$/
+/** Línea de un pedido: «• 2 × Moshaco · Large — S/ 867.80», con «(grabado: …)» al final si lo lleva, o «precio por confirmar». */
+const ORDER_ROW = /^•\s*(\d+\s*×\s*.+?)\s+—\s+(S\/\s?[\d.,]+|precio por confirmar)(\s+\(grabado:.*\))?\s*$/
 const PRODUCT_ROW = /^•\s*(.+?)(?:\s+\((.+?)\))?\s+—\s+(.+)$/
-const TOTAL_ROW = /^Total estimado:\s*(S\/\s?[\d.,]+)\s*$/
+const TOTAL_ROW = /^Total (estimado|a pagar):\s*(S\/\s?[\d.,]+)\s*$/
 
 /** Reconoce las listas de precios, las líneas de un pedido y el total; el resto queda como texto. Nunca altera las cifras. */
 export function parseBody(body: string): BodyBlock[] {
@@ -91,11 +92,11 @@ export function parseBody(body: string): BodyBlock[] {
       blocks.push({ kind: 'product', name: product[1]!, collection: product[2] ?? null, sizes: product[3]!, description: null })
     } else if (row) {
       flush()
-      blocks.push({ kind: 'line', label: row[1]!, amount: row[2]! })
+      blocks.push({ kind: 'line', label: `${row[1]!}${row[3] ?? ''}`, amount: row[2]! })
     } else if (total) {
       flush()
       const next = lines[i + 1]?.trim() ?? ''
-      blocks.push({ kind: 'total', amount: total[1]!, note: next && !PRICE_ROW.test(next) && !TOTAL_ROW.test(next) ? next : '' })
+      blocks.push({ kind: 'total', amount: total[2]!, note: next && !PRICE_ROW.test(next) && !TOTAL_ROW.test(next) ? next : '', ...(total[1] === 'a pagar' ? { label: 'Total a pagar' } : {}) })
     } else if (/^\s{2,}\S/.test(raw) && text.length === 0 && blocks.at(-1)?.kind === 'product') {
       // La frase que acompaña a un modelo (línea con sangría) va dentro de su tarjeta.
       const card = blocks.at(-1) as Extract<BodyBlock, { kind: 'product' }>

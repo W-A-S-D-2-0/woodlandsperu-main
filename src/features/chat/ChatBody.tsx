@@ -154,7 +154,7 @@ export function ChatBody({ body, typing = false, onAsk, onSeeAll }: { body: stri
           )
         return (
           <div key={i} className="rounded-xl bg-nogal px-3.5 py-2.5 text-marfil">
-            <p className="text-[0.7rem] tracking-[0.08em] text-beige/80 uppercase">Total estimado</p>
+            <p className="text-[0.7rem] tracking-[0.08em] text-beige/80 uppercase">{b.label ?? 'Total estimado'}</p>
             <p className="font-display text-xl text-ambar">{b.amount}</p>
             {b.note && <p className="mt-0.5 text-xs text-beige/90">{b.note}</p>}
           </div>

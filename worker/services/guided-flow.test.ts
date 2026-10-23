@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { CatalogResponse, OrderSubmittedResponse } from '../../shared/api/contracts'
 import { runAssistant, createGuidedModel, guidedFlowFirst, type HistoryMessage } from './assistant'
 import { parseCustomerData } from './customer-data'
+import { looksLikeName, nameFromGreeting } from './guided-flow'
 
 const V1 = '3f2b8c1e-5d4a-4e7b-9a10-2c6d8e9f0a1b'
 const V2 = '4f2b8c1e-5d4a-4e7b-9a10-2c6d8e9f0a1b'
@@ -182,5 +183,26 @@ describe('pedido paso a paso sin IA', () => {
   it('si la pieza no está en el catálogo, la anota para el equipo', async () => {
     const { out } = await chat('Quiero cotizar una tabla a medida', ...START, CONTACT)
     expect(out.call?.name).toBe('flag_for_team')
+  })
+})
+
+describe('el nombre que se da en el saludo', () => {
+  it('reconoce nombres y descarta consultas, saludos y datos', () => {
+    expect(looksLikeName('Ana')).toBe('Ana')
+    expect(looksLikeName('me llamo Ana Pérez')).toBe('Ana Pérez')
+    expect(looksLikeName('Soy luis.')).toBe('luis')
+    expect(looksLikeName("María José O'Brien")).toBe("María José O'Brien")
+    for (const text of ['quiero hacer un pedido', '¿cuánto cuesta?', 'hola', 'precios', 'persona', 'ana@x.com', '987654321', 'gracias', 'Ver los productos', 'no']) {
+      expect(looksLikeName(text), text).toBeNull()
+    }
+  })
+
+  it('el pedido usa el nombre dado en el saludo y salta esa pregunta', () => {
+    const greeting = { role: 'assistant' as const, body: '¡Hola! Soy Teca. Para empezar, ¿cómo te llamas?' }
+    const history = [greeting, { role: 'customer' as const, body: 'Ana Pérez' }, { role: 'assistant' as const, body: 'Mucho gusto, Ana.' }, { role: 'customer' as const, body: 'quiero hacer un pedido' }]
+    expect(nameFromGreeting(history)).toBe('Ana Pérez')
+    expect(guidedFlowFirst(history, catalog)?.text).toMatch(/persona.*empresa/)
+    // Sin nombre en el saludo, el pedido lo pide.
+    expect(guidedFlowFirst([greeting, { role: 'customer', body: 'quiero hacer un pedido' }], catalog)?.text).toMatch(/A nombre de quién/)
   })
 })

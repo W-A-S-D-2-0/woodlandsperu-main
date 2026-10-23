@@ -9,6 +9,7 @@ import type { PanelData } from '../data/panel-data'
 import type { PublicData } from '../data/public-data'
 import { createGeminiModel, parseGeminiResponse, toGeminiContents } from '../integrations/gemini'
 import { parseWebhook, verifySignature } from '../integrations/whatsapp'
+import { createAssistantModel } from '../services/chat'
 import { buildSystemPrompt, createGuidedModel, quickInfoReply, parseOrderCall, parseQuoteCall, wantsHuman, type AssistantModel, type ModelOutput } from '../services/assistant'
 
 const VARIANT = '3f2b8c1e-5d4a-4e7b-9a10-2c6d8e9f0a1b'
@@ -678,5 +679,54 @@ describe('POST /api/chat/payment-proof', () => {
     const { app } = await withOrder()
     expect((await upload(app, 'sin archivo')).status).toBe(400)
     expect((await upload(app, png(), 'corto')).status).toBe(400)
+  })
+})
+
+describe('saludo de Teca: pide el nombre', () => {
+  const sendGreeted = (app: ReturnType<typeof createApp>, message: string) =>
+    app.request('/api/chat/messages', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token: TOKEN, message, greeted: true }) }, { APP_ENV: 'development' } as Env)
+
+  it('el primer mensaje de Teca es pedir el nombre, y queda guardado como primero de la conversación', async () => {
+    const { chat, messages } = fakeChat()
+    const app = createApp({ chatData: () => chat, publicData: () => publicData(), assistantModel: createAssistantModel })
+    await sendGreeted(app, 'Ana Pérez')
+    expect(messages[0]).toMatchObject({ role: 'assistant' })
+    expect(messages[0]!.body).toContain('¿cómo te llamas?')
+    expect(messages[1]).toMatchObject({ role: 'customer', body: 'Ana Pérez' })
+  })
+
+  it('responde con el nombre y no repite el saludo en la respuesta (el chat ya lo mostró)', async () => {
+    const { chat } = fakeChat()
+    const app = createApp({ chatData: () => chat, publicData: () => publicData(), assistantModel: createAssistantModel })
+    const body = (await (await sendGreeted(app, 'me llamo ana pérez')).json()) as ChatResponse
+    expect(body.messages.map((m) => m.role)).toEqual(['customer', 'assistant'])
+    expect(body.messages[1]!.body).toMatch(/Mucho gusto, Ana\./)
+  })
+
+  it('el saludo se guarda una sola vez, aunque el cliente siga escribiendo', async () => {
+    const { chat, messages } = fakeChat()
+    const app = createApp({ chatData: () => chat, publicData: () => publicData(), assistantModel: createAssistantModel })
+    await sendGreeted(app, 'Ana')
+    await sendGreeted(app, 'quiero ver los precios')
+    expect(messages.filter((m) => m.body.includes('¿cómo te llamas?'))).toHaveLength(1)
+  })
+
+  it('con el nombre ya dado, el pedido no lo vuelve a preguntar', async () => {
+    const { chat } = fakeChat()
+    const app = createApp({ chatData: () => chat, publicData: () => publicData(), assistantModel: createAssistantModel })
+    await sendGreeted(app, 'Ana Pérez')
+    const body = (await (await sendGreeted(app, 'quiero hacer un pedido')).json()) as ChatResponse
+    const reply = body.messages.at(-1)!.body
+    expect(reply).not.toMatch(/A nombre de quién/)
+    expect(reply).toMatch(/persona.*empresa/)
+  })
+
+  it('si el cliente no da su nombre sino una consulta, se atiende la consulta y el pedido lo pedirá después', async () => {
+    const { chat } = fakeChat()
+    const app = createApp({ chatData: () => chat, publicData: () => publicData(), assistantModel: createAssistantModel })
+    const first = (await (await sendGreeted(app, '¿cuáles son los precios?')).json()) as ChatResponse
+    expect(first.messages.at(-1)!.body).toContain('S/ 100.00')
+    const flow = (await (await sendGreeted(app, 'quiero hacer un pedido')).json()) as ChatResponse
+    expect(flow.messages.at(-1)!.body).toMatch(/A nombre de quién/)
   })
 })

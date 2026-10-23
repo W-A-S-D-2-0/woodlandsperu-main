@@ -1,6 +1,7 @@
 import type { CatalogProduct, CatalogResponse, CatalogVariant } from '../../shared/api/contracts'
 import { WEB_ORDER_MAX_UNITS } from '../../shared/api/public-schemas'
 import { lineTotal, resolveUnitPrice } from '../../src/features/catalog/pricing'
+import { GREETING_ASK } from '../../src/content/chat-greeting'
 import type { HistoryMessage, ModelOutput } from './assistant'
 import { parseCustomerData } from './customer-data'
 import { looksLikeEngravingDoubt } from './engraving-help'
@@ -311,8 +312,33 @@ function withPrefill(entry: Entry, f: Flow): Line & { filter?: string } {
   return { ...entry, ...(qty ? { qty } : {}), ...(engraving ? { engraving } : {}) }
 }
 
-function newFlow(first: string, catalog: CatalogResponse): Flow {
-  const flow: Flow = { lines: [], cur: null, moreDone: false }
+const NOT_A_NAME = /\?|\d|@|\b(hola|buenas|buenos|precio|precios|plazo|plazos|grab\w*|pedido|pedir|cotiz\w*|producto|productos|catalogo|modelo|modelos|tabla|tablas|ayuda|quiero|necesito|como|cuanto|cuesta|donde|cuando|que|cual|gracias|ok|si|no|empresa|persona|favor)\b/
+
+/** El nombre que escribió el cliente («Ana», «me llamo Ana Pérez»), o null si el mensaje es otra cosa (una pregunta, un pedido…). */
+export function looksLikeName(text: string): string | null {
+  const t = text
+    .trim()
+    .replace(/^(me llamo|mi nombre es|soy|nombre:?)\s+/i, '')
+    .replace(/[.!¡]+$/g, '')
+    .trim()
+  if (!t || t.length > 50 || t.split(/\s+/).length > 4) return null
+  if (!/^[\p{L}][\p{L}'’ .-]*$/u.test(t)) return null
+  if (NOT_A_NAME.test(normalize(t))) return null
+  return t.slice(0, 160)
+}
+
+/** El nombre que dio el cliente cuando Teca se lo preguntó en el saludo, si lo dio. */
+export function nameFromGreeting(history: readonly HistoryMessage[]): string | undefined {
+  for (let i = 1; i < history.length; i++) {
+    if (history[i - 1]!.role === 'assistant' && history[i - 1]!.body.includes(GREETING_ASK) && history[i]!.role === 'customer') {
+      return looksLikeName(history[i]!.body) ?? undefined
+    }
+  }
+  return undefined
+}
+
+function newFlow(first: string, catalog: CatalogResponse, name?: string): Flow {
+  const flow: Flow = { lines: [], cur: null, moreDone: false, ...(name ? { name } : {}) }
   if (CUSTOM.test(normalize(first))) {
     flow.big = { label: CUSTOM_LABEL, qty: 0 }
     flow.moreDone = true
@@ -338,6 +364,7 @@ function newFlow(first: string, catalog: CatalogResponse): Flow {
  */
 export function guidedFlowReply(history: readonly HistoryMessage[], catalog: CatalogResponse, options: { allowStart: boolean; info: (text: string) => string | null }): ModelOutput | null {
   if (!catalog.products.some((p) => p.variants.length > 0)) return null
+  const greetedName = nameFromGreeting(history)
   let flow: Flow | null = null
   let candidate: Flow | null = null
   let lastError: string | null = null
@@ -367,7 +394,7 @@ export function guidedFlowReply(history: readonly HistoryMessage[], catalog: Cat
         cancelled = true
       } else lastError = problem
     } else if (startsFlow(m.body)) {
-      candidate = newFlow(m.body, catalog)
+      candidate = newFlow(m.body, catalog, greetedName)
     }
   }
   if (cancelled) return { text: CANCEL_TEXT }

@@ -47,7 +47,7 @@ export function chatRoutes(chatData: ChatDataFactory, publicData: PublicDataFact
         try {
           const turn = await handleCustomerMessage(
             { env: c.env, chat, publicData: pub, modelFor },
-            { channel: 'web_chat', ref: await hashToken(body.data.token), text: body.data.message },
+            { channel: 'web_chat', ref: await hashToken(body.data.token), text: body.data.message, greeted: body.data.greeted },
           )
           return c.json<ChatResponse>({ status: turn.status, messages: turn.messages })
         } catch (err) {

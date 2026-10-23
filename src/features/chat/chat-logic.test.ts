@@ -69,6 +69,13 @@ describe('parseBody', () => {
     expect(blocks[1]).toEqual({ kind: 'total', amount: 'S/ 394.00', note: 'Se registra como pedido.' })
   })
 
+  it('el resumen del pedido con grabado, sin precio o con «Total a pagar» no se confunde con la tarjeta de un modelo', () => {
+    const blocks = parseBody('Este es tu pedido:\n• 1 × Sacha Paleta · Con mango · 52*30*2 — S/ 335.90 (grabado: «Familia Rojas»)\n• 2 × Moshaco · Small · 35*25*2 — precio por confirmar\nTotal a pagar: S/ 335.90\nLo registro como pedido.\nA nombre de: Ana')
+    expect(blocks.map((b) => b.kind)).toEqual(['text', 'line', 'line', 'total', 'text'])
+    expect(blocks[1]).toEqual({ kind: 'line', label: '1 × Sacha Paleta · Con mango · 52*30*2 (grabado: «Familia Rojas»)', amount: 'S/ 335.90' })
+    expect(blocks[3]).toEqual({ kind: 'total', amount: 'S/ 335.90', note: 'Lo registro como pedido.', label: 'Total a pagar' })
+  })
+
   it('deja intacto un texto sin formato especial', () => {
     expect(parseBody('Hola')).toEqual([{ kind: 'text', text: 'Hola' }])
   })
