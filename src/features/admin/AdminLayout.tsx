@@ -4,6 +4,7 @@ import { Wordmark } from '../../components/ui/Wordmark'
 import { PUBLIC_SITE_URL } from '../../lib/public-site'
 import { roleLabels, useStaffSession } from '../auth/auth-context'
 import type { StaffRole } from '../../../shared/api/contracts'
+import { LowStockAlarm } from './LowStockAlarm'
 import { modulesFor } from './modules'
 import { NavIcon } from './nav-icons'
 
@@ -72,6 +73,8 @@ export function AdminLayout() {
           <p className="min-w-0 truncate text-carbon-600">
             <span className="font-semibold text-carbon">{staff.fullName}</span> · {roleLabels[staff.role]}
           </p>
+          {/* Vigila el stock bajo en todo el panel y suena la alarma. */}
+          <LowStockAlarm inventoryPath="/inventario" />
           <button
             type="button"
             onClick={() => void signOut()}

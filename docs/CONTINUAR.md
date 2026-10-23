@@ -267,3 +267,9 @@ Brigitte (948 467 431, `brigitte` en `src/content/site.ts`) con un mensaje corto
   la teca; cuando Woodland entregue fotos limpias de cada modelo conviene cambiarlas por esas.
 
 - Saludo (2026-10-24): el primer mensaje de Teca pide el nombre (`src/content/chat-greeting.ts`). El chat avisa `greeted` y el servidor guarda el saludo como primer mensaje de la conversación; si el cliente responde con su nombre, Teca lo saluda y el pedido no lo vuelve a preguntar (`nameFromGreeting`). Si responde con otra cosa, se atiende y el pedido pedirá el nombre.
+
+## 10. Alarma de stock bajo (2026-10-24)
+
+La base abre la alerta sola cuando lo disponible llega al mínimo de la variante (`app.sync_stock_alert`). El panel la vigila solo: `LowStockAlarm` (en `AdminLayout`, todas las pantallas y los dos roles) consulta `/inventory` cada 30 s, muestra un aviso arriba y hace sonar una sirena (Web Audio, sin archivos) y una voz que dice el producto y cuántas unidades quedan. Suena una vez por variante mientras siga baja (se recuerda en el navegador); «Repetir alarma» la vuelve a sonar; hay un interruptor «Alarma con sonido / en silencio». El navegador bloquea el sonido hasta que se toca la página: el aviso lo indica con «Activar sonido». Pendiente a futuro: avisar fuera del panel (WhatsApp o correo) y proponer la orden de producción.
+
+Datos de prueba en producción (2026-10-23): las 8 variantes se llevaron a 100 con «Ajuste (+)» (motivo «Stock inicial de 100 unidades…»), mínimo 30 en todas, y Moshaco Large se bajó a 30 con «Ajuste (−)» para simular la alarma.
