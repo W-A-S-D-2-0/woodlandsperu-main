@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { CatalogResponse } from '../../shared/api/contracts'
 import { parseMarkerLine, type PreviewMarker, type WhatsappMarker } from '../../src/features/engraving/preview-marker'
 import { guidedFlowFirst, type HistoryMessage } from './assistant'
-import { ASK_TEXT, engravingHelpReply, requestedPosition } from './engraving-help'
+import { ASK_TEXT, customerName, engravingHelpReply, requestedPosition } from './engraving-help'
 
 const catalog: CatalogResponse = {
   currency: 'PEN',
@@ -264,5 +264,19 @@ describe('el mensaje a Brigitte parte de lo que el cliente pidió al principio',
     const message = whatsapp(third)!.message
     expect(message).toContain('«Familia Rojas» en la esquina inferior derecha')
     expect(message).toMatch(/Teca me recomendó (la esquina inferior izquierda|la esquina superior derecha)/)
+  })
+})
+
+describe('el nombre de la conversación para el panel', () => {
+  const ask = teca('Para empezar: ¿A nombre de quién registro el pedido? Escribe tu nombre completo.')
+
+  it('toma el nombre que dio el cliente en el pedido', () => {
+    expect(customerName([customer('quiero hacer un pedido'), ask, customer('Ana Pérez')])).toBe('Ana Pérez')
+  })
+
+  it('una palabra de cancelar, una consulta o un dato no es un nombre', () => {
+    for (const text of ['cancelar', 'quiero ver los precios', '987654321', 'ana@correo.com', 'empezar de nuevo']) {
+      expect(customerName([customer('quiero hacer un pedido'), ask, customer(text)]), text).toBeUndefined()
+    }
   })
 })

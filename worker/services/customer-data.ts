@@ -43,3 +43,18 @@ export function parseCustomerData(raw: string, options: { withName?: boolean } =
   if (address.length >= 6 && /\p{L}/u.test(address)) out.address = address.slice(0, 300)
   return out
 }
+
+const NOT_A_NAME = /\?|\d|@|\b(cancel\w*|salir|olvid\w*|nuevo|hola|buenas|buenos|precio|precios|plazo|plazos|grab\w*|pedido|pedir|cotiz\w*|producto|productos|catalogo|modelo|modelos|tabla|tablas|ayuda|quiero|necesito|como|cuanto|cuesta|donde|cuando|que|cual|gracias|ok|si|no|empresa|persona|favor)\b/
+
+/** El nombre que escribió el cliente («Ana», «me llamo Ana Pérez»), o null si el mensaje es otra cosa (una pregunta, un pedido…). */
+export function looksLikeName(text: string): string | null {
+  const t = text
+    .trim()
+    .replace(/^(me llamo|mi nombre es|soy|nombre:?)\s+/i, '')
+    .replace(/[.!¡]+$/g, '')
+    .trim()
+  if (!t || t.length > 50 || t.split(/\s+/).length > 4) return null
+  if (!/^[\p{L}][\p{L}'’ .-]*$/u.test(t)) return null
+  if (NOT_A_NAME.test(t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))) return null
+  return t.slice(0, 160)
+}

@@ -222,6 +222,8 @@ export interface ConversationListItem {
   contactPhone: string | null
   handoffReason: string | null
   handoffRequestedAt: string | null
+  /** Cuándo empezó la conversación: cada nueva (aunque sea el mismo día) es una fila aparte. */
+  createdAt: string
   lastMessageAt: string
   quoteId: string | null
   /** Último mensaje, para reconocer la conversación en la lista. */

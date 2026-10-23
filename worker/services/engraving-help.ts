@@ -3,7 +3,7 @@ import { defaultEngravingPosition, engravingFonts, engravingLimits, engravingPos
 import { brigitte } from '../../src/content/site'
 import { buildPreviewMarker, buildWhatsappMarker, parseMarkerLine, positionLabel, previewQuery } from '../../src/features/engraving/preview-marker'
 import type { HistoryMessage } from './assistant'
-import { parseCustomerData } from './customer-data'
+import { looksLikeName } from './customer-data'
 
 /**
  * Dudas de personalización (nombre en otra posición, «no me gusta», «cómo se vería»): Teca muestra la tabla con el
@@ -121,11 +121,11 @@ function recommend(exclude: readonly EngravingPosition[], count: number, avoid: 
 }
 
 /** Nombre que dio el cliente al comenzar su pedido, si lo hizo. */
-function customerName(history: readonly HistoryMessage[]): string | undefined {
+export function customerName(history: readonly HistoryMessage[]): string | undefined {
   for (let i = 1; i < history.length; i++) {
     if (history[i - 1]!.role === 'assistant' && history[i - 1]!.body.includes('¿A nombre de quién') && history[i]!.role === 'customer') {
       const answer = history[i]!.body
-      return parseCustomerData(answer).name ?? (answer.trim().length > 1 && answer.trim().length <= 60 && !/\d|@/.test(answer) ? answer.trim() : undefined)
+      return looksLikeName(answer) ?? undefined
     }
   }
   return undefined

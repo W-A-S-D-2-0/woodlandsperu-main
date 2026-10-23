@@ -1,9 +1,11 @@
 import type { CatalogProduct, CatalogResponse, CatalogVariant } from '../../shared/api/contracts'
 import { WEB_ORDER_MAX_UNITS } from '../../shared/api/public-schemas'
 import { lineTotal, resolveUnitPrice } from '../../src/features/catalog/pricing'
-import { GREETING_ASK } from '../../src/content/chat-greeting'
+import { CANCELLED_TEXT, GREETING_ASK } from '../../src/content/chat-greeting'
 import type { HistoryMessage, ModelOutput } from './assistant'
-import { parseCustomerData } from './customer-data'
+import { looksLikeName, parseCustomerData } from './customer-data'
+
+export { looksLikeName }
 import { looksLikeEngravingDoubt } from './engraving-help'
 
 /**
@@ -40,7 +42,6 @@ const DATA_REQUEST =
 const CUSTOM = /a medida|medida propia|otra medida|diseno propio|diseno especial|personalizad[ao] aparte|no esta en|ninguno de/
 const CUSTOM_LABEL = 'Pieza a medida o diseño propio'
 
-const CANCEL_TEXT = 'Listo, cancelé el pedido. Si quieres retomarlo o hacer otro pedido, escríbeme «quiero hacer un pedido».'
 
 interface Entry {
   product: CatalogProduct
@@ -312,21 +313,6 @@ function withPrefill(entry: Entry, f: Flow): Line & { filter?: string } {
   return { ...entry, ...(qty ? { qty } : {}), ...(engraving ? { engraving } : {}) }
 }
 
-const NOT_A_NAME = /\?|\d|@|\b(hola|buenas|buenos|precio|precios|plazo|plazos|grab\w*|pedido|pedir|cotiz\w*|producto|productos|catalogo|modelo|modelos|tabla|tablas|ayuda|quiero|necesito|como|cuanto|cuesta|donde|cuando|que|cual|gracias|ok|si|no|empresa|persona|favor)\b/
-
-/** El nombre que escribió el cliente («Ana», «me llamo Ana Pérez»), o null si el mensaje es otra cosa (una pregunta, un pedido…). */
-export function looksLikeName(text: string): string | null {
-  const t = text
-    .trim()
-    .replace(/^(me llamo|mi nombre es|soy|nombre:?)\s+/i, '')
-    .replace(/[.!¡]+$/g, '')
-    .trim()
-  if (!t || t.length > 50 || t.split(/\s+/).length > 4) return null
-  if (!/^[\p{L}][\p{L}'’ .-]*$/u.test(t)) return null
-  if (NOT_A_NAME.test(normalize(t))) return null
-  return t.slice(0, 160)
-}
-
 /** El nombre que dio el cliente cuando Teca se lo preguntó en el saludo, si lo dio. */
 export function nameFromGreeting(history: readonly HistoryMessage[]): string | undefined {
   for (let i = 1; i < history.length; i++) {
@@ -397,7 +383,7 @@ export function guidedFlowReply(history: readonly HistoryMessage[], catalog: Cat
       candidate = newFlow(m.body, catalog, greetedName)
     }
   }
-  if (cancelled) return { text: CANCEL_TEXT }
+  if (cancelled) return { text: CANCELLED_TEXT }
   const lastMessage = history[last]
   if (lastMessage?.role !== 'customer') return null
   // El flujo arranca solo si se permite; si ya estaba en marcha, continúa siempre.

@@ -552,6 +552,7 @@ const auth: StaffAuthProvider = {
 const CONV_ID = '5f2b8c1e-5d4a-4e7b-9a10-2c6d8e9f0a1b'
 const detail = (channel: 'web_chat' | 'whatsapp'): ConversationDetail => ({
   id: CONV_ID,
+  createdAt: '2026-10-17T10:00:00Z',
   channel,
   status: 'needs_human',
   contactName: 'Luis',
@@ -728,5 +729,42 @@ describe('saludo de Teca: pide el nombre', () => {
     expect(first.messages.at(-1)!.body).toContain('S/ 100.00')
     const flow = (await (await sendGreeted(app, 'quiero hacer un pedido')).json()) as ChatResponse
     expect(flow.messages.at(-1)!.body).toMatch(/A nombre de quién/)
+  })
+})
+
+describe('cancelar y empezar otra conversación', () => {
+  const sendGreeted = (app: ReturnType<typeof createApp>, token: string, message: string) =>
+    app.request('/api/chat/messages', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, message, greeted: true }) }, { APP_ENV: 'development' } as Env)
+
+  it('al cancelar, Teca invita a volver a escribir (sin pedir una frase exacta)', async () => {
+    const { chat } = fakeChat()
+    const app = createApp({ chatData: () => chat, publicData: () => publicData(), assistantModel: createAssistantModel })
+    await sendGreeted(app, TOKEN, 'quiero hacer un pedido')
+    const body = (await (await sendGreeted(app, TOKEN, 'cancelar')).json()) as ChatResponse
+    const reply = body.messages.at(-1)!.body
+    expect(reply).toBe('Listo, cancelé el pedido. No dudes en volver a escribirnos.')
+    expect(reply).not.toMatch(/quiero hacer un pedido/)
+  })
+
+  it('con otro token (conversación nueva) queda otra conversación aparte, con su propio saludo', async () => {
+    const { chat, conversations, messages } = fakeChat()
+    const app = createApp({ chatData: () => chat, publicData: () => publicData(), assistantModel: createAssistantModel })
+    await sendGreeted(app, TOKEN, 'quiero hacer un pedido')
+    await sendGreeted(app, TOKEN, 'cancelar')
+    await sendGreeted(app, 'b'.repeat(32), 'Hola')
+    expect(conversations.size).toBe(2)
+    const byConversation = [...conversations.keys()].map((id) => messages.filter((m) => m.conversationId === id))
+    // Las dos empiezan con el saludo de Teca.
+    expect(byConversation.every((list) => list[0]!.role === 'assistant' && list[0]!.body.includes('¿cómo te llamas?'))).toBe(true)
+  })
+
+  it('el nombre que dio el cliente queda como nombre de la conversación para el panel', async () => {
+    const { chat } = fakeChat()
+    const app = createApp({ chatData: () => chat, publicData: () => publicData(), assistantModel: createAssistantModel })
+    await sendGreeted(app, TOKEN, 'Ana Pérez')
+    await sendGreeted(app, TOKEN, 'quiero ver los precios')
+    const calls = (chat.record as unknown as { mock: { calls: [RecordInput][] } }).mock.calls.map(([input]) => input)
+    const replies = calls.filter((c) => c.role === 'assistant' && c.body !== undefined && !c.body.includes('¿cómo te llamas?'))
+    expect(replies.some((c) => c.contactName === 'Ana Pérez')).toBe(true)
   })
 })

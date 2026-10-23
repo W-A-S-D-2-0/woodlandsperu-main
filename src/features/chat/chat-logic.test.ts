@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatMessage } from '../../../shared/api/chat'
 import { chatToken } from '../../../shared/api/chat'
-import { createChatToken, lastMessageId, loadChatToken, messageTime, formatSizes, parseBody, photoForModel, typedLength, mergeMessages, splitFlowFooter, statusNotice } from './chat-logic'
+import { createChatToken, lastMessageId, loadChatToken, messageTime, formatSizes, parseBody, photoForModel, typedLength, mergeMessages, splitFlowFooter, startsNewConversation, statusNotice } from './chat-logic'
 
 const msg = (id: number, body = 'x'): ChatMessage => ({ id, role: 'customer', body, createdAt: '2026-10-17T10:00:00Z' })
 
@@ -53,6 +53,39 @@ describe('mensajes', () => {
     expect(statusNotice('needs_human')).toMatch(/anotada para el equipo/)
     expect(statusNotice('needs_human')).toMatch(/asistente sigue/)
     expect(statusNotice('with_human')).toBe(statusNotice('needs_human'))
+  })
+})
+
+describe('startsNewConversation', () => {
+  const teca = (body: string) => ({ role: 'assistant' as const, body })
+  const cancelled = teca('Listo, cancelé el pedido. No dudes en volver a escribirnos.')
+
+  it('tras cancelar, «Hola» o un botón abren una conversación nueva', () => {
+    expect(startsNewConversation(cancelled, 'Hola', false)).toBe(true)
+    expect(startsNewConversation(cancelled, '¡Holaaa! buenas tardes', false)).toBe(true)
+    expect(startsNewConversation(cancelled, 'Ver los productos', true)).toBe(true)
+  })
+
+  it('tras cancelar, otro texto cualquiera sigue en la misma conversación', () => {
+    expect(startsNewConversation(cancelled, 'gracias', false)).toBe(false)
+    expect(startsNewConversation(cancelled, 'quiero hacer un pedido', false)).toBe(false)
+  })
+
+  it('también cuando se registró una cotización o se confirmó el pago', () => {
+    expect(startsNewConversation(teca('Listo, registré tu pedido COT-000012. El equipo lo revisa.'), 'Hola', false)).toBe(true)
+    expect(startsNewConversation(teca('¡Listo, recibimos tu pago de S/ 297.00! Tu pedido PED-000009 ya está en producción.'), 'Pedido para mi empresa', true)).toBe(true)
+  })
+
+  it('un pedido que espera su pago NO termina la conversación: la captura se sube en ella', () => {
+    const waiting = teca('Listo, tu pedido PED-000009 quedó registrado por S/ 297.00.\n\nPara empezar a producir… toca «Subir captura de pago»')
+    expect(startsNewConversation(waiting, 'Hola', false)).toBe(false)
+    expect(startsNewConversation(waiting, 'Ver los productos', true)).toBe(false)
+  })
+
+  it('en plena conversación, ni «Hola» ni un botón la reinician', () => {
+    expect(startsNewConversation(teca('¿Cuántas unidades quieres?'), 'Hola', false)).toBe(false)
+    expect(startsNewConversation({ role: 'customer', body: 'Hola' }, 'Hola', false)).toBe(false)
+    expect(startsNewConversation(undefined, 'Hola', false)).toBe(false)
   })
 })
 

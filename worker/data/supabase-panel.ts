@@ -212,12 +212,17 @@ const ORDER_DETAIL_SELECT = `id, code, status, payment_status, total, created_at
   items:order_items ( id, variant_id, description, quantity, unit_price, line_total, fulfillment_type, custom_dimensions, customization, sort_order )`
 
 const CONVERSATION_LIST_SELECT =
-  'id, channel, status, contact_name, contact_phone, handoff_reason, handoff_requested_at, last_message_at, quote_id'
+  'id, channel, status, contact_name, contact_phone, handoff_reason, handoff_requested_at, created_at, last_message_at, quote_id'
 
 /** Las que esperan a una persona primero; dentro de cada grupo, la más reciente arriba. */
 const STATUS_PRIORITY: Record<string, number> = { needs_human: 0, with_human: 1, open: 2, closed: 3 }
 
-export function toConversationList(rows: Row[]): ConversationListItem[] {
+/**
+ * `triage`: las que esperan a una persona van primero. En la bandeja «Todas» no (`triage: false`): se ordena solo por
+ * la última actividad, así una conversación nueva de hoy no queda enterrada bajo las antiguas.
+ */
+export function toConversationList(rows: Row[], options: { triage?: boolean } = {}): ConversationListItem[] {
+  const triage = options.triage ?? true
   return rows
     .map((row) => {
       const { last, ...rest } = row
@@ -226,7 +231,7 @@ export function toConversationList(rows: Row[]): ConversationListItem[] {
     })
     .sort(
       (a, b) =>
-        (STATUS_PRIORITY[a.status] ?? 9) - (STATUS_PRIORITY[b.status] ?? 9) || b.lastMessageAt.localeCompare(a.lastMessageAt),
+        (triage ? (STATUS_PRIORITY[a.status] ?? 9) - (STATUS_PRIORITY[b.status] ?? 9) : 0) || b.lastMessageAt.localeCompare(a.lastMessageAt),
     )
 }
 
@@ -486,7 +491,7 @@ export const createSupabasePanelData: PanelDataFactory = (env, accessToken) => {
         .limit(LIST_LIMIT)
       if (status) query = query.eq('status', status)
       const rows = check(await query) as Row[]
-      return { items: toConversationList(rows) }
+      return { items: toConversationList(rows, { triage: status !== undefined }) }
     },
     async getConversation(id) {
       const row = check(

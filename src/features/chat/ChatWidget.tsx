@@ -5,7 +5,7 @@ import { chatGreeting } from '../../content/chat-greeting'
 import { PROOF_BUTTON_LABEL } from '../../content/payment'
 import { useBackdropTone } from '../../hooks/useBackdropTone'
 import { ApiError, apiFetch } from '../../lib/api'
-import { createChatToken, lastMessageId, mergeMessages, messageTime, parseBody, statusNotice } from './chat-logic'
+import { createChatToken, lastMessageId, mergeMessages, messageTime, parseBody, startsNewConversation, statusNotice } from './chat-logic'
 import { ChatBody } from './ChatBody'
 import { ChatChips } from './ChatChips'
 import { OPEN_CHAT_EVENT } from './open-chat'
@@ -151,6 +151,14 @@ export function ChatWidget() {
     event?.preventDefault()
     const message = (preset ?? text).trim()
     if (!message || sending) return
+    // Tras cancelar o terminar una operación, «Hola» o un botón empiezan otra conversación (queda aparte en el panel).
+    if (startsNewConversation(messages.at(-1), message, preset !== undefined)) {
+      tokenRef.current = createChatToken()
+      lastIdRef.current = 0
+      setMessages([])
+      setStatus('open')
+      setTypingId(null)
+    }
     // El campo se vacía y el mensaje aparece de inmediato; si falla, se devuelve al campo para reintentar.
     setText('')
     setPending(message)

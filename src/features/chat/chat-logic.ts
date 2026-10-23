@@ -1,4 +1,5 @@
 import type { ChatMessage } from '../../../shared/api/chat'
+import { endsOperation, isGreetingWord } from '../../content/chat-greeting'
 import { modelPhotos, type ModelPhoto } from '../../content/model-photos'
 import { parseMarkerLine, type PreviewMarker, type WhatsappMarker } from '../engraving/preview-marker'
 
@@ -125,6 +126,14 @@ const FLOW_FOOTER = /\n*\(Pedido paso a paso · escribe «cancelar» para salir\
 /** Separa el texto de una respuesta de la frase final del pedido paso a paso (`inFlow` indica que la tenía). */
 export function splitFlowFooter(body: string): { text: string; inFlow: boolean } {
   return FLOW_FOOTER.test(body) ? { text: body.replace(FLOW_FOOTER, '').trimEnd(), inFlow: true } : { text: body, inFlow: false }
+}
+
+/**
+ * ¿Lo que escribe el cliente abre una conversación nueva? Sí cuando la anterior ya terminó (canceló, registró su cotización o
+ * pagó) y toca un botón o saluda con «Hola». Cualquier otra cosa sigue en la misma conversación: por ejemplo, un pedido sin pagar.
+ */
+export function startsNewConversation(last: Pick<ChatMessage, 'role' | 'body'> | undefined, message: string, fromButton: boolean): boolean {
+  return !!last && last.role !== 'customer' && endsOperation(last.body) && (fromButton || isGreetingWord(message))
 }
 
 /** Hora local (HH:MM) de un mensaje; vacío si la fecha no es válida. */

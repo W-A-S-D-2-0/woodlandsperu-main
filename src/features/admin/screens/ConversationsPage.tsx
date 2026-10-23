@@ -176,6 +176,7 @@ function Inbox({
                     <Badge tone={conversationTone(item.status)}>{conversationStatusLabels[item.status]}</Badge>
                     <span className="text-xs text-carbon-600">{conversationChannelLabels[item.channel]}</span>
                     {item.quoteId && <Badge tone="info">Con cotización</Badge>}
+                    <span className="text-xs text-carbon-600">· Inició {formatDateTime(item.createdAt)}</span>
                   </span>
                 </button>
               </li>

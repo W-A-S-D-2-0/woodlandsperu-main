@@ -4,6 +4,8 @@ import { chatGreeting } from '../../src/content/chat-greeting'
 import { createGeminiModel } from '../integrations/gemini'
 import type { ChatChannel, ChatData } from '../data/chat-data'
 import type { PublicData } from '../data/public-data'
+import { customerName } from './engraving-help'
+import { nameFromGreeting } from './guided-flow'
 import { alliesReply, engravingFirst, greetingNameReply, guidedFlowFirst, createGuidedModel, historyHasOrder, quickInfoReply, runAssistant, smallTalkReply, wantsHuman, type AssistantModel } from './assistant'
 
 /** Cuántos mensajes previos ve el asistente: lo bastante para recordar nombre, productos y grabado de toda la charla. */
@@ -110,8 +112,10 @@ export async function handleCustomerMessage(services: ChatServices, message: Cus
   // Reintento del proveedor: ya se respondió la primera vez.
   if (recorded.duplicate) return result
 
+  // El nombre que dio el cliente identifica la conversación en el panel.
+  let contactName: string | undefined
   const reply = async (body: string) => {
-    const saved = await chat.record({ channel: message.channel, ref: message.ref, role: 'assistant', body })
+    const saved = await chat.record({ channel: message.channel, ref: message.ref, role: 'assistant', body, contactName })
     result.messages.push({ id: saved.messageId, role: 'assistant', body, createdAt: now() })
     result.assistantReplies.push(body)
   }
@@ -128,6 +132,7 @@ export async function handleCustomerMessage(services: ChatServices, message: Cus
       chat.history(recorded.conversationId, HISTORY_LIMIT),
       chat.info(recorded.conversationId),
     ])
+    contactName = nameFromGreeting(history) ?? customerName(history)
     const turn = await runAssistant({
       model: services.modelFor(services.env, catalog),
       catalog,
