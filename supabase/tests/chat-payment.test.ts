@@ -65,10 +65,12 @@ describe('record_chat_payment', () => {
     expect(n).toBe(1)
   })
 
-  it('sin stock suficiente el pago queda registrado y el pedido espera al equipo', async () => {
+  it('sin stock suficiente lo que se paga se fabrica a pedido y entra a producción', async () => {
     const id = await newOrder(25, false)
     const result = await pay(id)
-    expect(result).toMatchObject({ status: 'pending_confirmation', payment_status: 'paid' })
+    expect(result).toMatchObject({ status: 'in_production', payment_status: 'paid' })
+    const [item] = await as(db, service, async () => (await db.query<{ fulfillment_type: string }>('select fulfillment_type from public.order_items where order_id = $1', [id])).rows)
+    expect(item!.fulfillment_type).toBe('made_to_order')
   })
 
   it('un pedido cancelado no se puede pagar', async () => {
