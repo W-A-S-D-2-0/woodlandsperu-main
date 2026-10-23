@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CatalogResponse, OrderSubmittedResponse } from '../../shared/api/contracts'
 import { runAssistant, createGuidedModel, guidedFlowFirst, type HistoryMessage } from './assistant'
+import { parseCustomerData } from './guided-flow'
 
 const V1 = '3f2b8c1e-5d4a-4e7b-9a10-2c6d8e9f0a1b'
 const V2 = '4f2b8c1e-5d4a-4e7b-9a10-2c6d8e9f0a1b'
@@ -36,31 +37,43 @@ async function chat(...messages: string[]) {
   return { out, history }
 }
 
-/** Los datos de quien compra se piden primero: nombre, correo, celular, dirección y si es persona o empresa. */
-const DATA = ['Ana Pérez', 'ana@example.com', '987 654 321', 'Jr. Lima 123, Tarapoto', 'persona']
+/** Los datos de quien compra se piden primero, en un solo mensaje, y después si es persona o empresa. */
+const DATA = ['Ana Pérez, ana@example.com, 987 654 321, Jr. Lima 123, Tarapoto', 'persona']
 
 describe('pedido paso a paso sin IA', () => {
-  it('pide primero nombre, correo, celular y dirección, y recién después las tablas', async () => {
+  it('pide los datos en un solo mensaje y con ellos completos pasa directo a las tablas', async () => {
     const first = await chat('quiero hacer un pedido')
-    expect(first.out.text).toMatch(/nombre, correo, celular y dirección/)
-    expect(first.out.text).toMatch(/A nombre de quién/)
-    const steps = [
-      ['Ana Pérez', /Escribe tu correo/],
-      ['ana@example.com', /Escribe tu celular/],
-      ['987654321', /Escribe tu dirección/],
-      ['Jr. Lima 123, Tarapoto', /persona.*empresa/],
-      ['persona', /Responde con el número/],
-    ] as const
-    for (let i = 0; i < steps.length; i++) {
-      const { out } = await chat('quiero hacer un pedido', ...steps.slice(0, i + 1).map(([answer]) => answer))
-      expect(out.text).toMatch(steps[i]![1])
-    }
+    expect(first.out.text).toMatch(/en un solo mensaje: nombre completo, correo, celular y dirección/)
+    const done = await chat('quiero hacer un pedido', DATA[0]!)
+    expect(done.out.text).toMatch(/persona.*empresa/)
+    expect((await chat('quiero hacer un pedido', DATA[0]!, 'persona')).out.text).toMatch(/Responde con el número/)
   })
 
-  it('no avanza con un correo, un celular o una dirección que no sirven', async () => {
-    expect((await chat('quiero hacer un pedido', 'Ana Pérez', 'ana arroba correo')).out.text).toMatch(/No vi un correo válido/)
-    expect((await chat('quiero hacer un pedido', 'Ana Pérez', 'ana@example.com', '123')).out.text).toMatch(/No vi un celular válido/)
-    expect((await chat('quiero hacer un pedido', 'Ana Pérez', 'ana@example.com', '987654321', 'Lima')).out.text).toMatch(/dirección de entrega completa/)
+  it('si faltan datos en ese mensaje, pide solo lo que falta', async () => {
+    expect((await chat('quiero hacer un pedido', 'Ana Pérez, ana@example.com')).out.text).toMatch(/Me falta tu celular/)
+    expect((await chat('quiero hacer un pedido', 'Ana Pérez, 987654321, Jr. Lima 123, Tarapoto')).out.text).toMatch(/Me falta tu correo/)
+    expect((await chat('quiero hacer un pedido', 'ana@example.com, 987654321, Jr. Lima 123, Tarapoto')).out.text).toMatch(/Me faltó tu nombre/)
+    const { out } = await chat('quiero hacer un pedido', 'Ana Pérez, ana@example.com, 987654321')
+    expect(out.text).toMatch(/Me falta tu dirección/)
+    expect((await chat('quiero hacer un pedido', 'Ana Pérez, ana@example.com, 987654321', 'Jr. Lima 123, Tarapoto')).out.text).toMatch(/persona.*empresa/)
+  })
+
+  it('si el mensaje no trae ningún dato, lo vuelve a pedir', async () => {
+    expect((await chat('quiero hacer un pedido', '123')).out.text).toMatch(/No pude leer tus datos/)
+  })
+
+  it('lee los datos con etiquetas, en varias líneas y con celular con espacios o +51', () => {
+    expect(parseCustomerData('Nombre: Luis Rojas\nCorreo: luis@acme.pe\nCelular: +51 999 888 777\nDirección: Av. Perú 456, Lima')).toEqual({
+      name: 'Luis Rojas',
+      email: 'luis@acme.pe',
+      phone: '+51999888777',
+      address: 'Av. Perú 456, Lima',
+    })
+    expect(parseCustomerData('Soy María Ríos, maria@x.com, 987 654 321, Calle Los Pinos 25 Mz B, San Martín')).toMatchObject({
+      name: 'María Ríos',
+      phone: '987654321',
+      address: 'Calle Los Pinos 25 Mz B, San Martín',
+    })
   })
 
   it('lleva un pedido completo hasta crear la orden', async () => {
@@ -86,7 +99,7 @@ describe('pedido paso a paso sin IA', () => {
   })
 
   it('un producto sin precio termina como cotización, y el modelo se reconoce por nombre', async () => {
-    const { out } = await chat('quiero pedir Serving Board Grande', 'Luis', 'luis@example.com', '999 888 777', 'Av. Perú 456, Lima', 'persona', '5', 'no', 'no', 'si')
+    const { out } = await chat('quiero pedir Serving Board Grande', 'Luis Rojas, luis@example.com, 999 888 777, Av. Perú 456, Lima', 'persona', '5', 'no', 'no', 'si')
     expect(out.call?.name).toBe('create_quote_request')
     expect(out.call?.args).toMatchObject({ phone: '999888777', items: [{ variantId: V3, quantity: 5 }] })
   })
@@ -109,18 +122,18 @@ describe('pedido paso a paso sin IA', () => {
   })
 
   it('se puede cancelar y empezar de nuevo', async () => {
-    const { out } = await chat('quiero cotizar', 'Ana Pérez', 'cancelar')
+    const { out } = await chat('quiero cotizar', 'cancelar')
     expect(out.text).toMatch(/cancelé/)
-    const again = await chat('quiero cotizar', 'Ana Pérez', 'cancelar', 'quiero cotizar')
-    expect(again.out.text).toMatch(/A nombre de quién/)
+    const again = await chat('quiero cotizar', 'cancelar', 'quiero cotizar')
+    expect(again.out.text).toMatch(/en un solo mensaje/)
   })
 
   it('guidedFlowFirst inicia el pedido al pedir cotizar y no interviene en otras consultas', async () => {
-    expect(guidedFlowFirst([{ role: 'customer', body: 'quiero cotizar' }], catalog)?.text).toMatch(/A nombre de quién/)
+    expect(guidedFlowFirst([{ role: 'customer', body: 'quiero cotizar' }], catalog)?.text).toMatch(/en un solo mensaje/)
     expect(guidedFlowFirst([{ role: 'customer', body: 'cuéntame sobre la teca' }], catalog)).toBeNull()
     const { history } = await chat('quiero cotizar')
     const next = guidedFlowFirst([...history, { role: 'customer', body: 'Ana Pérez' }], catalog)
-    expect(next?.text).toMatch(/Escribe tu correo/)
+    expect(next?.text).toMatch(/Me falta tu correo/)
   })
 
   it('una consulta de precios no inicia el pedido', async () => {
@@ -136,7 +149,7 @@ describe('pedido paso a paso sin IA', () => {
   })
 
   it('un pedido con logo siempre queda como cotización para que el equipo coordine el archivo', async () => {
-    const { out } = await chat('Quiero cotizar 20 tablas con el logo de mi empresa (archivo logo.png)', 'Luis', 'luis@acme.pe', '987654321', 'Av. Industrial 99, Lima', 'empresa', 'Acme SAC', '1', 'no', 'no', 'sí')
+    const { out } = await chat('Quiero cotizar 20 tablas con el logo de mi empresa (archivo logo.png)', 'Luis Rojas, luis@acme.pe, 987654321, Av. Industrial 99, Lima', 'empresa', 'Acme SAC', '1', 'no', 'no', 'sí')
     expect(out.call?.name).toBe('create_quote_request')
     expect(JSON.stringify(out.call?.args)).toContain('logo.png')
     expect(out.call?.args).toMatchObject({ customerType: 'business', companyName: 'Acme SAC', items: [{ quantity: 20 }] })

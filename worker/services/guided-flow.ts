@@ -13,9 +13,10 @@ import type { HistoryMessage, ModelOutput } from './assistant'
 /** Cierra cada pregunta del flujo: así se reconoce, en el historial, que el flujo sigue en marcha. */
 const FOOTER = '(Pedido paso a paso · escribe «cancelar» para salir)'
 
-type Step = 'done' | 'name' | 'email' | 'phone' | 'address' | 'type' | 'company' | 'product' | 'qty' | 'engrave' | 'more' | 'confirm' | 'big'
+type Step = 'done' | 'data' | 'name' | 'email' | 'phone' | 'address' | 'type' | 'company' | 'product' | 'qty' | 'engrave' | 'more' | 'confirm' | 'big'
 
 const TAGS: Record<Exclude<Step, 'big' | 'done'>, string> = {
+  data: 'tus datos',
   name: '¿A nombre de quién',
   email: 'tu correo',
   phone: 'tu celular',
@@ -30,7 +31,8 @@ const TAGS: Record<Exclude<Step, 'big' | 'done'>, string> = {
 }
 
 /** Lo primero que el flujo pide: los datos de quien compra. */
-const INTRO = 'Para dejar tu pedido listo necesito primero unos datos tuyos (nombre, correo, celular y dirección) y luego eliges tus tablas.'
+const DATA_REQUEST =
+  'Para dejar tu pedido listo necesito primero tus datos. Envíamelos en un solo mensaje: nombre completo, correo, celular y dirección de entrega (calle, número, distrito y ciudad).\n\nEjemplo: Ana Pérez, ana@correo.com, 987654321, Jr. Lima 123, Tarapoto'
 
 const CUSTOM = /a medida|medida propia|otra medida|diseno propio|diseno especial|personalizad[ao] aparte|no esta en|ninguno de/
 const CUSTOM_LABEL = 'Pieza a medida o diseño propio'
@@ -86,6 +88,7 @@ function parseQty(text: string): number | null {
 
 function nextStep(f: Flow): Step {
   // Primero los datos de quien compra; después, las tablas.
+  if (!f.name && !f.email && !f.phone && !f.address) return 'data'
   if (!f.name) return 'name'
   if (!f.email) return 'email'
   if (!f.phone) return 'phone'
@@ -153,14 +156,16 @@ function question(step: Step, f: Flow, catalog: CatalogResponse): string {
       return `${TAGS.type}? Responde «persona» o «empresa».`
     case 'company':
       return `${TAGS.company}?`
+    case 'data':
+      return DATA_REQUEST
     case 'name':
-      return `${TAGS.name} registro el pedido? Escribe tu nombre completo.`
+      return `Me faltó tu nombre. ${TAGS.name} registro el pedido? Escribe tu nombre completo.`
     case 'email':
-      return `Escribe ${TAGS.email}, para enviarte la confirmación.`
+      return `Me falta tu correo. Escribe ${TAGS.email}, para enviarte la confirmación.`
     case 'phone':
-      return `Escribe ${TAGS.phone} (con el que te contactamos para la entrega).`
+      return `Me falta tu celular. Escribe ${TAGS.phone} (con el que te contactamos para la entrega).`
     case 'address':
-      return `Escribe ${TAGS.address} de entrega (calle, número, distrito y ciudad).`
+      return `Me falta tu dirección. Escribe ${TAGS.address} de entrega (calle, número, distrito y ciudad).`
     case 'confirm':
       return `${summary(f).text}\n\n${TAGS.confirm} el pedido? (sí/no)`
     case 'big':
@@ -223,6 +228,13 @@ function apply(step: Step, raw: string, f: Flow, catalog: CatalogResponse): stri
       if (text.length < 2) return 'Escribe el nombre de tu empresa.'
       f.company = text.slice(0, 200)
       return null
+    case 'data': {
+      const found = parseCustomerData(text)
+      Object.assign(f, found)
+      return found.name || found.email || found.phone || found.address
+        ? null
+        : 'No pude leer tus datos. Envíalos en un solo mensaje: nombre completo, correo, celular y dirección.'
+    }
     case 'name': {
       const name = text.replace(/^(me llamo|mi nombre es|soy|nombre:?)\s+/i, '').trim()
       if (name.length < 2 || /@|\d{5,}/.test(name) || !/\p{L}/u.test(name)) return 'Escribe tu nombre, por favor.'
@@ -255,6 +267,43 @@ function apply(step: Step, raw: string, f: Flow, catalog: CatalogResponse): stri
     case 'done':
       return null
   }
+}
+
+/**
+ * Lee los datos del cliente de un solo mensaje: «Ana Pérez, ana@correo.com, 987654321, Jr. Lima 123, Tarapoto».
+ * Acepta también líneas con etiqueta («Nombre: …»). Lo que no encuentra queda sin llenar y el flujo lo pide aparte.
+ */
+export function parseCustomerData(raw: string): Pick<Flow, 'name' | 'email' | 'phone' | 'address'> {
+  let rest = raw
+  const email = rest.match(/[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+/)?.[0]
+  if (email) rest = rest.replace(email, ' ')
+  const mobile = rest.match(/(?:\+?51[\s-]?)?9\d{2}[\s-]?\d{3}[\s-]?\d{3}\b/)?.[0]
+  const phone = mobile ?? rest.match(/\+?\d[\d\s()-]{5,}\d/)?.[0]
+  if (phone) rest = rest.replace(phone, ' ')
+  const digits = phone?.replace(/[\s()-]/g, '')
+
+  const out: Pick<Flow, 'name' | 'email' | 'phone' | 'address'> = {}
+  if (email) out.email = email.slice(0, 254)
+  if (digits && /^\+?[0-9]{7,15}$/.test(digits)) out.phone = digits
+
+  const label = /^(nombre completo|nombre|direcci[oó]n|dir|correo|e-?mail|celular|tel[eé]fono|tel|cel)\s*:?\s*/i
+  const segments = rest
+    .split(/[\n,;|]+/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+  const addressParts: string[] = []
+  for (const [index, segment] of segments.entries()) {
+    const tag = segment.match(label)?.[1]?.toLowerCase() ?? ''
+    const value = segment.replace(label, '').trim()
+    if (!value) continue
+    if (/^nombre/.test(tag)) out.name = value.slice(0, 160)
+    else if (/^dir/.test(tag)) addressParts.push(value)
+    else if (index === 0 && !out.name && !tag && /\p{L}/u.test(value) && !/\d/.test(value)) out.name = value.replace(/^(me llamo|mi nombre es|soy)\s+/i, '').slice(0, 160)
+    else if (value.length > 1 && !/^(correo|celular|tel[eé]fono)$/i.test(value)) addressParts.push(value)
+  }
+  const address = addressParts.join(', ')
+  if (address.length >= 6 && /\p{L}/u.test(address)) out.address = address.slice(0, 300)
+  return out
 }
 
 function matchEntry(text: string, list: Entry[], allowFilter: boolean): { kind: 'ok'; entry: Entry } | { kind: 'filter'; product: CatalogProduct } | { kind: 'none' } {
@@ -356,11 +405,9 @@ export function guidedFlowReply(history: readonly HistoryMessage[], catalog: Cat
   const lastMessage = history[last]
   if (lastMessage?.role !== 'customer') return null
   // El flujo arranca solo si se permite; si ya estaba en marcha, continúa siempre.
-  let fresh = false
   if (!flow) {
     if (!options.allowStart || !candidate) return null
     flow = candidate
-    fresh = true
   }
 
   const step = nextStep(flow)
@@ -387,8 +434,7 @@ export function guidedFlowReply(history: readonly HistoryMessage[], catalog: Cat
     }
     return { text: '', call: { name: s.allPriced && !flow.logo && s.units <= WEB_ORDER_MAX_UNITS ? 'create_order' : 'create_quote_request', args } }
   }
-  const intro = fresh && step === 'name' ? `${INTRO}\n\n` : ''
-  const prompt = `${intro}${question(step, flow, catalog)}
+  const prompt = `${question(step, flow, catalog)}
 ${FOOTER}`
   if (lastError) {
     const info = options.info(history[last]!.body)
