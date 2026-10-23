@@ -1,0 +1,8 @@
+# Cabeceras de seguridad para los assets estáticos (Workers Static Assets).
+# Las respuestas de /api/* reciben sus cabeceras desde el Worker (Hono secureHeaders).
+# La Content-Security-Policy se definirá cuando se integren Supabase, Mercado Pago y la IA.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()

@@ -1,0 +1,36 @@
+# Secretos y variables del Worker para desarrollo local.
+# Copia este archivo como `.dev.vars` (está en .gitignore) y completa solo lo que la fase actual necesite.
+# En Cloudflare se cargan con `npx wrangler secret put NOMBRE`. Nunca los subas al repositorio.
+#
+# wrangler.jsonc define APP_ENV=production por seguridad; en local lo sobrescribimos.
+APP_ENV=development
+
+# --- Fase 2 · Supabase ---
+# URL del proyecto y clave publicable (sb_publishable_...). Son públicas y están protegidas por RLS.
+# Vacías = la autenticación del panel queda desactivada (la API responde 503).
+SUPABASE_URL=
+SUPABASE_PUBLISHABLE_KEY=
+# Clave secreta (sb_secret_..., omite RLS). Solo backend; la usan POST /api/quotes y POST /api/orders/status (Fase 3). Jamás en el frontend.
+# SUPABASE_SECRET_KEY=
+
+# --- Fase 4 · Asistente (Gemini). Sin clave el asistente responde en modo guiado, sin IA ---
+# GEMINI_API_KEY=
+# GEMINI_MODEL=gemini-flash-latest
+
+# --- Fase 5 · Mercado Pago Perú (solo credenciales de PRUEBA durante la hackathon) ---
+# MERCADOPAGO_ACCESS_TOKEN=
+# MERCADOPAGO_WEBHOOK_SECRET=
+
+# --- Fase 6 · WhatsApp Cloud API (Meta) ---
+# WHATSAPP_ACCESS_TOKEN=
+# WHATSAPP_PHONE_NUMBER_ID=
+# WHATSAPP_APP_SECRET=
+# WHATSAPP_VERIFY_TOKEN=
+
+# --- Fase 8 · Google Sheets (exportación unidireccional) ---
+# Correo de la cuenta de servicio (termina en iam.gserviceaccount.com).
+# GOOGLE_SERVICE_ACCOUNT_EMAIL=
+# Campo private_key del JSON de la cuenta (-----BEGIN PRIVATE KEY-----...). En una sola línea, con \n literales.
+# GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=
+# Id de la hoja de cálculo: lo que va entre /d/ y /edit en su URL. Compártela como Editor con el correo de arriba.
+# GOOGLE_SHEETS_REPORT_ID=

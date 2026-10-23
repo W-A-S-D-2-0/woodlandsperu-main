@@ -1,0 +1,21 @@
+/**
+ * Worker SOLO de la API (Hono) para el despliegue en producción con Vercel:
+ *   - La landing y el panel son dos proyectos de Vercel (archivos estáticos).
+ *   - Ambos reenvían /api/* a este Worker (ver vercel.json).
+ * Sin assets ni rutas de /panel: este Worker no sirve páginas.
+ * Desplegar con: npm run deploy:api  (requiere sesión de Cloudflare: npx wrangler login).
+ * Los secretos NO van aquí: se cargan con `wrangler secret put <NOMBRE> --config wrangler.api.jsonc`.
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "woodland-peru-api",
+	"main": "worker/index.ts",
+	"compatibility_date": "2026-10-06",
+	"observability": { "enabled": true },
+	"upload_source_maps": true,
+	"vars": { "APP_ENV": "production" },
+	"ratelimits": [
+		{ "name": "PUBLIC_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
+		{ "name": "CHAT_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 40, "period": 60 } }
+	]
+}

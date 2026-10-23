@@ -1,0 +1,5 @@
+-- Datos semilla para la base LOCAL de Supabase (`supabase db reset`).
+--
+-- Intencionalmente vacío: el catálogo y el inventario reales se importarán en la Fase 3
+-- desde INVENTARIO.xlsx con un script que valida cada fila. Ese archivo es confidencial
+-- y no se versiona. No agregues aquí productos, precios ni clientes inventados.

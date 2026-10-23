@@ -1,0 +1,49 @@
+/**
+ * Configuración de Wrangler para Woodland Perú.
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ *
+ * - La SPA (React) se sirve como assets estáticos.
+ * - Todo lo que esté bajo /api/* lo atiende primero el Worker (Hono).
+ * - /panel/* es el sistema interno: el Worker sirve su propio HTML (no la landing).
+ * - Los secretos NO van aquí: en local van en .dev.vars y en Cloudflare con `wrangler secret put`.
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "woodland-peru",
+	"main": "worker/index.ts",
+	"compatibility_date": "2026-10-06",
+	"assets": {
+		"binding": "ASSETS",
+		"not_found_handling": "single-page-application",
+		// /api: API (Hono). /panel: sistema interno, otra app con su propio HTML (ver worker/panel.ts).
+		"run_worker_first": ["/api/*", "/panel", "/panel/*"]
+	},
+	"observability": {
+		"enabled": true
+	},
+	"upload_source_maps": true,
+	/**
+	 * Variables no secretas. APP_ENV controla salvaguardas (p. ej., el proveedor de pagos MOCK
+	 * solo podrá activarse fuera de "production"). Valores: development | staging | production.
+	 * El valor base es "production" (el más restrictivo); en local se sobrescribe desde .dev.vars.
+	 */
+	"vars": {
+		"APP_ENV": "production"
+	},
+	/**
+	 * Límite de abuso para los endpoints públicos que escriben o consultan datos
+	 * (POST /api/quotes y /api/orders/status): 10 solicitudes por minuto y por IP.
+	 */
+	"ratelimits": [
+		{
+			"name": "PUBLIC_RATE_LIMITER",
+			"namespace_id": "1001",
+			"simple": { "limit": 10, "period": 60 }
+		},
+		{
+			"name": "CHAT_RATE_LIMITER",
+			"namespace_id": "1002",
+			"simple": { "limit": 40, "period": 60 }
+		}
+	]
+}
