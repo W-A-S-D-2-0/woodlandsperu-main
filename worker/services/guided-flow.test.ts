@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CatalogResponse, OrderSubmittedResponse } from '../../shared/api/contracts'
-import { runAssistant, createGuidedModel, guidedFlowFirst, type HistoryMessage } from './assistant'
+import { runAssistant, createGuidedModel, greetingNameReply, guidedFlowFirst, type HistoryMessage } from './assistant'
 import { parseCustomerData } from './customer-data'
 import { looksLikeName, nameFromGreeting } from './guided-flow'
 
@@ -204,5 +204,39 @@ describe('el nombre que se da en el saludo', () => {
     expect(guidedFlowFirst(history, catalog)?.text).toMatch(/persona.*empresa/)
     // Sin nombre en el saludo, el pedido lo pide.
     expect(guidedFlowFirst([greeting, { role: 'customer', body: 'quiero hacer un pedido' }], catalog)?.text).toMatch(/A nombre de quién/)
+  })
+})
+
+describe('saludo junto con el nombre', () => {
+  it('«Hola, me llamo Hugo» se entiende como el nombre Hugo', () => {
+    expect(looksLikeName('Hola, me llamo Hugo.')).toBe('Hugo')
+    expect(looksLikeName('hola soy María José')).toBe('María José')
+    expect(looksLikeName('Buenas tardes, mi nombre es Luis Rojas')).toBe('Luis Rojas')
+    expect(looksLikeName('¡Hola! Hugo')).toBe('Hugo')
+    expect(looksLikeName('Hola buenas, soy Hugo')).toBe('Hugo')
+  })
+
+  it('un saludo solo, o con una consulta, no es un nombre', () => {
+    for (const text of ['Hola', 'hola!', 'Buenas tardes', 'hola, quiero ver los precios', 'hola ¿cuánto cuesta?']) {
+      expect(looksLikeName(text), text).toBeNull()
+    }
+  })
+
+  it('Teca devuelve el saludo y usa el nombre', () => {
+    const greeting = { role: 'assistant' as const, body: '¡Hola! Soy Teca. Para empezar, ¿cómo te llamas?' }
+    expect(greetingNameReply([greeting, { role: 'customer', body: 'Hola, me llamo Hugo.' }])).toBe('¡Hola, Hugo! Mucho gusto. ¿Qué te interesa: precios, plazos, grabado o hacer un pedido?')
+    expect(greetingNameReply([greeting, { role: 'customer', body: 'Ana' }])).toBe('Mucho gusto, Ana. ¿Qué te interesa: precios, plazos, grabado o hacer un pedido?')
+    expect(greetingNameReply([greeting, { role: 'customer', body: 'Hola' }])).toBeNull()
+  })
+
+  it('el pedido que sigue usa ese nombre sin volver a preguntarlo', () => {
+    const history = [
+      { role: 'assistant' as const, body: '¡Hola! Soy Teca. Para empezar, ¿cómo te llamas?' },
+      { role: 'customer' as const, body: 'Hola, me llamo Hugo.' },
+      { role: 'assistant' as const, body: '¡Hola, Hugo! Mucho gusto.' },
+      { role: 'customer' as const, body: 'quiero hacer un pedido' },
+    ]
+    expect(nameFromGreeting(history)).toBe('Hugo')
+    expect(guidedFlowFirst(history, catalog)?.text).toMatch(/persona.*empresa/)
   })
 })

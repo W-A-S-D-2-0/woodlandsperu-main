@@ -3,7 +3,7 @@ import { quoteRequestSchema, WEB_ORDER_MAX_UNITS, type QuoteRequestInput } from 
 import { assistantKnowledge, knowledgeForPrompt } from '../../src/content/assistant-knowledge'
 import { alliancesContent } from '../../src/content/alliances'
 import { deliveryBands, deliveryNote, deliveryUnknown } from '../../src/content/delivery'
-import { GREETING_ASK } from '../../src/content/chat-greeting'
+import { GREETING_ASK, isGreetingWord } from '../../src/content/chat-greeting'
 import { engravingHelpReply } from './engraving-help'
 import { paymentChatText, paymentConfigured, paymentLines, paymentRequestText } from '../../src/content/payment'
 import { guidedFlowReply, looksLikeName } from './guided-flow'
@@ -481,7 +481,10 @@ export function greetingNameReply(history: readonly HistoryMessage[]): string | 
   const name = looksLikeName(last.body)
   if (!name) return null
   const first = name.split(/\s+/)[0]!
-  return `Mucho gusto, ${first.charAt(0).toUpperCase()}${first.slice(1)}. ¿Qué te interesa: precios, plazos, grabado o hacer un pedido?`
+  const who = `${first.charAt(0).toUpperCase()}${first.slice(1)}`
+  const ask = '¿Qué te interesa: precios, plazos, grabado o hacer un pedido?'
+  // Si el cliente saludó («Hola, me llamo Hugo»), Teca devuelve el saludo.
+  return isGreetingWord(last.body) ? `¡Hola, ${who}! Mucho gusto. ${ask}` : `Mucho gusto, ${who}. ${ask}`
 }
 
 export function smallTalkReply(body: string): string | null {

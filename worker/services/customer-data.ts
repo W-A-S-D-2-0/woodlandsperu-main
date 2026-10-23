@@ -50,6 +50,8 @@ const NOT_A_NAME = /\?|\d|@|\b(cancel\w*|salir|olvid\w*|nuevo|hola|buenas|buenos
 export function looksLikeName(text: string): string | null {
   const t = text
     .trim()
+    // «Hola, me llamo Hugo»: se quita el saludo del inicio y luego «me llamo» / «soy».
+    .replace(/^[¡¿]?(?:(?:hola|holi|holis|buenas(?: tardes| noches| d[ií]as)?|buenos d[ií]as|hey|hi)[\s,.!:;-]*)+/i, '')
     .replace(/^(me llamo|mi nombre es|soy|nombre:?)\s+/i, '')
     .replace(/[.!¡]+$/g, '')
     .trim()

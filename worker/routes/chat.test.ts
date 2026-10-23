@@ -768,3 +768,17 @@ describe('cancelar y empezar otra conversación', () => {
     expect(replies.some((c) => c.contactName === 'Ana Pérez')).toBe(true)
   })
 })
+
+describe('«Hola, me llamo Hugo» como primer mensaje', () => {
+  it('devuelve el saludo con el nombre y no repite la presentación', async () => {
+    const { chat, conversations } = fakeChat()
+    const app = createApp({ chatData: () => chat, publicData: () => publicData(), assistantModel: createAssistantModel })
+    const res = await app.request('/api/chat/messages', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token: TOKEN, message: 'Hola, me llamo Hugo.', greeted: true }) }, { APP_ENV: 'development' } as Env)
+    const body = (await res.json()) as ChatResponse
+    const reply = body.messages.at(-1)!.body
+    expect(reply).toBe('¡Hola, Hugo! Mucho gusto. ¿Qué te interesa: precios, plazos, grabado o hacer un pedido?')
+    expect(reply).not.toMatch(/Soy Teca/)
+    expect(body.status).toBe('open')
+    expect([...conversations.values()]).toHaveLength(1)
+  })
+})
