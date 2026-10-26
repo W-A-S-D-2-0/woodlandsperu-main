@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router'
 import { Wordmark } from '../../components/ui/Wordmark'
 import { PUBLIC_SITE_URL } from '../../lib/public-site'
 import { roleLabels, useStaffSession } from '../auth/auth-context'
+import { SignOutButton } from '../auth/SignOutButton'
 import type { StaffRole } from '../../../shared/api/contracts'
 import { LowStockAlarm } from './LowStockAlarm'
 import { modulesFor } from './modules'
@@ -75,13 +76,10 @@ export function AdminLayout() {
           </p>
           {/* Vigila el stock bajo en todo el panel y suena la alarma. */}
           <LowStockAlarm inventoryPath="/inventario" />
-          <button
-            type="button"
-            onClick={() => void signOut()}
+          <SignOutButton
+            onConfirm={signOut}
             className="inline-flex min-h-10 shrink-0 items-center rounded-full border border-nogal/30 px-4 text-sm font-medium text-nogal transition-colors hover:border-nogal hover:bg-nogal/5"
-          >
-            Cerrar sesión
-          </button>
+          />
         </div>
         <main className="flex-1 px-5 py-8 sm:px-8">
           <Outlet />

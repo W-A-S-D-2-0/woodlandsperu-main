@@ -84,8 +84,8 @@ export function RequireStaff() {
           </button>
         }
       >
-        Tu cuenta no está registrada como personal activo de Woodland. Si crees que es un error, contacta a
-        administración.
+        Tu cuenta aún no tiene acceso al panel. Si acabas de crearla, administración debe aprobarla; si crees que es un
+        error, contacta a administración.
       </AuthNotice>
     )
   }

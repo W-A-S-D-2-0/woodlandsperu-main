@@ -9,8 +9,26 @@ export interface AuthContextValue {
   session: Session | null
   /** Devuelve un mensaje de error para mostrar, o null si inició sesión. */
   signIn: (email: string, password: string) => Promise<string | null>
+  /** Crea la cuenta (sin acceso al panel hasta que administración la apruebe). Devuelve un error o el siguiente paso. */
+  signUp: (input: SignUpInput) => Promise<{ error: string } | { error: null; needsConfirmation: boolean }>
+  /** Envía el enlace para restablecer la contraseña. Devuelve un error para mostrar, o null. */
+  requestPasswordReset: (email: string) => Promise<string | null>
+  /** Guarda la contraseña nueva de quien llegó por el enlace del correo. Devuelve un error o null. */
+  updatePassword: (password: string) => Promise<string | null>
+  /** La persona llegó por el enlace de «restablecer contraseña» y debe elegir una nueva. */
+  recovering: boolean
   signOut: () => Promise<void>
 }
+
+export interface SignUpInput {
+  firstName: string
+  lastName: string
+  email: string
+  password: string
+}
+
+/** Largo mínimo de la contraseña (el mismo que exige Supabase en su configuración). */
+export const MIN_PASSWORD_LENGTH = 8
 
 export const AuthContext = createContext<AuthContextValue | null>(null)
 
@@ -49,4 +67,20 @@ export function safeNextPath(value: string | null): string {
     return '/'
   }
   return value
+}
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/** Mensaje si la contraseña no sirve (o no coincide con su repetición); null si está bien. */
+export function validateNewPassword(password: string, repeat: string): string | null {
+  if (password.length < MIN_PASSWORD_LENGTH) return `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`
+  if (password !== repeat) return 'Las contraseñas no coinciden.'
+  return null
+}
+
+/** Mensaje si falta o está mal algún dato para crear la cuenta; null si todo está bien. */
+export function validateSignUp(input: SignUpInput, repeat: string): string | null {
+  if (!input.firstName.trim() || !input.lastName.trim()) return 'Ingresa tu nombre y tu apellido.'
+  if (!EMAIL.test(input.email.trim())) return 'Ingresa un correo válido.'
+  return validateNewPassword(input.password, repeat)
 }
