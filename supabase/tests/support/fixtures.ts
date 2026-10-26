@@ -27,14 +27,16 @@ export async function seedFixtures(db: PGlite): Promise<void> {
     delete from public.products;
     delete from public.categories;
 
-    -- Las cuentas de prueba reciben su rol a mano: sin cupos abiertos de registro.
-    update public.staff_signup set open_slots = 0;
+    -- Las cuentas de prueba reciben su rol a mano: se quita el que da el registro.
+    alter table auth.users disable trigger staff_from_invite;
 
     insert into auth.users (id, email) values
       ('${ids.admin}', 'admin@test.local'),
       ('${ids.workshop}', 'taller@test.local'),
       ('${ids.outsider}', 'otro@test.local'),
       ('${ids.inactiveStaff}', 'baja@test.local');
+
+    alter table auth.users enable trigger staff_from_invite;
 
     insert into public.staff_members (user_id, role, full_name, is_active) values
       ('${ids.admin}', 'admin', 'Admin de prueba', true),
