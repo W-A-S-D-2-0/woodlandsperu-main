@@ -27,6 +27,9 @@ export async function seedFixtures(db: PGlite): Promise<void> {
     delete from public.products;
     delete from public.categories;
 
+    -- Las cuentas de prueba reciben su rol a mano: sin cupos abiertos de registro.
+    update public.staff_signup set open_slots = 0;
+
     insert into auth.users (id, email) values
       ('${ids.admin}', 'admin@test.local'),
       ('${ids.workshop}', 'taller@test.local'),

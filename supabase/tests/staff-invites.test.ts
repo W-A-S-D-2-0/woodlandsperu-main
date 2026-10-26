@@ -11,6 +11,7 @@ beforeAll(async () => {
   db = await createTestDb()
   await seedFixtures(db)
   await db.exec(`insert into public.staff_invites (email, role, full_name) values ('dueno@test.local', 'admin', 'Dueño de prueba')`)
+  await db.exec(`insert into public.staff_signup (singleton, open_slots) values (true, 2) on conflict (singleton) do update set open_slots = 2`)
 }, 60_000)
 
 const newUser = (id: string, email: string, meta = '{}') =>
@@ -26,10 +27,18 @@ describe('cuentas nuevas y lista de acceso', () => {
     expect(await staffOf(id)).toEqual([{ role: 'admin', full_name: 'Ana Quispe', is_active: true }])
   })
 
-  it('un correo que no está en la lista se registra pero queda sin acceso', async () => {
-    const id = '00000000-0000-4000-8000-0000000000a2'
-    await newUser(id, 'cualquiera@example.com', JSON.stringify({ full_name: 'Intruso' }))
-    expect(await staffOf(id)).toEqual([])
+  it('sin invitación, las primeras cuentas entran como administración y al agotarse el cupo ya no', async () => {
+    const ana = '00000000-0000-4000-8000-0000000000a2'
+    const luis = '00000000-0000-4000-8000-0000000000a3'
+    const intruso = '00000000-0000-4000-8000-0000000000a4'
+    await newUser(ana, 'ana@example.com', JSON.stringify({ full_name: 'Ana Quispe' }))
+    await newUser(luis, 'luis@example.com', JSON.stringify({ full_name: 'Luis Ramos' }))
+    await newUser(intruso, 'cualquiera@example.com', JSON.stringify({ full_name: 'Intruso' }))
+    expect(await staffOf(ana)).toEqual([{ role: 'admin', full_name: 'Ana Quispe', is_active: true }])
+    expect(await staffOf(luis)).toHaveLength(1)
+    expect(await staffOf(intruso)).toEqual([])
+    const left = await as(db, service, () => db.query('select open_slots from public.staff_signup'))
+    expect(left.rows).toEqual([{ open_slots: 0 }])
   })
 
   it('la lista de acceso no se lee ni se edita desde la web', async () => {
@@ -39,5 +48,8 @@ describe('cuentas nuevas y lista de acceso', () => {
     }
     const rows = await as(db, service, () => db.query('select email from public.staff_invites'))
     expect(rows.rows).toHaveLength(1)
+    for (const actor of [anon, user(ids.admin)]) {
+      await expect(as(db, actor, () => db.query('update public.staff_signup set open_slots = 99'))).rejects.toThrow(/permission denied/)
+    }
   })
 })
