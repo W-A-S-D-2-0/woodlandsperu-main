@@ -37,8 +37,37 @@ export function mergeMessages(current: readonly ChatMessage[], incoming: readonl
   return [...byId.values()].sort((a, b) => a.id - b.id)
 }
 
+/** Último id guardado en el servidor. Los mensajes que no se guardan (agresión) llevan un id con decimales y no cuentan. */
 export function lastMessageId(messages: readonly ChatMessage[]): number {
-  return messages.reduce((max, m) => Math.max(max, m.id), 0)
+  return messages.reduce((max, m) => (Number.isInteger(m.id) ? Math.max(max, m.id) : max), 0)
+}
+
+/**
+ * El mensaje agresivo del cliente y la respuesta de Teca, que el servidor no guarda. Se muestran al final de lo guardado con ids
+ * decimales (después del último guardado y antes del siguiente real); cada par suma un paso para mantener el orden.
+ */
+export function transientMessages(messages: readonly ChatMessage[], customerText: string, reply: string): ChatMessage[] {
+  const base = lastMessageId(messages)
+  const shown = messages.filter((m) => !Number.isInteger(m.id)).length
+  const createdAt = new Date().toISOString()
+  return [
+    { id: base + (shown + 1) / 1000, role: 'customer', body: customerText, createdAt },
+    { id: base + (shown + 2) / 1000, role: 'assistant', body: reply, createdAt },
+  ]
+}
+
+/** Mensajes agresivos seguidos al final de la conversación (los que no se guardaron): el servidor decide con esto si pide repetir o corta. */
+export function trailingWarnings(messages: readonly ChatMessage[]): number {
+  let count = 0
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]!
+    if (Number.isInteger(m.id)) {
+      if (m.role === 'customer') break
+      continue
+    }
+    if (m.role === 'customer') count++
+  }
+  return count
 }
 
 /** Texto bajo el chat según el estado de la conversación. */

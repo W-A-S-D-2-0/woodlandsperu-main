@@ -47,9 +47,9 @@ export function chatRoutes(chatData: ChatDataFactory, publicData: PublicDataFact
         try {
           const turn = await handleCustomerMessage(
             { env: c.env, chat, publicData: pub, modelFor },
-            { channel: 'web_chat', ref: await hashToken(body.data.token), text: body.data.message, greeted: body.data.greeted },
+            { channel: 'web_chat', ref: await hashToken(body.data.token), text: body.data.message, greeted: body.data.greeted, warnings: body.data.warnings },
           )
-          return c.json<ChatResponse>({ status: turn.status, messages: turn.messages })
+          return c.json<ChatResponse>({ status: turn.status, messages: turn.messages, ...(turn.transient ? { transient: turn.transient } : {}) })
         } catch (err) {
           if (err instanceof ChatDataError) {
             return err.code === 'rate_limited' ? fail(c, 429, 'rate_limited', err.message) : fail(c, 422, 'invalid_request', err.message)

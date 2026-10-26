@@ -782,3 +782,50 @@ describe('«Hola, me llamo Hugo» como primer mensaje', () => {
     expect([...conversations.values()]).toHaveLength(1)
   })
 })
+
+describe('agresión verbal: no se guarda en el panel', () => {
+  const sendWarned = (app: ReturnType<typeof createApp>, message: string, warnings = 0) =>
+    app.request('/api/chat/messages', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token: TOKEN, message, greeted: true, warnings }) }, { APP_ENV: 'development' } as Env)
+  const newApp = () => {
+    const fake = fakeChat()
+    return { ...fake, app: createApp({ chatData: () => fake.chat, publicData: () => publicData(), assistantModel: createAssistantModel }) }
+  }
+
+  it('al pedir el nombre, una grosería no es un nombre: Teca pide repetir y no se crea ninguna conversación', async () => {
+    const { app, messages, conversations } = newApp()
+    for (const word of ['Pene', 'Basura', 'Porquería']) {
+      const body = (await (await sendWarned(app, word)).json()) as ChatResponse
+      expect(body.messages).toEqual([])
+      expect(body.transient).toEqual({ reply: 'Disculpa, no logré entenderte. ¿Puedes repetirlo?', aggression: false })
+    }
+    expect(messages).toHaveLength(0)
+    expect(conversations.size).toBe(0)
+  })
+
+  it('si insiste, Teca reconoce la agresión y tampoco se guarda nada', async () => {
+    const { app, messages } = newApp()
+    const body = (await (await sendWarned(app, 'eres una mierda', 1)).json()) as ChatResponse
+    expect(body.transient).toMatchObject({ aggression: true })
+    expect(body.transient!.reply).toMatch(/tono agresivo/)
+    expect(messages).toHaveLength(0)
+  })
+
+  it('después de la agresión el cliente puede seguir con respeto; solo se guarda lo respetuoso', async () => {
+    const { app, messages } = newApp()
+    await sendWarned(app, 'Pene')
+    await sendWarned(app, 'Basura', 1)
+    const ok = (await (await sendWarned(app, 'Me llamo Hugo')).json()) as ChatResponse
+    expect(ok.transient).toBeUndefined()
+    expect(ok.messages.at(-1)!.body).toMatch(/Hugo/)
+    expect(messages.map((m) => m.body).join(' ')).not.toMatch(/Pene|Basura|mierda/i)
+  })
+
+  it('en una conversación ya guardada, el insulto no se agrega al historial', async () => {
+    const { app, messages } = newApp()
+    await sendWarned(app, 'Ana Pérez')
+    const before = messages.length
+    const body = (await (await sendWarned(app, 'qué porquería de tablas')).json()) as ChatResponse
+    expect(body.transient).toBeDefined()
+    expect(messages).toHaveLength(before)
+  })
+})

@@ -5,7 +5,7 @@ import { chatGreeting } from '../../content/chat-greeting'
 import { PROOF_BUTTON_LABEL } from '../../content/payment'
 import { useBackdropTone } from '../../hooks/useBackdropTone'
 import { ApiError, apiFetch } from '../../lib/api'
-import { createChatToken, lastMessageId, mergeMessages, messageTime, parseBody, startsNewConversation, statusNotice } from './chat-logic'
+import { createChatToken, lastMessageId, mergeMessages, messageTime, parseBody, startsNewConversation, statusNotice, trailingWarnings, transientMessages } from './chat-logic'
 import { ChatBody } from './ChatBody'
 import { ChatChips } from './ChatChips'
 import { OPEN_CHAT_EVENT } from './open-chat'
@@ -152,7 +152,9 @@ export function ChatWidget() {
     const message = (preset ?? text).trim()
     if (!message || sending) return
     // Tras cancelar o terminar una operación, «Hola» o un botón empiezan otra conversación (queda aparte en el panel).
+    let shown = messages
     if (startsNewConversation(messages.at(-1), message, preset !== undefined)) {
+      shown = []
       tokenRef.current = createChatToken()
       lastIdRef.current = 0
       setMessages([])
@@ -170,8 +172,15 @@ export function ChatWidget() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // `greeted`: el saludo (que pide el nombre) ya se mostró; el servidor lo guarda como primer mensaje.
-        body: JSON.stringify({ token: token(), message, greeted: true }),
+        body: JSON.stringify({ token: token(), message, greeted: true, warnings: trailingWarnings(shown) }),
       })
+      if (res.transient) {
+        // Agresión verbal: el servidor no guardó nada; el intercambio se muestra aquí y no queda en el panel.
+        const exchange = transientMessages(shown, message, res.transient.reply)
+        setMessages((current) => mergeMessages(current, exchange))
+        setTypingId(exchange[1]!.id)
+        return
+      }
       setStatus(res.status)
       setMessages((current) => mergeMessages(current, res.messages))
       setTypingId(res.messages.filter((m) => m.role === 'assistant').at(-1)?.id ?? null)

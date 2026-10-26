@@ -4,6 +4,7 @@ import { chatGreeting } from '../../src/content/chat-greeting'
 import { createGeminiModel } from '../integrations/gemini'
 import type { ChatChannel, ChatData } from '../data/chat-data'
 import type { PublicData } from '../data/public-data'
+import { abuseReply, isAbusive } from './abuse'
 import { customerName } from './engraving-help'
 import { nameFromGreeting } from './guided-flow'
 import { alliesReply, engravingFirst, greetingNameReply, guidedFlowFirst, createGuidedModel, historyHasOrder, quickInfoReply, runAssistant, smallTalkReply, wantsHuman, type AssistantModel } from './assistant'
@@ -66,6 +67,8 @@ export interface CustomerMessage {
   externalId?: string
   /** El chat web ya mostró el saludo de Teca (que pide el nombre). */
   greeted?: boolean
+  /** Mensajes agresivos seguidos que el cliente ya mandó (lo lleva el chat web; WhatsApp no lo envía). */
+  warnings?: number
 }
 
 export interface TurnResult {
@@ -76,6 +79,8 @@ export interface TurnResult {
   /** Textos que el asistente respondió en este turno (para enviarlos por WhatsApp). */
   assistantReplies: string[]
   duplicate: boolean
+  /** Agresión verbal: nada se guardó y esta es la respuesta para mostrar. */
+  transient?: { reply: string; aggression: boolean }
 }
 
 const now = () => new Date().toISOString()
@@ -88,6 +93,12 @@ const now = () => new Date().toISOString()
  */
 export async function handleCustomerMessage(services: ChatServices, message: CustomerMessage): Promise<TurnResult> {
   const { chat, publicData } = services
+  // Groserías e insultos: ni el mensaje ni la respuesta se guardan, así el equipo no los ve en el panel.
+  if (isAbusive(message.text)) {
+    const aggression = (message.warnings ?? 0) >= 1
+    const reply = abuseReply(message.warnings ?? 0)
+    return { conversationId: '', status: 'open', messages: [], assistantReplies: [reply], duplicate: false, transient: { reply, aggression } }
+  }
   // El saludo que vio el cliente (donde Teca pide su nombre) se guarda primero, para que la respuesta se entienda en contexto.
   if (message.greeted && (await chat.messagesAfter(message.channel, message.ref, 0)) === null) {
     await chat.record({ channel: message.channel, ref: message.ref, role: 'assistant', body: chatGreeting })

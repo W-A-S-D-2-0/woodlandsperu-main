@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatMessage } from '../../../shared/api/chat'
 import { chatToken } from '../../../shared/api/chat'
-import { createChatToken, lastMessageId, loadChatToken, messageTime, formatSizes, parseBody, photoForModel, typedLength, mergeMessages, splitFlowFooter, startsNewConversation, statusNotice } from './chat-logic'
+import { createChatToken, lastMessageId, loadChatToken, messageTime, formatSizes, parseBody, photoForModel, typedLength, mergeMessages, splitFlowFooter, startsNewConversation, statusNotice, trailingWarnings, transientMessages } from './chat-logic'
 
 const msg = (id: number, body = 'x'): ChatMessage => ({ id, role: 'customer', body, createdAt: '2026-10-17T10:00:00Z' })
 
@@ -171,5 +171,30 @@ describe('formatSizes', () => {
 
   it('deja igual lo que no es una medida', () => {
     expect(formatSizes('medidas por confirmar')).toBe('medidas por confirmar')
+  })
+})
+
+describe('mensajes que no se guardan (agresión verbal)', () => {
+  const entry = (id: number, role: 'customer' | 'assistant', body = 'x') => ({ id, role, body, createdAt: '' })
+
+  it('no cuentan para pedir los mensajes nuevos al servidor', () => {
+    expect(lastMessageId([entry(4, 'assistant'), entry(4.001, 'customer'), entry(4.002, 'assistant')])).toBe(4)
+  })
+
+  it('se muestran al final de lo guardado, en orden y sin chocar entre sí', () => {
+    const saved = [entry(1, 'assistant'), entry(2, 'customer'), entry(3, 'assistant')]
+    const first = transientMessages(saved, 'Pene', 'Disculpa')
+    const second = transientMessages([...saved, ...first], 'Basura', 'Noto un tono agresivo')
+    const merged = mergeMessages([...saved, ...first], second)
+    expect(merged.map((m) => m.body)).toEqual(['x', 'x', 'x', 'Pene', 'Disculpa', 'Basura', 'Noto un tono agresivo'])
+    expect(new Set(merged.map((m) => m.id)).size).toBe(merged.length)
+    expect(merged.at(-1)!.id).toBeLessThan(4)
+  })
+
+  it('cuenta los mensajes agresivos seguidos; uno respetuoso reinicia la cuenta', () => {
+    const saved = [entry(1, 'assistant'), entry(1.001, 'customer'), entry(1.002, 'assistant'), entry(1.003, 'customer'), entry(1.004, 'assistant')]
+    expect(trailingWarnings(saved)).toBe(2)
+    expect(trailingWarnings([...saved, entry(2, 'customer'), entry(3, 'assistant')])).toBe(0)
+    expect(trailingWarnings([entry(1, 'assistant')])).toBe(0)
   })
 })
