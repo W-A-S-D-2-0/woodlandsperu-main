@@ -226,7 +226,8 @@ describe('saludo junto con el nombre', () => {
     const greeting = { role: 'assistant' as const, body: '¡Hola! Soy Teca. Para empezar, ¿cómo te llamas?' }
     expect(greetingNameReply([greeting, { role: 'customer', body: 'Hola, me llamo Hugo.' }])).toBe('¡Hola, Hugo! Mucho gusto. ¿Qué te interesa: precios, plazos, grabado o hacer un pedido?')
     expect(greetingNameReply([greeting, { role: 'customer', body: 'Ana' }])).toBe('Mucho gusto, Ana. ¿Qué te interesa: precios, plazos, grabado o hacer un pedido?')
-    expect(greetingNameReply([greeting, { role: 'customer', body: 'Hola' }])).toBeNull()
+    expect(greetingNameReply([greeting, { role: 'customer', body: 'Hola' }])).toBe('¡Hola! Mucho gusto. Para empezar, ¿cómo te llamas?')
+    expect(greetingNameReply([greeting, { role: 'customer', body: 'Gracias' }])).toBeNull()
   })
 
   it('el pedido que sigue usa ese nombre sin volver a preguntarlo', () => {

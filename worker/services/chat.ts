@@ -26,12 +26,12 @@ export const createAssistantModel: AssistantModelFactory = (env, catalog) => {
       // Pedir o cotizar va por el flujo guiado: es instantáneo, no depende de la IA y no se cruza con ella.
       const flow = guidedFlowFirst(input.history, catalog)
       if (flow) return flow
+      // Respuesta al «¿cómo te llamas?» del saludo (va antes que la charla corta: un «Hola» ahí vuelve a pedir el nombre).
+      const welcome = greetingNameReply(input.history)
+      if (welcome) return { text: welcome }
       // Saludos y agradecimientos: respuesta inmediata, sin gastar una consulta a la IA.
       const talk = smallTalkReply(input.history.findLast((m) => m.role === 'customer')?.body ?? '')
       if (talk) return { text: talk }
-      // Respuesta al «¿cómo te llamas?» del saludo.
-      const welcome = greetingNameReply(input.history)
-      if (welcome) return { text: welcome }
       // Dudas de personalización: imágenes de la tabla con el nombre en otras posiciones y WhatsApp de Brigitte.
       const engraving = engravingFirst(input.history, catalog)
       if (engraving) return { text: engraving }

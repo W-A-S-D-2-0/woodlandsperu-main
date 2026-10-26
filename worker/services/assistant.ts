@@ -479,7 +479,10 @@ export function greetingNameReply(history: readonly HistoryMessage[]): string | 
   const before = history.at(-2)
   if (last?.role !== 'customer' || before?.role !== 'assistant' || !before.body.includes(GREETING_ASK)) return null
   const name = looksLikeName(last.body)
-  if (!name) return null
+  if (!name) {
+    // Solo saludó (por ejemplo, tras un mensaje que no se guardó): Teca devuelve el saludo y pide el nombre.
+    return smallTalkReply(last.body)?.startsWith('¡Hola!') ? `¡Hola! Mucho gusto. Para empezar, ${GREETING_ASK}` : null
+  }
   const first = name.split(/\s+/)[0]!
   const who = `${first.charAt(0).toUpperCase()}${first.slice(1)}`
   const ask = '¿Qué te interesa: precios, plazos, grabado o hacer un pedido?'
