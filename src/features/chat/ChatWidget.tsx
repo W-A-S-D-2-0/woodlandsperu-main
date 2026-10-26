@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 
 import { useLocation } from 'react-router'
 import { CHAT_MESSAGE_MAX, type ChatMessage, type ChatResponse, type ChatStatus } from '../../../shared/api/chat'
 import { chatGreeting } from '../../content/chat-greeting'
-import { PROOF_BUTTON_LABEL } from '../../content/payment'
+import { CHOICE_DEPOSIT, CHOICE_YAPE_PLIN, PAYMENT_CHOICE_LABEL, PROOF_BUTTON_LABEL } from '../../content/payment'
 import { useBackdropTone } from '../../hooks/useBackdropTone'
 import { ApiError, apiFetch } from '../../lib/api'
 import { createChatToken, lastMessageId, mergeMessages, messageTime, parseBody, startsNewConversation, statusNotice, trailingWarnings, transientMessages } from './chat-logic'
@@ -24,6 +24,7 @@ const GREETING: ChatMessage = {
 
 const QUICK_REPLIES = ['Ver los productos', 'Ver los precios', 'Quiero hacer un pedido', 'Pedido para mi empresa']
 const YES_NO = ['Sí', 'No']
+const PAYMENT_CHOICES = [CHOICE_YAPE_PLIN, CHOICE_DEPOSIT]
 // Salida de cualquier conversación: nunca desaparece de las respuestas rápidas.
 const ALWAYS_REPLY = 'Ver los productos'
 
@@ -263,7 +264,9 @@ export function ChatWidget() {
     ? []
     : !last
       ? QUICK_REPLIES
-      : last.role !== 'customer' && last.body.includes('(sí/no)')
+      : last.role !== 'customer' && last.body.includes(PAYMENT_CHOICE_LABEL)
+        ? PAYMENT_CHOICES
+        : last.role !== 'customer' && last.body.includes('(sí/no)')
         ? YES_NO
         : last.role !== 'customer' && !inFlow
           ? QUICK_REPLIES.filter((q) => q === ALWAYS_REPLY || !asked.has(q))

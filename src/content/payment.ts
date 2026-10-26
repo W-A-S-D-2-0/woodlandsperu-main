@@ -54,5 +54,29 @@ export const PROOF_BUTTON_LABEL = 'Subir captura de pago'
 export function paymentRequestText(code: string, amount: number): string | null {
   if (!paymentConfigured()) return null
   const holder = yapePlin.holder ? ` (a nombre de ${yapePlin.holder.trim()})` : ''
-  return `Para empezar a producir tu pedido, paga ahora S/ ${amount.toFixed(2)} por Yape al ${yapePlin.number!.trim()}${holder} y escribe tu código ${code} en el mensaje del pago.\n\nCuando pagues, toca «${PROOF_BUTTON_LABEL}» (el clip junto al mensaje) y sube la captura: te confirmo al instante.`
+  return `Para empezar a producir tu pedido, paga ahora S/ ${amount.toFixed(2)} por Yape o Plin al ${yapePlin.number!.trim()}${holder} y escribe tu código ${code} en el mensaje del pago.\n\nCuando pagues, toca «${PROOF_BUTTON_LABEL}» (el clip junto al mensaje) y sube la captura: te confirmo al instante.`
 }
+
+/** Pregunta con la que Teca ofrece las formas de pago al registrar el pedido. El widget la reconoce y muestra los botones. */
+export const PAYMENT_CHOICE_LABEL = '¿Cómo quieres pagar?'
+export const CHOICE_YAPE_PLIN = 'Yape / Plin'
+export const CHOICE_DEPOSIT = 'Depósito'
+
+export type PaymentChoice = 'yape_plin' | 'deposit'
+
+/** Lo que el cliente quiso decir al elegir cómo pagar; null si su mensaje no es una elección. */
+export function detectPaymentChoice(text: string): PaymentChoice | null {
+  const t = text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
+  if (t.length > 40) return null
+  if (/\b(yape|plin)\b/.test(t)) return 'yape_plin'
+  if (/\b(deposito|depositar|transferencia|banco|bancario|cuenta)\b/.test(t)) return 'deposit'
+  return null
+}
+
+/** Cierre del pedido: las dos formas de pago. Por ahora solo Yape/Plin está activo. */
+export function paymentChoiceText(): string {
+  return `${PAYMENT_CHOICE_LABEL}\n\n• ${CHOICE_YAPE_PLIN}\n• ${CHOICE_DEPOSIT}\n\nElige una de las dos.`
+}
+
+/** Respuesta al elegir depósito mientras no esté disponible. */
+export const DEPOSIT_SOON_TEXT = `El pago por depósito todavía no está disponible aquí. Por ahora puedes pagar con Yape o Plin.\n\n${PAYMENT_CHOICE_LABEL}\n\n• ${CHOICE_YAPE_PLIN}\n• ${CHOICE_DEPOSIT}`

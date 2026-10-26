@@ -1,5 +1,8 @@
 import type { ChatMessage, ChatStatus } from '../../shared/api/chat'
-import type { ChatChannel, ChatData, ProofImage } from '../data/chat-data'
+import type { ChatChannel, ChatData, PaymentTarget, ProofImage } from '../data/chat-data'
+import type { ReceiptReader } from '../integrations/receipt-reader'
+import { PROOF_BUTTON_LABEL, yapePlin } from '../../src/content/payment'
+import { judgeReceipt, type ReceiptReading, type ReceiptVerdict } from './payment-receipt'
 
 /** Tamaño máximo de la captura. Una captura de pantalla de celular pesa mucho menos. */
 export const PROOF_MAX_BYTES = 5 * 1024 * 1024
@@ -17,6 +20,29 @@ export function sniffImage(bytes: Uint8Array): Pick<ProofImage, 'contentType' | 
 const money = (value: number) => `S/ ${value.toFixed(2)}`
 const now = () => new Date().toISOString()
 
+/** Qué le dice Teca al cliente cuando la captura no sirve para el pedido. Siempre lleva el código y el botón para reintentar. */
+function rejectionText(verdict: Exclude<ReceiptVerdict, 'ok'>, target: PaymentTarget, reading: ReceiptReading): string {
+  const retry = `Toca «${PROOF_BUTTON_LABEL}» (el clip junto al mensaje) para subir la captura correcta de tu pedido ${target.code}.`
+  switch (verdict) {
+    case 'not_receipt':
+      return `No pude reconocer esa imagen como una constancia de Yape o Plin. Sube la captura que te muestra la app después de pagar, con el monto y el número de operación.
+
+${retry}`
+    case 'unreadable':
+      return `Reconocí tu constancia, pero no pude leer el monto. Sube una captura completa y nítida.
+
+${retry}`
+    case 'wrong_amount':
+      return `La captura muestra ${money(reading.amount ?? 0)}, pero tu pedido ${target.code} es de ${money(target.total)}. Revisa el monto y vuelve a subir la captura correcta. Si pagaste otro monto, ya avisé al equipo para que lo revise.
+
+${retry}`
+    case 'wrong_recipient':
+      return `El pago de la captura no parece ir al número de Woodland (${yapePlin.number?.trim() ?? ''}). Revisa el destino y vuelve a subir la captura correcta. Ya avisé al equipo para que lo revise.
+
+${retry}`
+  }
+}
+
 export interface ProofResult {
   status: ChatStatus
   messages: ChatMessage[]
@@ -28,7 +54,8 @@ export interface ProofResult {
  * pago, lo dice.
  */
 export async function handlePaymentProof(
-  services: { chat: ChatData },
+  /** `read`: lector de capturas (IA). Sin él, la captura no se verifica y el pedido pasa a pagado como antes. */
+  services: { chat: ChatData; read?: ReceiptReader | null },
   input: { channel: ChatChannel; ref: string; image: ProofImage },
 ): Promise<ProofResult> {
   const { chat } = services
@@ -52,6 +79,23 @@ export async function handlePaymentProof(
     return result
   }
 
+  // La captura debe ser una constancia de Yape o Plin por el monto del pedido; si no, no se registra el pago.
+  let unverified = false
+  if (services.read) {
+    const reading = await services.read(input.image)
+    if (reading) {
+      const verdict = judgeReceipt(reading, { total: target.total, businessNumber: yapePlin.number })
+      if (verdict !== 'ok') {
+        await reply(rejectionText(verdict, target, reading))
+        if (verdict === 'wrong_amount' || verdict === 'wrong_recipient') {
+          await chat.handoff(target.conversationId, `Captura de pago del pedido ${target.code} no coincide (${verdict === 'wrong_amount' ? `monto S/ ${reading.amount ?? '?'} en vez de ${money(target.total)}` : 'destino distinto al número de Woodland'}).`)
+          result.status = 'needs_human'
+        }
+        return result
+      }
+    } else unverified = true
+  }
+
   try {
     const paid = await chat.recordPayment({ orderId: target.orderId, conversationId: target.conversationId, image: input.image })
     if (paid.status === 'in_production') {
@@ -59,6 +103,11 @@ export async function handlePaymentProof(
     } else {
       await reply(`¡Listo, recibimos tu pago de ${money(target.total)}! Tu pedido ${paid.code} quedó pagado; el equipo termina de confirmarlo y te escribe con la fecha de entrega. ¡Gracias por elegir Woodland!`)
       await chat.handoff(target.conversationId, `Pedido ${paid.code} pagado por Yape, pero no se pudo confirmar solo (revisar stock).`)
+      result.status = 'needs_human'
+    }
+    // La IA no pudo leer la captura: el pago quedó registrado, pero el equipo debe revisarla en el panel.
+    if (unverified && result.status !== 'needs_human') {
+      await chat.handoff(target.conversationId, `Pedido ${paid.code}: no se pudo leer la captura de pago automáticamente; revisarla en el panel.`)
       result.status = 'needs_human'
     }
   } catch (err) {

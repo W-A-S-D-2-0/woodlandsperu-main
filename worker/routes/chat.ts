@@ -5,6 +5,7 @@ import { chatPollQuery, chatSendBody, chatToken, type ChatResponse } from '../..
 import { ChatDataError, type ChatDataFactory } from '../data/chat-data'
 import type { PublicDataFactory } from '../data/public-data'
 import { handleCustomerMessage, type AssistantModelFactory } from '../services/chat'
+import { createReceiptReader } from '../integrations/receipt-reader'
 import { handlePaymentProof, PROOF_MAX_BYTES, sniffImage } from '../services/payment-proof'
 import type { AppBindings } from '../types'
 import { clientKey } from './client-key'
@@ -76,7 +77,7 @@ export function chatRoutes(chatData: ChatDataFactory, publicData: PublicDataFact
         const kind = sniffImage(bytes)
         if (!kind) return fail(c, 400, 'invalid_request', 'Sube la captura como imagen (JPG, PNG o WebP).')
         try {
-          const done = await handlePaymentProof({ chat }, { channel: 'web_chat', ref: await hashToken(token.data), image: { bytes, ...kind } })
+          const done = await handlePaymentProof({ chat, read: createReceiptReader({ apiKey: c.env.GEMINI_API_KEY, model: c.env.GEMINI_MODEL }) }, { channel: 'web_chat', ref: await hashToken(token.data), image: { bytes, ...kind } })
           return c.json<ChatResponse>(done)
         } catch (err) {
           if (err instanceof ChatDataError) return fail(c, err.code === 'rate_limited' ? 429 : 422, err.code, err.message)

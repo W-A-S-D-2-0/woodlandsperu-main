@@ -7,7 +7,7 @@ import type { PublicData } from '../data/public-data'
 import { abuseReply, isAbusive } from './abuse'
 import { customerName } from './engraving-help'
 import { nameFromGreeting } from './guided-flow'
-import { alliesReply, engravingFirst, greetingNameReply, guidedFlowFirst, createGuidedModel, historyHasOrder, quickInfoReply, runAssistant, smallTalkReply, wantsHuman, type AssistantModel } from './assistant'
+import { alliesReply, engravingFirst, greetingNameReply, guidedFlowFirst, createGuidedModel, historyHasOrder, paymentChoiceReply, quickInfoReply, runAssistant, smallTalkReply, wantsHuman, type AssistantModel } from './assistant'
 
 /** Cuántos mensajes previos ve el asistente: lo bastante para recordar nombre, productos y grabado de toda la charla. */
 const HISTORY_LIMIT = 40
@@ -26,6 +26,9 @@ export const createAssistantModel: AssistantModelFactory = (env, catalog) => {
       // Pedir o cotizar va por el flujo guiado: es instantáneo, no depende de la IA y no se cruza con ella.
       const flow = guidedFlowFirst(input.history, catalog)
       if (flow) return flow
+      // «Yape / Plin» o «Depósito» tras registrar el pedido.
+      const payChoice = paymentChoiceReply(input.history)
+      if (payChoice) return { text: payChoice }
       // Respuesta al «¿cómo te llamas?» del saludo (va antes que la charla corta: un «Hola» ahí vuelve a pedir el nombre).
       const welcome = greetingNameReply(input.history)
       if (welcome) return { text: welcome }

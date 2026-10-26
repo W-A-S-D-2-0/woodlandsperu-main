@@ -5,7 +5,7 @@ import { alliancesContent } from '../../src/content/alliances'
 import { deliveryBands, deliveryNote, deliveryUnknown } from '../../src/content/delivery'
 import { GREETING_ASK, isGreetingWord } from '../../src/content/chat-greeting'
 import { engravingHelpReply } from './engraving-help'
-import { paymentChatText, paymentConfigured, paymentLines, paymentRequestText } from '../../src/content/payment'
+import { DEPOSIT_SOON_TEXT, detectPaymentChoice, PAYMENT_CHOICE_LABEL, paymentChatText, paymentChoiceText, paymentConfigured, paymentLines, paymentRequestText } from '../../src/content/payment'
 import { guidedFlowReply, looksLikeName } from './guided-flow'
 
 /**
@@ -273,8 +273,30 @@ export function parseOrderCall(args: Record<string, unknown>, catalog: CatalogRe
 }
 
 function orderReply(order: OrderSubmittedResponse): string {
-  const pay = paymentRequestText(order.code, order.total) ?? paymentChatText(order.code, order.total)
-  return `Listo, tu pedido ${order.code} quedó registrado por ${money(order.total)}.${pay ? `\n\n${pay}` : ''}\n\n${deliveryNote} Puedes seguirlo en la web, en "Consulta tu pedido", con ese código y tu correo o teléfono.`
+  const head = `Listo, tu pedido ${order.code} quedó registrado por ${money(order.total)}.`
+  const tail = `${deliveryNote} Puedes seguirlo en la web, en "Consulta tu pedido", con ese código y tu correo o teléfono.`
+  // Con los datos de Yape/Plin cargados, el cliente elige cómo pagar (por ahora solo Yape/Plin está activo).
+  if (paymentConfigured()) return `${head}\n\n${tail}\n\n${paymentChoiceText()}`
+  const pay = paymentChatText(order.code, order.total)
+  return `${head}${pay ? `\n\n${pay}` : ''}\n\n${tail}`
+}
+
+/**
+ * Respuesta a la elección «Yape / Plin» o «Depósito» que sigue a la pregunta de cómo pagar. El código y el monto del
+ * pedido salen del mensaje de Teca que lo registró. Null si el cliente no estaba eligiendo cómo pagar.
+ */
+export function paymentChoiceReply(history: readonly HistoryMessage[]): string | null {
+  const last = history.at(-1)
+  const before = history.at(-2)
+  if (last?.role !== 'customer' || before?.role !== 'assistant' || !before.body.includes(PAYMENT_CHOICE_LABEL)) return null
+  const choice = detectPaymentChoice(last.body)
+  if (!choice) return null
+  if (choice === 'deposit') return DEPOSIT_SOON_TEXT
+  const order = history.findLast((m) => m.role === 'assistant' && /\bPED-\d{6,}\b/.test(m.body) && m.body.includes('quedó registrado por'))
+  const code = order?.body.match(/\bPED-\d{6,}\b/)?.[0]
+  const total = Number(order?.body.match(/registrado por S\/\s?(\d[\d,]*(?:\.\d+)?)/)?.[1]?.replace(/,/g, ''))
+  if (!code || !Number.isFinite(total)) return null
+  return paymentRequestText(code, total)
 }
 
 function quoteReply(quote: QuoteSubmittedResponse): string {
@@ -544,6 +566,8 @@ export function createGuidedModel(catalog: CatalogResponse): AssistantModel {
       // Pedido o cotización paso a paso, sin IA: nunca depende de que el modelo esté disponible.
       const flow = guidedFlowReply(history, catalog, { allowStart: true, info: (t) => engravingHelpReply(history, catalog, t) ?? infoReply(normalizeText(t), catalog) })
       if (flow) return flow
+      const payChoice = paymentChoiceReply(history)
+      if (payChoice) return { text: payChoice }
       const welcome = greetingNameReply(history)
       if (welcome) return { text: welcome }
       const engraving = engravingHelpReply(history, catalog)

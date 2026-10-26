@@ -137,7 +137,7 @@ function summary(f: Flow): { text: string; allPriced: boolean; units: number } {
   const tail = f.logo
     ? 'Como lleva el logo de tu empresa, lo registro y el equipo coordina el logo contigo y confirma el precio final.'
     : allPriced
-    ? `Total a pagar: ${money(total)}\nLo registro como pedido y te paso los datos para pagar por Yape ahora mismo.`
+    ? `Total a pagar: ${money(total)}\nLo registro como pedido y te dejo elegir cómo pagar.`
     : 'Hay productos sin precio publicado: lo registro y el equipo confirma el precio final.'
   return { text: `Este es tu pedido:\n\n${lines.join('\n')}\n\n${tail}\n\nA nombre de: ${who}\nEntrega en: ${f.address}`, allPriced, units }
 }

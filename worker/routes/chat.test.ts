@@ -10,7 +10,7 @@ import type { PublicData } from '../data/public-data'
 import { createGeminiModel, parseGeminiResponse, toGeminiContents } from '../integrations/gemini'
 import { parseWebhook, verifySignature } from '../integrations/whatsapp'
 import { createAssistantModel } from '../services/chat'
-import { buildSystemPrompt, createGuidedModel, quickInfoReply, parseOrderCall, parseQuoteCall, wantsHuman, type AssistantModel, type ModelOutput } from '../services/assistant'
+import { buildSystemPrompt, createGuidedModel, paymentChoiceReply, quickInfoReply, parseOrderCall, parseQuoteCall, wantsHuman, type AssistantModel, type ModelOutput } from '../services/assistant'
 
 const VARIANT = '3f2b8c1e-5d4a-4e7b-9a10-2c6d8e9f0a1b'
 const TOKEN = 'a'.repeat(32)
@@ -109,6 +109,12 @@ const publicData = (): PublicData => ({
 const scripted = (...outputs: ModelOutput[]): ((env: Env, c: CatalogResponse) => AssistantModel) => {
   const queue = [...outputs]
   return () => ({ generate: vi.fn(async () => queue.shift() ?? { text: 'ok' }) })
+}
+
+/** Como el modelo real: la elección «Yape / Plin» o «Depósito» se responde sin pasar por la IA. */
+const withPaymentChoice = (factory: (env: Env, c: CatalogResponse) => AssistantModel) => (env: Env, c: CatalogResponse): AssistantModel => {
+  const model = factory(env, c)
+  return { generate: async (input) => { const text = paymentChoiceReply(input.history); return text ? { text } : model.generate(input) } }
 }
 
 function send(app: ReturnType<typeof createApp>, message: string, token = TOKEN, env: Partial<Env> = {}) {
@@ -324,8 +330,11 @@ describe('POST /api/chat/messages', () => {
     const reply = body.messages.at(-1)?.body ?? ''
     expect(reply).toContain('PED-000012')
     expect(reply).toContain('S/ 200.00')
-    expect(reply).toContain('paga ahora S/ 200.00 por Yape al 965 402 725')
-    expect(reply).toContain('Subir captura de pago')
+    // Al registrar el pedido se ofrecen las dos formas de pago; los datos de Yape/Plin llegan al elegir.
+    expect(reply).toContain('¿Cómo quieres pagar?')
+    expect(reply).toContain('Yape / Plin')
+    expect(reply).toContain('Depósito')
+    expect(reply).not.toContain('Subir captura de pago')
     // Nunca se habla de stock.
     expect(reply).not.toMatch(/stock|agotad|disponib|reserv/i)
     // El pago es automático: el pedido no deja la conversación esperando a una persona.
@@ -626,10 +635,25 @@ describe('POST /api/chat/payment-proof', () => {
   const orderCall = { name: 'create_order' as const, args: { fullName: 'Ana', email: 'ana@example.com', items: [{ variantId: VARIANT, quantity: 2 }] } }
   const withOrder = async () => {
     const fake = fakeChat()
-    const app = createApp({ chatData: () => fake.chat, publicData: () => publicData(), assistantModel: scripted({ text: '', call: orderCall }) })
+    const app = createApp({ chatData: () => fake.chat, publicData: () => publicData(), assistantModel: withPaymentChoice(scripted({ text: '', call: orderCall })) })
     await send(app, 'Sí, confirmo el pedido')
+    await send(app, 'Yape / Plin')
     return { ...fake, app }
   }
+
+  it('al elegir Yape / Plin, Teca da los datos de pago y el botón de la captura; al elegir Depósito aún no está disponible', async () => {
+    const fake = fakeChat()
+    const app = createApp({ chatData: () => fake.chat, publicData: () => publicData(), assistantModel: withPaymentChoice(scripted({ text: '', call: orderCall })) })
+    await send(app, 'Sí, confirmo el pedido')
+    const deposit = ((await (await send(app, 'Depósito')).json()) as ChatResponse).messages.at(-1)?.body ?? ''
+    expect(deposit).toMatch(/depósito todavía no está disponible/)
+    expect(deposit).toContain('¿Cómo quieres pagar?')
+    expect(deposit).not.toContain('Subir captura de pago')
+    const yape = ((await (await send(app, 'Yape / Plin')).json()) as ChatResponse).messages.at(-1)?.body ?? ''
+    expect(yape).toContain('paga ahora S/ 200.00 por Yape o Plin al 965 402 725')
+    expect(yape).toContain('PED-000012')
+    expect(yape).toContain('Subir captura de pago')
+  })
 
   it('sin un pedido esperando pago lo dice y no registra nada', async () => {
     const fake = fakeChat()
