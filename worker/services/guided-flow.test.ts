@@ -53,7 +53,7 @@ describe('pedido paso a paso sin IA', () => {
 
   it('el celular, el correo y la dirección se piden al concretar el pedido, en un solo mensaje', async () => {
     const { out } = await chat('quiero cotizar', ...START, '1', '1', 'Ana', 'no')
-    expect(out.text).toMatch(/necesito tu celular, tu correo y tu dirección de entrega/)
+    expect(out.text).toMatch(/necesito estos datos:[\s\S]*Tu celular[\s\S]*Tu correo[\s\S]*Tu dirección de entrega/)
     expect(out.text).toMatch(/en un solo mensaje/)
     const confirm = await chat('quiero cotizar', ...START, '1', '1', 'Ana', 'no', CONTACT)
     expect(confirm.out.text).toContain('Este es tu pedido')

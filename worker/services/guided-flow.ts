@@ -37,7 +37,7 @@ const TAGS: Record<Exclude<Step, 'big' | 'done'>, string> = {
 
 /** Lo que se pide al concretar el pedido, después de elegir las tablas. */
 const DATA_REQUEST =
-  'Ya casi. Para registrar tu pedido necesito tu celular, tu correo y tu dirección de entrega. Envíamelos en un solo mensaje (calle, número, distrito y ciudad en la dirección).\n\nEjemplo: 987654321, ana@correo.com, Jr. Lima 123, Tarapoto'
+  'Ya casi. Para registrar tu pedido necesito estos datos:\n\n• Tu celular\n• Tu correo\n• Tu dirección de entrega (calle, número, distrito y ciudad)\n\nEnvíamelos en un solo mensaje.\n\nEjemplo:\n987654321, ana@correo.com, Jr. Lima 123, Tarapoto'
 
 const CUSTOM = /a medida|medida propia|otra medida|diseno propio|diseno especial|personalizad[ao] aparte|no esta en|ninguno de/
 const CUSTOM_LABEL = 'Pieza a medida o diseño propio'
@@ -139,7 +139,7 @@ function summary(f: Flow): { text: string; allPriced: boolean; units: number } {
     : allPriced
     ? `Total a pagar: ${money(total)}\nLo registro como pedido y te paso los datos para pagar por Yape ahora mismo.`
     : 'Hay productos sin precio publicado: lo registro y el equipo confirma el precio final.'
-  return { text: `Este es tu pedido:\n${lines.join('\n')}\n${tail}\nA nombre de: ${who}\nEntrega en: ${f.address}`, allPriced, units }
+  return { text: `Este es tu pedido:\n\n${lines.join('\n')}\n\n${tail}\n\nA nombre de: ${who}\nEntrega en: ${f.address}`, allPriced, units }
 }
 
 function question(step: Step, f: Flow, catalog: CatalogResponse): string {
@@ -148,30 +148,30 @@ function question(step: Step, f: Flow, catalog: CatalogResponse): string {
       const list = listFor(f, catalog)
       const head = f.cur?.filter ? 'Estas son las medidas disponibles:' : 'Estos son nuestros modelos:'
       const rows = list.map((e, i) => `${i + 1}. ${entryLabel(e)} — ${e.variant.price === null ? 'precio por confirmar' : money(e.variant.price)}`)
-      return `${head}\n${rows.join('\n')}\n\n¿Cuál quieres? ${TAGS.product}. Si buscas otra medida o un diseño propio, escríbelo.`
+      return `${head}\n\n${rows.join('\n')}\n\n¿Cuál quieres? ${TAGS.product}.\nSi buscas otra medida o un diseño propio, escríbelo.`
     }
     case 'qty':
-      return `${TAGS.qty} quieres de ${entryLabel(f.cur as Entry)}? (hasta ${WEB_ORDER_MAX_UNITS} por pedido)`
+      return `${TAGS.qty} quieres de ${entryLabel(f.cur as Entry)}?\n\nPuedes pedir hasta ${WEB_ORDER_MAX_UNITS} por pedido.`
     case 'engrave':
-      return `${TAGS.engrave} en esta tabla? Escribe el nombre o la frase (se graba normalmente en una esquina) o responde «no».`
+      return `${TAGS.engrave} en esta tabla?\n\n• Escribe el nombre o la frase que quieres grabar (normalmente va en una esquina)\n• O responde «no» si la prefieres lisa`
     case 'more':
-      return `${TAGS.more}? (sí/no)`
+      return `${TAGS.more}?\n\nResponde «sí» o «no».`
     case 'type':
-      return `${TAGS.type}? Responde «persona» o «empresa».`
+      return `${TAGS.type}?\n\nResponde «persona» o «empresa».`
     case 'company':
       return `${TAGS.company}?`
     case 'data':
       return DATA_REQUEST
     case 'name':
-      return `Para empezar: ${TAGS.name} registro el pedido? Escribe tu nombre completo.`
+      return `Para empezar: ${TAGS.name} registro el pedido?\n\nEscribe tu nombre completo.`
     case 'email':
-      return `Me falta tu correo. Escribe ${TAGS.email}, para enviarte la confirmación.`
+      return `Me falta ${TAGS.email}.\n\nEscríbelo para enviarte la confirmación.\nEjemplo: nombre@correo.com`
     case 'phone':
-      return `Me falta tu celular. Escribe ${TAGS.phone} (con el que te contactamos para la entrega).`
+      return `Me falta ${TAGS.phone}.\n\nEs el número con el que te contactamos para la entrega.\nEjemplo: 987654321`
     case 'address':
-      return `Me falta tu dirección. Escribe ${TAGS.address} de entrega (calle, número, distrito y ciudad).`
+      return `Me falta ${TAGS.address} de entrega.\n\nIncluye:\n• Calle y número\n• Distrito\n• Ciudad\n\nEjemplo: Jr. Lima 123, Tarapoto`
     case 'confirm':
-      return `${summary(f).text}\n\n${TAGS.confirm} el pedido? (sí/no)`
+      return `${summary(f).text}\n\n${TAGS.confirm} el pedido?\nResponde «sí» o «no».`
     case 'big':
     case 'done':
       return ''

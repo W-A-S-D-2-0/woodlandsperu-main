@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { brigitte } from '../../content/site'
 import { EngravingBoard } from '../engraving/EngravingBoard'
 import { positionLabel, whatsappUrl, type PreviewMarker, type WhatsappMarker } from '../engraving/preview-marker'
-import { formatSizes, parseBody, photoForModel, splitFlowFooter, typedLength, type BodyBlock } from './chat-logic'
+import { formatSizes, isPlainText, parseBody, parseRich, photoForModel, splitFlowFooter, typedLength, type BodyBlock } from './chat-logic'
 import { useDragScroll } from './useDragScroll'
 
 /** Texto que se escribe solo, letra a letra, en poco más de un segundo. El lector de pantalla recibe el texto completo desde el inicio. */
@@ -24,6 +24,52 @@ function Typed({ text }: { text: string }) {
       <span className="sr-only">{text}</span>
       <span aria-hidden="true">{text.slice(0, shown)}</span>
     </>
+  )
+}
+
+/** Texto del asistente con orden: párrafos separados, rótulos en negrita y listas con viñetas o numeradas. */
+function RichText({ text, typing = false }: { text: string; typing?: boolean }) {
+  const blocks = parseRich(text)
+  if (isPlainText(blocks)) return typing ? <Typed text={text} /> : <>{text}</>
+  return (
+    <div className="grid gap-2.5 whitespace-normal">
+      {blocks.map((b, i) => {
+        if (b.kind === 'ul')
+          return (
+            <ul key={i} className="grid gap-1.5">
+              {b.items.map((item, j) => (
+                <li key={j} className="flex gap-2.5">
+                  <span aria-hidden="true" className="mt-[0.55em] size-1.5 shrink-0 rounded-full bg-madera-700" />
+                  <span className="min-w-0">{item}</span>
+                </li>
+              ))}
+            </ul>
+          )
+        if (b.kind === 'ol')
+          return (
+            <ol key={i} className="grid gap-1.5">
+              {b.items.map((item) => (
+                <li key={item.n} className="flex gap-2.5">
+                  <span aria-hidden="true" className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-nogal text-[0.65rem] font-semibold text-marfil">
+                    {item.n}
+                  </span>
+                  <span className="min-w-0">{item.text}</span>
+                </li>
+              ))}
+            </ol>
+          )
+        return (
+          <p key={i} className="grid gap-0.5">
+            {b.lines.map((line, j) => (
+              <span key={j}>
+                {line.label && <strong className="font-semibold text-nogal">{line.label}{line.text ? ': ' : ':'}</strong>}
+                {line.text}
+              </span>
+            ))}
+          </p>
+        )
+      })}
+    </div>
   )
 }
 
@@ -139,7 +185,7 @@ export function ChatBody({ body, typing = false, onAsk, onSeeAll, onCancel }: { 
 /** Texto de un mensaje del asistente: precios en tarjetas, líneas de pedido y total destacado. `typing` escribe el texto simple poco a poco. */
 function ChatContent({ body, typing = false, onAsk, onSeeAll }: { body: string; typing?: boolean; onAsk?: (message: string) => void; onSeeAll?: () => void }) {
   const blocks = parseBody(body)
-  if (blocks.every((b) => b.kind === 'text')) return typing ? <Typed text={body} /> : <>{body}</>
+  if (blocks.every((b) => b.kind === 'text')) return <RichText text={body} typing={typing} />
   return (
     <div className="grid gap-1.5">
       {blocks.map((b, i) => {
@@ -152,7 +198,7 @@ function ChatContent({ body, typing = false, onAsk, onSeeAll }: { body: string; 
         }
         if (b.kind === 'preview') return <PreviewCarousel key={i} marker={b} onAsk={onAsk} />
         if (b.kind === 'whatsapp') return <WhatsappButton key={i} marker={b} />
-        if (b.kind === 'text') return <p key={i} className="whitespace-pre-wrap">{b.text}</p>
+        if (b.kind === 'text') return <RichText key={i} text={b.text} />
         if (b.kind === 'price') {
           const photo = photoForModel(b.name)
           return (

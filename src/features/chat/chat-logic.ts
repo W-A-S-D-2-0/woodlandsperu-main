@@ -183,3 +183,56 @@ export function typedLength(total: number, elapsedMs: number, maxMs = 1400, msPe
 export function formatSizes(sizes: string): string {
   return sizes.replace(/(\d+(?:[.,]\d+)?(?:\*\d+(?:[.,]\d+)?)+)/g, (measure) => `${measure.split('*').join(' × ')} cm`)
 }
+
+/** Una línea de texto; `label` es el rótulo antes de los dos puntos («Entrega en», «Ejemplo»), que se destaca. */
+export interface RichLine {
+  label: string | null
+  text: string
+}
+
+/** Texto de un mensaje ordenado para mostrarlo: párrafos, listas con viñetas y listas numeradas. */
+export type RichBlock =
+  | { kind: 'p'; lines: RichLine[] }
+  | { kind: 'ul'; items: string[] }
+  | { kind: 'ol'; items: { n: string; text: string }[] }
+
+const BULLET = /^\s*[•·\-–*]\s+(.+)$/
+const NUMBERED = /^\s*(\d{1,3})[.)]\s+(.+)$/
+const LABELED = /^([A-ZÁÉÍÓÚÑ][^:\n]{1,28}):(?:\s+(.*))?$/
+
+/** Ordena el texto de un mensaje: las líneas en blanco separan párrafos y las líneas con «•», «-» o «1.» forman listas. */
+export function parseRich(body: string): RichBlock[] {
+  const blocks: RichBlock[] = []
+  for (const raw of body.replace(/\r\n/g, '\n').split('\n')) {
+    const line = raw.trim()
+    if (!line) {
+      blocks.push({ kind: 'p', lines: [] }) // separador: corta el párrafo o la lista en curso
+      continue
+    }
+    const last = blocks.at(-1)
+    const bullet = BULLET.exec(line)
+    const numbered = bullet ? null : NUMBERED.exec(line)
+    if (bullet) {
+      if (last?.kind === 'ul') last.items.push(bullet[1]!)
+      else blocks.push({ kind: 'ul', items: [bullet[1]!] })
+    } else if (numbered) {
+      const item = { n: numbered[1]!, text: numbered[2]! }
+      if (last?.kind === 'ol') last.items.push(item)
+      else blocks.push({ kind: 'ol', items: [item] })
+    } else {
+      const labeled = LABELED.exec(line)
+      // «Entrega en: …» lleva rótulo; una frase que solo termina en dos puntos («Ya casi…:») es texto, salvo un rótulo corto como «Ejemplo:».
+      const isLabel = labeled && ((labeled[2] ?? '') !== '' || labeled[1]!.length <= 12)
+      const entry: RichLine = isLabel ? { label: labeled[1]!, text: labeled[2] ?? '' } : { label: null, text: line }
+      if (last?.kind === 'p') last.lines.push(entry)
+      else blocks.push({ kind: 'p', lines: [entry] })
+    }
+  }
+  return blocks.filter((b) => b.kind !== 'p' || b.lines.length > 0)
+}
+
+/** ¿El texto es una sola frase corrida (sin listas, rótulos ni párrafos)? Solo ese se escribe letra a letra. */
+export function isPlainText(blocks: readonly RichBlock[]): boolean {
+  const only = blocks[0]
+  return blocks.length === 0 || (blocks.length === 1 && only!.kind === 'p' && only!.lines.every((l) => !l.label))
+}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatMessage } from '../../../shared/api/chat'
 import { chatToken } from '../../../shared/api/chat'
-import { createChatToken, lastMessageId, loadChatToken, messageTime, formatSizes, parseBody, photoForModel, typedLength, mergeMessages, splitFlowFooter, startsNewConversation, statusNotice, trailingWarnings, transientMessages } from './chat-logic'
+import { createChatToken, lastMessageId, loadChatToken, messageTime, formatSizes, parseBody, photoForModel, typedLength, mergeMessages, splitFlowFooter, startsNewConversation, statusNotice, trailingWarnings, transientMessages, isPlainText, parseRich } from './chat-logic'
 
 const msg = (id: number, body = 'x'): ChatMessage => ({ id, role: 'customer', body, createdAt: '2026-10-17T10:00:00Z' })
 
@@ -196,5 +196,32 @@ describe('mensajes que no se guardan (agresión verbal)', () => {
     expect(trailingWarnings(saved)).toBe(2)
     expect(trailingWarnings([...saved, entry(2, 'customer'), entry(3, 'assistant')])).toBe(0)
     expect(trailingWarnings([entry(1, 'assistant')])).toBe(0)
+  })
+})
+
+describe('parseRich', () => {
+  it('separa párrafos y arma listas con viñetas', () => {
+    const blocks = parseRich('Ya casi. Necesito estos datos:\n\n• Tu celular\n• Tu correo\n\nEnvíamelos en un solo mensaje.\n\nEjemplo:\n987654321, ana@correo.com')
+    expect(blocks).toEqual([
+      { kind: 'p', lines: [{ label: null, text: 'Ya casi. Necesito estos datos:' }] },
+      { kind: 'ul', items: ['Tu celular', 'Tu correo'] },
+      { kind: 'p', lines: [{ label: null, text: 'Envíamelos en un solo mensaje.' }] },
+      { kind: 'p', lines: [{ label: 'Ejemplo', text: '' }, { label: null, text: '987654321, ana@correo.com' }] },
+    ])
+  })
+
+  it('reconoce listas numeradas y rótulos con su valor', () => {
+    const blocks = parseRich('Estos son nuestros modelos:\n\n1. Moshaco\n2. Sacha Paleta\n\nA nombre de: Ana · ana@correo.com\nEntrega en: Jr. Lima 123, Tarapoto')
+    expect(blocks[1]).toEqual({ kind: 'ol', items: [{ n: '1', text: 'Moshaco' }, { n: '2', text: 'Sacha Paleta' }] })
+    expect(blocks[2]).toEqual({
+      kind: 'p',
+      lines: [{ label: 'A nombre de', text: 'Ana · ana@correo.com' }, { label: 'Entrega en', text: 'Jr. Lima 123, Tarapoto' }],
+    })
+  })
+
+  it('una frase corrida es texto simple y lo demás no', () => {
+    expect(isPlainText(parseRich('¡Hola! ¿Qué te interesa?'))).toBe(true)
+    expect(isPlainText(parseRich('Hola.\n\nSegundo párrafo.'))).toBe(false)
+    expect(isPlainText(parseRich('Me falta tu correo.\nEjemplo: a@b.co'))).toBe(false)
   })
 })
