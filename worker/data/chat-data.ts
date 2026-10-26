@@ -75,7 +75,9 @@ export interface ChatData {
   /** El último pedido que Teca registró en esta conversación, o null si no hay. */
   findPaymentTarget(channel: ChatChannel, ref: string): Promise<PaymentTarget | null>
   /** Guarda la captura y registra el pago: el pedido queda pagado, confirmado y en producción. */
-  recordPayment(input: { orderId: string; conversationId: string; image: ProofImage }): Promise<PaymentResult>
+  /** ¿Ya hay un pago registrado con ese número de operación de Yape o Plin? */
+  operationUsed(provider: 'yape' | 'plin', code: string): Promise<boolean>
+  recordPayment(input: { orderId: string; conversationId: string; image: ProofImage; operation?: { provider: 'yape' | 'plin'; code: string } }): Promise<PaymentResult>
   /** Mensajes visibles para el cliente posteriores a `afterId`. Null si la conversación no existe. */
   messagesAfter(channel: ChatChannel, ref: string, afterId: number): Promise<{ status: ChatStatus; messages: ChatMessage[] } | null>
 }

@@ -81,6 +81,7 @@ export async function handlePaymentProof(
 
   // La captura debe ser una constancia de Yape o Plin por el monto del pedido; si no, no se registra el pago.
   let unverified = false
+  let operation: { provider: 'yape' | 'plin'; code: string } | undefined
   if (services.read) {
     const reading = await services.read(input.image)
     if (reading) {
@@ -93,11 +94,23 @@ export async function handlePaymentProof(
         }
         return result
       }
+      // La misma constancia no sirve para dos pedidos.
+      if (reading.operationCode && (reading.app === 'yape' || reading.app === 'plin')) {
+        operation = { provider: reading.app, code: reading.operationCode }
+        if (await chat.operationUsed(operation.provider, operation.code)) {
+          await reply(`Esa constancia de pago ya se usó en otro pedido. Sube la captura del pago de tu pedido ${target.code}.
+
+Toca «${PROOF_BUTTON_LABEL}» (el clip junto al mensaje) para intentarlo de nuevo.`)
+          await chat.handoff(target.conversationId, `Pedido ${target.code}: la captura repite un número de operación ya usado (${operation.provider} ${operation.code}).`)
+          result.status = 'needs_human'
+          return result
+        }
+      }
     } else unverified = true
   }
 
   try {
-    const paid = await chat.recordPayment({ orderId: target.orderId, conversationId: target.conversationId, image: input.image })
+    const paid = await chat.recordPayment({ orderId: target.orderId, conversationId: target.conversationId, image: input.image, ...(operation ? { operation } : {}) })
     if (paid.status === 'in_production') {
       await reply(`¡Listo, recibimos tu pago de ${money(target.total)}! Tu pedido ${paid.code} ya está en producción. Te avisamos cuando esté listo para la entrega. ¡Gracias por elegir Woodland!`)
     } else {

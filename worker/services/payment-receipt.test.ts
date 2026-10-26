@@ -71,9 +71,10 @@ describe('handlePaymentProof con lector de capturas', () => {
     return {
       record: vi.fn(async () => ({ conversationId: 'c-1', messageId: (id += 1), status: 'open', duplicate: false })),
       findPaymentTarget: vi.fn(async () => target),
+      operationUsed: vi.fn(async () => false),
       recordPayment: vi.fn(async () => ({ code: 'PED-000012', status: 'in_production', paymentStatus: 'paid', alreadyPaid: false })),
       handoff: vi.fn(async () => {}),
-    } as unknown as ChatData & { recordPayment: ReturnType<typeof vi.fn>; handoff: ReturnType<typeof vi.fn> }
+    } as unknown as ChatData & { recordPayment: ReturnType<typeof vi.fn>; handoff: ReturnType<typeof vi.fn>; operationUsed: ReturnType<typeof vi.fn> }
   }
   const run = (chat: ChatData, reading: ReceiptReading | null) =>
     handlePaymentProof({ chat, read: async () => reading }, { channel: 'web_chat', ref: 'r', image })
@@ -104,6 +105,22 @@ describe('handlePaymentProof con lector de capturas', () => {
     expect(result.messages.at(-1)?.body).toMatch(/S\/ 26\.70, pero tu pedido PED-000012 es de S\/ 40\.00/)
     expect(chat.handoff).toHaveBeenCalledTimes(1)
     expect(result.status).toBe('needs_human')
+  })
+
+  it('una constancia con un número de operación ya usado se rechaza y avisa al equipo', async () => {
+    const chat = fakeChat()
+    chat.operationUsed.mockResolvedValue(true)
+    const result = await run(chat, plin)
+    expect(chat.operationUsed).toHaveBeenCalledWith('plin', '50000002')
+    expect(chat.recordPayment).not.toHaveBeenCalled()
+    expect(result.messages.at(-1)?.body).toMatch(/ya se usó en otro pedido/)
+    expect(result.status).toBe('needs_human')
+  })
+
+  it('una constancia nueva guarda su número de operación con el pago', async () => {
+    const chat = fakeChat()
+    await run(chat, plin)
+    expect(chat.recordPayment).toHaveBeenCalledWith(expect.objectContaining({ operation: { provider: 'plin', code: '50000002' } }))
   })
 
   it('si la IA no pudo leer la captura, el pago se registra y el equipo la revisa en el panel', async () => {

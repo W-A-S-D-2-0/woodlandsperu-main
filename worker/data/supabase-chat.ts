@@ -112,13 +112,24 @@ export const createSupabaseChatData: ChatDataFactory = (env) => {
       return { conversationId: conversation.id, orderId: order.id, code: order.code, total: Number(order.total), status: order.status, paymentStatus: order.payment_status }
     },
 
-    async recordPayment({ orderId, conversationId, image }) {
+    async operationUsed(provider, code) {
+      const { data, error } = await db().from('order_payments').select('id').eq('provider', provider).eq('operation_code', code).limit(1)
+      if (error) throw new Error(`chat: ${error.code ?? 'error'}`)
+      return (data as unknown[]).length > 0
+    },
+
+    async recordPayment({ orderId, conversationId, image, operation }) {
       const { data: order, error: orderError } = await db().from('orders').select('code').eq('id', orderId).single()
       if (orderError || !order) throw new Error(`chat: ${orderError?.code ?? 'error'}`)
       const path = `${order.code}/${Date.now()}.${image.ext}`
       const upload = await db().storage.from(PROOF_BUCKET).upload(path, image.bytes, { contentType: image.contentType, upsert: false })
       if (upload.error) throw new Error('chat: no se pudo guardar la captura')
-      const { data, error } = await db().rpc('record_chat_payment', { p_order_id: orderId, p_proof_path: path, p_conversation_id: conversationId })
+      const { data, error } = await db().rpc('record_chat_payment', {
+        p_order_id: orderId,
+        p_proof_path: path,
+        p_conversation_id: conversationId,
+        ...(operation ? { p_provider: operation.provider, p_operation_code: operation.code } : {}),
+      })
       if (error) rethrow(error)
       const r = data as { code: string; status: string; payment_status: string; already_paid: boolean }
       return { code: r.code, status: r.status, paymentStatus: r.payment_status, alreadyPaid: r.already_paid }

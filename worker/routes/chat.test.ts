@@ -83,6 +83,7 @@ function fakeChat() {
       const code = messages.findLast((m) => m.conversationId === id && m.role === 'assistant' && m.body.includes('Subir captura de pago'))?.body.match(/PED-\d{6,}/)?.[0]
       return id && code ? { conversationId: id, orderId: 'o-1', code, total: 200, status: orderState.status, paymentStatus: orderState.paymentStatus } : null
     }),
+    operationUsed: vi.fn(async () => false),
     recordPayment: vi.fn(async () => {
       orderState.paymentStatus = 'paid'
       orderState.status = orderState.stock ? 'in_production' : 'pending_confirmation'

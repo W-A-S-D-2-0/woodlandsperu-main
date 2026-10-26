@@ -33,7 +33,23 @@ const pay = (orderId: string, path: string | null = 'PED/captura.jpg') =>
 const order = async (id: string) =>
   (await as(db, service, () => db.query<Record<string, unknown>>('select * from public.orders where id = $1', [id]))).rows[0]!
 
+const payWith = (orderId: string, provider: string, code: string) =>
+  as(db, service, async () => (await db.query<{ r: Record<string, unknown> }>('select public.record_chat_payment($1, $2, null, $3, $4) as r', [orderId, 'PED/captura.jpg', code, provider])).rows[0]!.r, { commit: true })
+
 describe('record_chat_payment', () => {
+  it('guarda el número de operación y no deja usar la misma constancia en otro pedido', async () => {
+    const first = await newOrder()
+    const second = await newOrder()
+    await payWith(first, 'plin', '90000001')
+    const saved = (await as(db, service, () => db.query<Record<string, unknown>>('select provider, operation_code from public.order_payments where order_id = $1', [first]))).rows[0]
+    expect(saved).toEqual({ provider: 'plin', operation_code: '90000001' })
+
+    await expect(payWith(second, 'plin', '90000001')).rejects.toThrow(/ya se usó en otro pedido/)
+    expect((await order(second)).payment_status).not.toBe('paid')
+    // El mismo número en otro medio de pago (Yape) no es la misma constancia.
+    await expect(payWith(second, 'yape', '90000001')).resolves.toMatchObject({ payment_status: 'paid' })
+  })
+
   it('deja el pedido pagado y en producción, con el pago registrado', async () => {
     const id = await newOrder()
     expect((await order(id)).status).toBe('confirmed')
@@ -43,7 +59,7 @@ describe('record_chat_payment', () => {
 
     const o = await order(id)
     expect(o).toMatchObject({ status: 'in_production', payment_status: 'paid' })
-    expect(String(o.internal_notes)).toContain('verificar en la app de Yape')
+    expect(String(o.internal_notes)).toContain('verificar en la app')
 
     const rows = (await as(db, service, () => db.query<Record<string, unknown>>('select * from public.order_payments where order_id = $1', [id]))).rows
     expect(rows).toHaveLength(1)
