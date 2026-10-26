@@ -152,6 +152,20 @@ describe('registro inalterable y cotizaciones del asistente', () => {
     await expect(as(db, service, () => db.query('delete from public.conversation_messages where conversation_id = $1', [conversation_id]))).rejects.toThrow(/solo inserción/)
   })
 
+  it('solo administración elimina una conversación, con sus mensajes, y queda en la auditoría', async () => {
+    const { conversation_id } = await customerSays(ref())
+    for (const actor of [user(ids.workshop), user(ids.outsider), anon]) {
+      await expect(as(db, actor, () => db.query('select public.delete_conversation($1)', [conversation_id]))).rejects.toThrow(/permission denied|Solo administración/)
+    }
+    await as(db, user(ids.admin), () => db.query('select public.delete_conversation($1)', [conversation_id]), { commit: true })
+    expect(await messages(conversation_id)).toHaveLength(0)
+    const gone = await as(db, service, () => db.query('select id from public.conversations where id = $1', [conversation_id]))
+    expect(gone.rows).toHaveLength(0)
+    const audit = await as(db, service, () => db.query(`select details from public.audit_log where action = 'conversation_deleted' and entity_id = $1`, [conversation_id]))
+    expect(audit.rows).toHaveLength(1)
+    await expect(as(db, user(ids.admin), () => db.query('select public.delete_conversation($1)', [conversation_id]))).rejects.toThrow(/no existe/)
+  })
+
   it('vincula la cotización creada y el cliente que quedó registrado', async () => {
     const { conversation_id } = await customerSays(ref())
     const quote = await as(

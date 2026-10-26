@@ -245,4 +245,6 @@ export function adminRoutes(staffAuth: StaffAuthFactory, panelData: PanelDataFac
       admin,
       withIdBody(conversationStatusBody, async (c, d, id, body) => (await d.setConversationStatus(id, body.status), ok(c))),
     )
+    // Elimina la conversación con sus mensajes (chats de prueba); la acción queda en la auditoría.
+    .post('/conversations/:id/delete', admin, withId(async (c, d, id) => (await d.deleteConversation(id), ok(c))))
 }

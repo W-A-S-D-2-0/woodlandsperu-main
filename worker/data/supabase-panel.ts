@@ -511,6 +511,9 @@ export const createSupabasePanelData: PanelDataFactory = (env, accessToken) => {
     async setConversationStatus(id, status) {
       await rpc('set_conversation_status', { p_conversation_id: id, p_status: status })
     },
+    async deleteConversation(id) {
+      await rpc('delete_conversation', { p_conversation_id: id })
+    },
 
     // Reportes: solo lectura del rango [start, end).
     async getReportSource({ start, end }) {

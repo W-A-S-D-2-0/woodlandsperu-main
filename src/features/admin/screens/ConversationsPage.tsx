@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import type { ConversationDetail, ConversationListItem, ListResponse } from '../../../../shared/api/panel-contracts'
 import { useDocumentTitle } from '../../../hooks/useDocumentTitle'
@@ -56,10 +56,14 @@ function Thread({ conversation }: { conversation: ConversationDetail }) {
   )
 }
 
-function Actions({ conversation, onChanged }: { conversation: ConversationDetail; onChanged: () => void }) {
+function Actions({ conversation, onChanged, onDeleted }: { conversation: ConversationDetail; onChanged: () => void; onDeleted: () => void }) {
   const { run, pending, error } = useAdminAction()
+  const [confirming, setConfirming] = useState(false)
   const exec = async (status: 'open' | 'closed') => {
     if (await run('POST', `/conversations/${conversation.id}/status`, { status })) onChanged()
+  }
+  const remove = async () => {
+    if (await run('POST', `/conversations/${conversation.id}/delete`)) onDeleted()
   }
   const { status } = conversation
   return (
@@ -75,6 +79,20 @@ function Actions({ conversation, onChanged }: { conversation: ConversationDetail
             Cerrar
           </button>
         )}
+        {confirming ? (
+          <>
+            <button type="button" className={primaryButton} disabled={pending} onClick={() => void remove()}>
+              Sí, eliminar definitivamente
+            </button>
+            <button type="button" className={secondaryButton} disabled={pending} onClick={() => setConfirming(false)}>
+              No, conservar
+            </button>
+          </>
+        ) : (
+          <button type="button" className={secondaryButton} disabled={pending} onClick={() => setConfirming(true)}>
+            Eliminar chat
+          </button>
+        )}
       </div>
       {error && <Notice>{error}</Notice>}
     </div>
@@ -82,6 +100,10 @@ function Actions({ conversation, onChanged }: { conversation: ConversationDetail
 }
 
 function DetailView({ id, onBack, onChanged }: { id: string; onBack: () => void; onChanged: () => void }) {
+  const onDeleted = () => {
+    onChanged()
+    onBack()
+  }
   const { state, reload: reloadDetail } = useAdminQuery<ConversationDetail>(`/conversations/${id}`)
   usePolling(reloadDetail, 10_000)
   // Lo que cambia la conversación (responder, tomarla, cerrarla) también cambia la bandeja.
@@ -131,7 +153,7 @@ function DetailView({ id, onBack, onChanged }: { id: string; onBack: () => void;
             El asistente atiende solo esta conversación, con lo que sabe de Woodland. Aquí la supervisas: no se responde desde el panel.
             {c.status === 'needs_human' && ' Está marcada para que revises el motivo y, si hace falta, contactes al cliente por sus datos.'}
           </Notice>
-          <Actions conversation={c} onChanged={reload} />
+          <Actions conversation={c} onChanged={reload} onDeleted={onDeleted} />
           <Thread conversation={c} />
         </div>
       )}

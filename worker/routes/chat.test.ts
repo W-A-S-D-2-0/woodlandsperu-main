@@ -571,6 +571,7 @@ function panel(conversation: ConversationDetail | null) {
     listConversations: vi.fn(async () => ({ items: [] })),
     getConversation: vi.fn(async () => conversation),
     setConversationStatus: vi.fn(async () => {}),
+    deleteConversation: vi.fn(async () => {}),
   } as unknown as PanelData
   return data
 }
@@ -600,6 +601,9 @@ describe('panel · conversaciones (solo supervisión)', () => {
     expect((await admin('POST', `/conversations/${CONV_ID}/status`, data, { body: { status: 'with_human' } })).status).toBe(422)
     expect((await admin('POST', `/conversations/${CONV_ID}/status`, data, { body: { status: 'open' } })).status).toBe(200)
     expect((await admin('POST', `/conversations/${CONV_ID}/status`, data, { body: { status: 'closed' } })).status).toBe(200)
+    expect((await admin('POST', `/conversations/${CONV_ID}/delete`, data, { token: 'token.taller' })).status).toBe(403)
+    expect((await admin('POST', `/conversations/${CONV_ID}/delete`, data)).status).toBe(200)
+    expect(data.deleteConversation).toHaveBeenCalledWith(CONV_ID)
   })
 
   it('el equipo ya no responde ni toma conversaciones desde el panel: lo atiende el asistente', async () => {
