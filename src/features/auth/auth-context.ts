@@ -10,7 +10,7 @@ export interface AuthContextValue {
   /** Devuelve un mensaje de error para mostrar, o null si inició sesión. */
   signIn: (email: string, password: string) => Promise<string | null>
   /** Crea la cuenta (sin acceso al panel hasta que administración la apruebe). Devuelve un error o el siguiente paso. */
-  signUp: (input: SignUpInput) => Promise<{ error: string } | { error: null; needsConfirmation: boolean }>
+  signUp: (input: SignUpInput) => Promise<{ error: string } | { error: null; needsConfirmation: boolean; accessToken: string | null }>
   /** Envía el enlace para restablecer la contraseña. Devuelve un error para mostrar, o null. */
   requestPasswordReset: (email: string) => Promise<string | null>
   /** Guarda la contraseña nueva de quien llegó por el enlace del correo. Devuelve un error o null. */

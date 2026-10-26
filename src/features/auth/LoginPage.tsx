@@ -1,6 +1,7 @@
 import { useId, useState, type FormEvent } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
+import { apiFetch } from '../../lib/api'
 import { PUBLIC_SITE_URL } from '../../lib/public-site'
 import { AuthNotice, primaryButtonClass } from './AuthNotice'
 import { MIN_PASSWORD_LENGTH, safeNextPath, useAuth, validateNewPassword, validateSignUp } from './auth-context'
@@ -51,6 +52,8 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  // Mientras se crea la cuenta no se redirige: primero se muestra el mensaje de bienvenida.
+  const [signingUp, setSigningUp] = useState(false)
 
   const go = (to: View) => {
     setView(to)
@@ -59,7 +62,7 @@ export function LoginPage() {
   }
 
   // Quien llegó por el enlace del correo elige aquí su contraseña nueva, aunque ya tenga sesión.
-  if (status === 'signed_in' && !recovering) return <Navigate to={next} replace />
+  if (status === 'signed_in' && !recovering && !signingUp) return <Navigate to={next} replace />
 
   if (status === 'unconfigured') {
     return (
@@ -94,11 +97,28 @@ export function LoginPage() {
       const input = { firstName: get('firstName').trim(), lastName: get('lastName').trim(), email: get('email').trim(), password: get('password') }
       const problem = validateSignUp(input, get('repeat'))
       if (problem) return setError(problem)
+      setSigningUp(true)
       const result = await signUp(input)
-      if (!('needsConfirmation' in result)) return setError(result.error)
-      // Con confirmación de correo la persona aún no tiene sesión; sin ella entra y ve el aviso de aprobación pendiente.
-      if (result.needsConfirmation) setDone('Cuenta creada. Revisa tu correo para confirmarla; luego administración debe aprobar tu acceso al panel.')
-      else navigate(next, { replace: true })
+      if (!('needsConfirmation' in result)) {
+        setSigningUp(false)
+        return setError(result.error)
+      }
+      // Con confirmación de correo la persona aún no tiene sesión y debe abrir el enlace que le llega.
+      if (!result.accessToken) {
+        setSigningUp(false)
+        return setDone('Cuenta creada. Revisa tu correo para confirmarla y luego inicia sesión.')
+      }
+      // El backend dice si el correo está autorizado: entra de inmediato o queda a la espera de aprobación.
+      const allowed = await apiFetch('/api/admin/me', { headers: { Authorization: `Bearer ${result.accessToken}` } }).then(
+        () => true,
+        () => false,
+      )
+      if (!allowed) {
+        setSigningUp(false)
+        return setDone('Cuenta creada, pero este correo aún no tiene acceso al panel. Administración debe aprobarlo.')
+      }
+      setDone(`Cuenta creada. ¡Te damos la bienvenida, ${input.firstName}!`)
+      window.setTimeout(() => navigate(next, { replace: true }), 1600)
     })
 
   const onForgot = (event: FormEvent<HTMLFormElement>) =>
@@ -195,7 +215,7 @@ export function LoginPage() {
           <button type="submit" className={primaryButtonClass} disabled={submitting || status === 'loading'}>
             {submitLabel('Crear cuenta', 'Creando…')}
           </button>
-          <p className="text-xs">Tu cuenta podrá entrar al panel cuando administración la apruebe.</p>
+          <p className="text-xs">Solo los correos autorizados por Woodland entran al panel.</p>
         </form>
       )}
 

@@ -66,7 +66,7 @@ export function AuthRoot() {
         return { error: 'No se pudo crear la cuenta. Intenta nuevamente.' }
       }
       // Sin sesión: Supabase pide confirmar el correo primero.
-      return { error: null, needsConfirmation: !data.session }
+      return { error: null, needsConfirmation: !data.session, accessToken: data.session?.access_token ?? null }
     },
     [client],
   )

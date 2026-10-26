@@ -20,7 +20,7 @@ const SUPABASE_SHIM = `
 
   create schema auth;
   grant usage on schema auth to anon, authenticated, service_role;
-  create table auth.users (id uuid primary key, email text);
+  create table auth.users (id uuid primary key, email text, raw_user_meta_data jsonb);
 
   create function auth.jwt() returns jsonb language sql stable as $$
     select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb
