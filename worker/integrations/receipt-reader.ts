@@ -4,7 +4,8 @@ import { parseReceiptReading, type ReceiptReading } from '../services/payment-re
  * Lee una captura de Yape o Plin con Gemini (visión). Usa la misma clave del asistente (GEMINI_API_KEY, secreto del
  * Worker). Devuelve null si no hay clave o la IA no responde: entonces el pago queda para revisión del equipo.
  */
-const DEFAULT_MODEL = 'gemini-flash-latest'
+/** Lector de constancias: el Flash-Lite es más rápido y suele tener cupo cuando el Flash está saturado. */
+const DEFAULT_MODEL = 'gemini-flash-lite-latest'
 const TIMEOUT_MS = 20_000
 /** Google a veces responde 429/500/503 por alta demanda: se reintenta antes de dejar la captura para revisión del equipo. */
 const RETRY_STATUSES = new Set([429, 500, 503])
@@ -39,7 +40,7 @@ export function createReceiptReader(options: { apiKey?: string; model?: string; 
     try {
       const body = JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: INSTRUCTIONS }, { inlineData: { mimeType: image.contentType, data: base64(image.bytes) } }] }],
-        generationConfig: { temperature: 0, maxOutputTokens: 400, responseMimeType: 'application/json' },
+        generationConfig: { temperature: 0, maxOutputTokens: 2000, responseMimeType: 'application/json' },
       })
       const call = () =>
         doFetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
