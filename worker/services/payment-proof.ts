@@ -36,11 +36,26 @@ ${retry}`
       return `La captura muestra ${money(reading.amount ?? 0)}, pero tu pedido ${target.code} es de ${money(target.total)}. Revisa el monto y vuelve a subir la captura correcta. Si pagaste otro monto, ya avisé al equipo para que lo revise.
 
 ${retry}`
+    case 'no_operation':
+      return `Reconocí tu constancia, pero no pude leer el número de operación. Sube una captura completa, donde se vea el número de operación.
+
+${retry}`
+    case 'wrong_message':
+      return `En tu constancia el mensaje del pago no tiene el número de tu pedido (${target.code}), y así no puedo confirmarla sola. Ya avisé al equipo para que la revise; no necesitas pagar de nuevo. Si tienes otra captura donde el mensaje diga ${target.code}, súbela.
+
+${retry}`
     case 'wrong_recipient':
       return `El pago de la captura no parece ir al número de Woodland (${yapePlin.number?.trim() ?? ''}). Revisa el destino y vuelve a subir la captura correcta. Ya avisé al equipo para que lo revise.
 
 ${retry}`
   }
+}
+
+/** Lo que se le anota al equipo cuando la captura no coincide con el pedido. */
+const HANDOFF_REASON = {
+  wrong_amount: (target: PaymentTarget, reading: ReceiptReading) => `monto ${money(reading.amount ?? 0)} en vez de ${money(target.total)}`,
+  wrong_recipient: () => 'destino distinto al número de Woodland',
+  wrong_message: (target: PaymentTarget, reading: ReceiptReading) => `el mensaje del pago (${reading.message ?? 'vacío'}) no nombra el pedido ${target.code}`,
 }
 
 export interface ProofResult {
@@ -54,8 +69,8 @@ export interface ProofResult {
  * pago, lo dice.
  */
 export async function handlePaymentProof(
-  /** `read`: lector de capturas (IA). Sin él, la captura no se verifica y el pedido pasa a pagado como antes. */
-  services: { chat: ChatData; read?: ReceiptReader | null },
+  /** `read`: lector de capturas (IA). Sin él, o si no logra leer la imagen, el pago no se acepta: se pide reintentar. */
+  services: { chat: ChatData; read: ReceiptReader | null },
   input: { channel: ChatChannel; ref: string; image: ProofImage },
 ): Promise<ProofResult> {
   const { chat } = services
@@ -79,48 +94,39 @@ export async function handlePaymentProof(
     return result
   }
 
-  // La captura debe ser una constancia de Yape o Plin por el monto del pedido; si no, no se registra el pago.
-  let unverified = false
-  let operation: { provider: 'yape' | 'plin'; code: string } | undefined
-  if (services.read) {
-    const reading = await services.read(input.image)
-    if (reading) {
-      const verdict = judgeReceipt(reading, { total: target.total, businessNumber: yapePlin.number })
-      if (verdict !== 'ok') {
-        await reply(rejectionText(verdict, target, reading))
-        if (verdict === 'wrong_amount' || verdict === 'wrong_recipient') {
-          await chat.handoff(target.conversationId, `Captura de pago del pedido ${target.code} no coincide (${verdict === 'wrong_amount' ? `monto S/ ${reading.amount ?? '?'} en vez de ${money(target.total)}` : 'destino distinto al número de Woodland'}).`)
-          result.status = 'needs_human'
-        }
-        return result
-      }
-      // La misma constancia no sirve para dos pedidos.
-      if (reading.operationCode && (reading.app === 'yape' || reading.app === 'plin')) {
-        operation = { provider: reading.app, code: reading.operationCode }
-        if (await chat.operationUsed(operation.provider, operation.code)) {
-          await reply(`Esa constancia de pago ya se usó en otro pedido. Sube la captura del pago de tu pedido ${target.code}.
-
-Toca «${PROOF_BUTTON_LABEL}» (el clip junto al mensaje) para intentarlo de nuevo.`)
-          await chat.handoff(target.conversationId, `Pedido ${target.code}: la captura repite un número de operación ya usado (${operation.provider} ${operation.code}).`)
-          result.status = 'needs_human'
-          return result
-        }
-      }
-    } else unverified = true
+  // El pago solo se acepta si la captura es una constancia de Yape o Plin que pasa todas las revisiones: monto exacto,
+  // número del pedido en el mensaje del pago y número de operación sin usar. Si no se puede revisar, no se acepta.
+  const reading = services.read ? await services.read(input.image) : null
+  if (!reading) {
+    await reply(`No pude revisar tu captura en este momento. Inténtalo de nuevo en un minuto; si el problema sigue, el equipo te ayuda con tu pedido ${target.code}.\n\nToca «${PROOF_BUTTON_LABEL}» (el clip junto al mensaje) para subirla otra vez.`)
+    return result
+  }
+  const verdict = judgeReceipt(reading, { total: target.total, businessNumber: yapePlin.number, orderCode: target.code })
+  if (verdict !== 'ok') {
+    await reply(rejectionText(verdict, target, reading))
+    // Si la constancia es de un pago real pero no coincide, el equipo lo ve en el panel.
+    if (verdict === 'wrong_amount' || verdict === 'wrong_recipient' || verdict === 'wrong_message') {
+      await chat.handoff(target.conversationId, `Captura de pago del pedido ${target.code} no coincide: ${HANDOFF_REASON[verdict](target, reading)}.`)
+      result.status = 'needs_human'
+    }
+    return result
+  }
+  // La misma constancia no sirve para dos pedidos.
+  const operation = { provider: reading.app as 'yape' | 'plin', code: reading.operationCode! }
+  if (await chat.operationUsed(operation.provider, operation.code)) {
+    await reply(`Esa constancia de pago ya se usó en otro pedido. Sube la captura del pago de tu pedido ${target.code}.\n\nToca «${PROOF_BUTTON_LABEL}» (el clip junto al mensaje) para intentarlo de nuevo.`)
+    await chat.handoff(target.conversationId, `Pedido ${target.code}: la captura repite un número de operación ya usado (${operation.provider} ${operation.code}).`)
+    result.status = 'needs_human'
+    return result
   }
 
   try {
-    const paid = await chat.recordPayment({ orderId: target.orderId, conversationId: target.conversationId, image: input.image, ...(operation ? { operation } : {}) })
+    const paid = await chat.recordPayment({ orderId: target.orderId, conversationId: target.conversationId, image: input.image, operation })
     if (paid.status === 'in_production') {
       await reply(`¡Listo, recibimos tu pago de ${money(target.total)}! Tu pedido ${paid.code} ya está en producción. Te avisamos cuando esté listo para la entrega. ¡Gracias por elegir Woodland!`)
     } else {
       await reply(`¡Listo, recibimos tu pago de ${money(target.total)}! Tu pedido ${paid.code} quedó pagado; el equipo termina de confirmarlo y te escribe con la fecha de entrega. ¡Gracias por elegir Woodland!`)
       await chat.handoff(target.conversationId, `Pedido ${paid.code} pagado por Yape, pero no se pudo confirmar solo (revisar stock).`)
-      result.status = 'needs_human'
-    }
-    // La IA no pudo leer la captura: el pago quedó registrado, pero el equipo debe revisarla en el panel.
-    if (unverified && result.status !== 'needs_human') {
-      await chat.handoff(target.conversationId, `Pedido ${paid.code}: no se pudo leer la captura de pago automáticamente; revisarla en el panel.`)
       result.status = 'needs_human'
     }
   } catch (err) {

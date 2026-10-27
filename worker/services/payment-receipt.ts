@@ -12,9 +12,11 @@ export interface ReceiptReading {
   /** Últimos dígitos visibles del celular de destino («938» en «*** *** 938»). */
   recipientTail: string | null
   operationCode: string | null
+  /** Mensaje o concepto que escribió el pagador junto al pago. */
+  message: string | null
 }
 
-export type ReceiptVerdict = 'ok' | 'not_receipt' | 'unreadable' | 'wrong_amount' | 'wrong_recipient'
+export type ReceiptVerdict = 'ok' | 'not_receipt' | 'unreadable' | 'wrong_amount' | 'wrong_recipient' | 'no_operation' | 'wrong_message'
 
 /** Lee el JSON que devuelve la IA; null si no se puede entender. */
 export function parseReceiptReading(text: string): ReceiptReading | null {
@@ -36,18 +38,30 @@ export function parseReceiptReading(text: string): ReceiptReading | null {
     amount: Number.isFinite(amount) && amount > 0 ? Math.round(amount * 100) / 100 : null,
     recipientTail: tail.length === 3 ? tail : null,
     operationCode: code || null,
+    message: typeof raw.message === 'string' && raw.message.trim() ? raw.message.trim().slice(0, 200) : null,
   }
 }
 
+/** ¿El mensaje del pago nombra el pedido? Acepta «PED-000123», «ped000123» o solo «000123». */
+export function mentionsOrder(message: string | null, orderCode: string): boolean {
+  if (!message) return false
+  const compact = message.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const digits = orderCode.replace(/\D/g, '')
+  return digits.length >= 4 && compact.includes(digits)
+}
+
 /**
- * ¿La captura corresponde al pedido? Debe ser una constancia de Yape o Plin, con el monto exacto del pedido y, si se
- * alcanza a leer el destino, terminar en las mismas 3 cifras que el celular del negocio.
+ * ¿La captura corresponde al pedido? Debe ser una constancia de Yape o Plin con el monto exacto del pedido, el número
+ * del pedido en el mensaje del pago y un número de operación legible (así no se reutiliza). Si se alcanza a leer el
+ * destino, debe terminar en las mismas 3 cifras que el celular del negocio.
  */
-export function judgeReceipt(reading: ReceiptReading, expected: { total: number; businessNumber: string | null }): ReceiptVerdict {
+export function judgeReceipt(reading: ReceiptReading, expected: { total: number; businessNumber: string | null; orderCode: string }): ReceiptVerdict {
   if (!reading.isReceipt) return 'not_receipt'
   if (reading.amount === null) return 'unreadable'
   if (Math.abs(reading.amount - expected.total) > 0.009) return 'wrong_amount'
   const businessTail = expected.businessNumber?.replace(/\D/g, '').slice(-3)
   if (reading.recipientTail && businessTail && reading.recipientTail !== businessTail) return 'wrong_recipient'
+  if (!mentionsOrder(reading.message, expected.orderCode)) return 'wrong_message'
+  if (!reading.operationCode) return 'no_operation'
   return 'ok'
 }

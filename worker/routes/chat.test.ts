@@ -633,10 +633,12 @@ describe('POST /api/chat/payment-proof', () => {
     form.set('file', file)
     return app.request('/api/chat/payment-proof', { method: 'POST', body: form }, { APP_ENV: 'development' } as Env)
   }
+  // Lo que lee la IA en una constancia de Yape correcta para el pedido de la prueba (S/ 200.00, PED-000012).
+  const proofReading = { isReceipt: true, app: 'yape' as const, amount: 200, recipientTail: '725', operationCode: '10000001', message: 'PED-000012' }
   const orderCall = { name: 'create_order' as const, args: { fullName: 'Ana', email: 'ana@example.com', items: [{ variantId: VARIANT, quantity: 2 }] } }
   const withOrder = async () => {
     const fake = fakeChat()
-    const app = createApp({ chatData: () => fake.chat, publicData: () => publicData(), assistantModel: withPaymentChoice(scripted({ text: '', call: orderCall })) })
+    const app = createApp({ chatData: () => fake.chat, publicData: () => publicData(), assistantModel: withPaymentChoice(scripted({ text: '', call: orderCall })), receiptReader: () => async () => proofReading })
     await send(app, 'Sí, confirmo el pedido')
     await send(app, 'Yape / Plin')
     return { ...fake, app }
