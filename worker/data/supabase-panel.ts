@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type {
   ConversationDetail,
+  ConversationMessage,
   ConversationListItem,
   CustomerDetail,
   CustomerListItem,
@@ -241,7 +242,9 @@ export function toConversationDetail(row: Row): ConversationDetail {
     ...detail,
     customer: detail.customer ?? null,
     quote: detail.quote ?? null,
-    messages: [...detail.messages].sort((a, b) => a.id - b.id),
+    messages: [...detail.messages]
+      .sort((a, b) => a.id - b.id)
+      .map(({ attachmentPath, ...message }: ConversationMessage & { attachmentPath?: string | null }) => (attachmentPath ? { ...message, attachment: true } : message)),
   }
 }
 
@@ -501,7 +504,7 @@ export const createSupabasePanelData: PanelDataFactory = (env, accessToken) => {
             `${CONVERSATION_LIST_SELECT},
              customer:customers ( ${CUSTOMER_REF} ),
              quote:quotes ( id, code, status ),
-             messages:conversation_messages ( id, role, body, created_at )`,
+             messages:conversation_messages ( id, role, body, created_at, attachment_path )`,
           )
           .eq('id', id)
           .maybeSingle(),
@@ -510,6 +513,13 @@ export const createSupabasePanelData: PanelDataFactory = (env, accessToken) => {
     },
     async setConversationStatus(id, status) {
       await rpc('set_conversation_status', { p_conversation_id: id, p_status: status })
+    },
+    async getMessageAttachment(messageId) {
+      const row = check(await db.from('conversation_messages').select('attachment_path').eq('id', messageId).maybeSingle()) as { attachment_path: string | null } | null
+      if (!row?.attachment_path) return null
+      const file = await db.storage.from('payment-proofs').download(row.attachment_path)
+      if (file.error || !file.data) return null
+      return { bytes: new Uint8Array(await file.data.arrayBuffer()), contentType: file.data.type || 'image/jpeg' }
     },
     async deleteConversation(id) {
       await rpc('delete_conversation', { p_conversation_id: id })

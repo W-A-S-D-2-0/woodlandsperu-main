@@ -17,6 +17,12 @@ export async function hashToken(token: string): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
+/** Responde una imagen guardada: solo tipos de imagen, privada y sin que el navegador adivine otro tipo. */
+export function imageResponse(file: { bytes: Uint8Array; contentType: string }): Response {
+  const type = ['image/jpeg', 'image/png', 'image/webp'].includes(file.contentType) ? file.contentType : 'application/octet-stream'
+  return new Response(file.bytes, { headers: { 'content-type': type, 'cache-control': 'private, max-age=3600', 'x-content-type-options': 'nosniff' } })
+}
+
 /** Límite por IP del chat (más holgado que el de cotizaciones, porque el widget consulta seguido). */
 const rateLimit: MiddlewareHandler<AppBindings> = async (c, next) => {
   const limiter = c.env.CHAT_RATE_LIMITER as RateLimit | undefined
@@ -85,6 +91,19 @@ export function chatRoutes(chatData: ChatDataFactory, publicData: PublicDataFact
         }
       },
     )
+
+    // La imagen de un mensaje (la captura de pago). Solo la ve quien tiene el token de esa conversación; va en un encabezado para
+    // que no quede en la dirección ni en los registros.
+    .get('/chat/attachments/:id', rateLimit, async (c) => {
+      const id = Number(c.req.param('id'))
+      const token = chatToken.safeParse(c.req.header('x-chat-token'))
+      if (!Number.isInteger(id) || id < 1 || !token.success) return fail(c, 400, 'invalid_request', 'Solicitud no válida.')
+      const chat = chatData(c.env)
+      if (!chat) return unavailable(c)
+      const file = await chat.readAttachment({ messageId: id, channel: 'web_chat', ref: await hashToken(token.data) })
+      if (!file) return fail(c, 404, 'not_found', 'No encontramos la imagen.')
+      return imageResponse(file)
+    })
 
     .get('/chat/messages', rateLimit, async (c) => {
       const query = validate(c, chatPollQuery, c.req.query())

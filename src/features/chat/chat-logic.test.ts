@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatMessage } from '../../../shared/api/chat'
 import { chatToken } from '../../../shared/api/chat'
-import { createChatToken, lastMessageId, loadChatToken, messageTime, formatSizes, parseBody, photoForModel, typedLength, mergeMessages, splitFlowFooter, startsNewConversation, statusNotice, trailingWarnings, transientMessages, isPlainText, parseRich } from './chat-logic'
+import { createChatToken, lastMessageId, loadChatToken, messageTime, formatSizes, parseBody, photoForModel, typedLength, mergeMessages, splitFlowFooter, startsNewConversation, statusNotice, trailingWarnings, transientMessages, isPlainText, parseRich, chatImage } from './chat-logic'
 
 const msg = (id: number, body = 'x'): ChatMessage => ({ id, role: 'customer', body, createdAt: '2026-10-17T10:00:00Z' })
 
@@ -196,6 +196,25 @@ describe('mensajes que no se guardan (agresión verbal)', () => {
     expect(trailingWarnings(saved)).toBe(2)
     expect(trailingWarnings([...saved, entry(2, 'customer'), entry(3, 'assistant')])).toBe(0)
     expect(trailingWarnings([entry(1, 'assistant')])).toBe(0)
+  })
+})
+
+describe('chatImage', () => {
+  it('pide la imagen con el token en un encabezado y devuelve el archivo', async () => {
+    const calls: [string, RequestInit | undefined][] = []
+    const fetcher = (async (url: string, init?: RequestInit) => {
+      calls.push([url, init])
+      return new Response(new Blob(['x'], { type: 'image/png' }))
+    }) as unknown as typeof fetch
+    const blob = await chatImage(7, 'tok-123', fetcher)
+    expect(blob.type).toBe('image/png')
+    expect(calls[0]![0]).toBe('/api/chat/attachments/7')
+    expect(calls[0]![0]).not.toContain('tok-123')
+    expect(calls[0]![1]?.headers).toEqual({ 'x-chat-token': 'tok-123' })
+  })
+
+  it('si no existe, falla', async () => {
+    await expect(chatImage(7, 'tok', (async () => new Response('x', { status: 404 })) as unknown as typeof fetch)).rejects.toThrow()
   })
 })
 

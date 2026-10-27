@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import type { ConversationDetail, ConversationListItem, ListResponse } from '../../../../shared/api/panel-contracts'
+import { AuthedImage } from '../../../components/ui/AuthedImage'
 import { useDocumentTitle } from '../../../hooks/useDocumentTitle'
+import { useStaffSession } from '../../auth/auth-context'
 import {
   contactLabel,
   conversationChannelLabels,
@@ -13,7 +15,7 @@ import {
   timeAgo,
 } from '../conversation-logic'
 import { formatDateTime, quoteStatusLabels } from '../panel-logic'
-import { useAdminAction, useAdminQuery, type QueryState } from '../use-admin-api'
+import { adminImage, useAdminAction, useAdminQuery, type QueryState } from '../use-admin-api'
 import { Badge, EmptyState, Notice, PageHeader, primaryButton, QueryView, secondaryButton } from '../ui'
 
 /** Recarga una consulta cada cierto tiempo mientras la pestaña está visible. */
@@ -34,6 +36,7 @@ const bubble: Record<string, string> = {
 }
 
 function Thread({ conversation }: { conversation: ConversationDetail }) {
+  const { accessToken } = useStaffSession()
   const listRef = useRef<HTMLOListElement>(null)
   const count = conversation.messages.length
   // Solo se desplaza la lista de mensajes, no la página: así no se mueve lo que la persona está mirando.
@@ -50,6 +53,11 @@ function Thread({ conversation }: { conversation: ConversationDetail }) {
             {messageRoleLabels[m.role]} · {formatDateTime(m.createdAt)}
           </p>
           <p className="mt-1 whitespace-pre-wrap">{m.body}</p>
+          {m.attachment && (
+            <div className="mt-2">
+              <AuthedImage cacheKey={`m${m.id}`} alt="Captura de pago del cliente" load={() => adminImage(accessToken, `/conversations/messages/${m.id}/attachment`)} />
+            </div>
+          )}
         </li>
       ))}
     </ol>

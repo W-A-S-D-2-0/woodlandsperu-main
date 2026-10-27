@@ -90,9 +90,10 @@ describe('handlePaymentProof: solo se acepta una constancia válida', () => {
       record: vi.fn(async () => ({ conversationId: 'c-1', messageId: (id += 1), status: 'open', duplicate: false })),
       findPaymentTarget: vi.fn(async () => target),
       operationUsed: vi.fn(async () => false),
+      storeProof: vi.fn(async () => 'chat/r/1.png'),
       recordPayment: vi.fn(async () => ({ code: order, status: 'in_production', paymentStatus: 'paid', alreadyPaid: false })),
       handoff: vi.fn(async () => {}),
-    } as unknown as ChatData & { recordPayment: ReturnType<typeof vi.fn>; handoff: ReturnType<typeof vi.fn>; operationUsed: ReturnType<typeof vi.fn> }
+    } as unknown as ChatData & { recordPayment: ReturnType<typeof vi.fn>; handoff: ReturnType<typeof vi.fn>; operationUsed: ReturnType<typeof vi.fn>; storeProof: ReturnType<typeof vi.fn>; record: ReturnType<typeof vi.fn> }
   }
   const run = (chat: ChatData, reading: ReceiptReading | null) => handlePaymentProof({ chat, read: async () => reading }, { channel: 'web_chat', ref: 'r', image })
   const lastReply = (r: Awaited<ReturnType<typeof run>>) => r.messages.at(-1)?.body ?? ''
@@ -103,6 +104,15 @@ describe('handlePaymentProof: solo se acepta una constancia válida', () => {
     expect(chat.recordPayment).toHaveBeenCalledWith(expect.objectContaining({ operation: { provider: 'plin', code: '50000002' } }))
     expect(lastReply(result)).toMatch(/recibimos tu pago de S\/ 40\.00/)
     expect(result.status).toBe('open')
+  })
+
+  it('la captura se guarda y queda en el mensaje del cliente, se acepte o no el pago', async () => {
+    const chat = fakeChat()
+    const rejected = await run(chat, { ...plin, isReceipt: false, app: 'other' })
+    expect(chat.storeProof).toHaveBeenCalledTimes(1)
+    expect(chat.record).toHaveBeenCalledWith(expect.objectContaining({ role: 'customer', attachmentPath: 'chat/r/1.png' }))
+    expect(rejected.messages[0]).toMatchObject({ role: 'customer', attachment: true })
+    expect(chat.recordPayment).not.toHaveBeenCalled()
   })
 
   it('una imagen que no es de Yape o Plin se rechaza, sin pago y con el botón para reintentar', async () => {

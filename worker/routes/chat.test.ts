@@ -44,7 +44,8 @@ const quote: QuoteSubmittedResponse = {
 /** Conversaciones en memoria: reproduce lo esencial de las funciones SQL. */
 function fakeChat() {
   let nextId = 1
-  const messages: (ChatMessage & { conversationId: string; externalId?: string })[] = []
+  const messages: (ChatMessage & { conversationId: string; externalId?: string; attachmentPath?: string })[] = []
+  const files = new Map<string, { bytes: Uint8Array; contentType: string }>()
   const conversations = new Map<string, ConversationInfo & { ref: string; handoffReason?: string }>()
   const byRef = new Map<string, string>()
   const orderState = { status: 'confirmed', paymentStatus: 'unpaid', stock: true }
@@ -61,7 +62,7 @@ function fakeChat() {
         byRef.set(key, id)
         conversations.set(id, { id, channel: input.channel, status: 'open', quoteId: null, contactPhone: input.contactPhone ?? null, ref: input.ref })
       }
-      messages.push({ id: nextId++, role: input.role, body: input.body, createdAt: '2026-10-17T10:00:00Z', conversationId: id, externalId: input.externalId })
+      messages.push({ id: nextId++, role: input.role, body: input.body, createdAt: '2026-10-17T10:00:00Z', conversationId: id, externalId: input.externalId, attachmentPath: input.attachmentPath, ...(input.attachmentPath ? { attachment: true } : {}) })
       return { conversationId: id, messageId: nextId - 1, status: conversations.get(id)!.status, duplicate: false }
     }),
     history: vi.fn(async (id: string) =>
@@ -84,6 +85,16 @@ function fakeChat() {
       return id && code ? { conversationId: id, orderId: 'o-1', code, total: 200, status: orderState.status, paymentStatus: orderState.paymentStatus } : null
     }),
     operationUsed: vi.fn(async () => false),
+    storeProof: vi.fn(async (image, folder) => {
+      const path = `${folder}/${files.size + 1}.${image.ext}`
+      files.set(path, { bytes: image.bytes, contentType: image.contentType })
+      return path
+    }),
+    readAttachment: vi.fn(async ({ messageId, channel, ref }) => {
+      const message = messages.find((m) => m.id === messageId)
+      const convRef = message ? conversations.get(message.conversationId)?.ref : undefined
+      return message?.attachmentPath && convRef === ref && channel === 'web_chat' ? (files.get(message.attachmentPath) ?? null) : null
+    }),
     recordPayment: vi.fn(async () => {
       orderState.paymentStatus = 'paid'
       orderState.status = orderState.stock ? 'in_production' : 'pending_confirmation'
@@ -582,6 +593,7 @@ function panel(conversation: ConversationDetail | null) {
     getConversation: vi.fn(async () => conversation),
     setConversationStatus: vi.fn(async () => {}),
     deleteConversation: vi.fn(async () => {}),
+    getMessageAttachment: vi.fn(async () => null),
   } as unknown as PanelData
   return data
 }
@@ -611,6 +623,14 @@ describe('panel · conversaciones (solo supervisión)', () => {
     expect((await admin('POST', `/conversations/${CONV_ID}/status`, data, { body: { status: 'with_human' } })).status).toBe(422)
     expect((await admin('POST', `/conversations/${CONV_ID}/status`, data, { body: { status: 'open' } })).status).toBe(200)
     expect((await admin('POST', `/conversations/${CONV_ID}/status`, data, { body: { status: 'closed' } })).status).toBe(200)
+    // La captura de pago de un mensaje: solo administración.
+    expect((await admin('GET', '/conversations/messages/5/attachment', data, { token: 'token.taller' })).status).toBe(403)
+    expect((await admin('GET', '/conversations/messages/5/attachment', data)).status).toBe(404)
+    data.getMessageAttachment = vi.fn(async () => ({ bytes: new Uint8Array([1, 2, 3]), contentType: 'image/png' }))
+    const image = await admin('GET', '/conversations/messages/5/attachment', data)
+    expect(image.status).toBe(200)
+    expect(image.headers.get('content-type')).toBe('image/png')
+    expect(data.getMessageAttachment).toHaveBeenCalledWith(5)
     expect((await admin('POST', `/conversations/${CONV_ID}/delete`, data, { token: 'token.taller' })).status).toBe(403)
     expect((await admin('POST', `/conversations/${CONV_ID}/delete`, data)).status).toBe(200)
     expect(data.deleteConversation).toHaveBeenCalledWith(CONV_ID)
@@ -673,12 +693,27 @@ describe('POST /api/chat/payment-proof', () => {
     const res = await upload(app, png())
     const body = (await res.json()) as ChatResponse
     expect(res.status).toBe(200)
-    expect(chat.recordPayment).toHaveBeenCalledWith(expect.objectContaining({ orderId: 'o-1', image: expect.objectContaining({ contentType: 'image/png', ext: 'png' }) }))
+    expect(chat.recordPayment).toHaveBeenCalledWith(expect.objectContaining({ orderId: 'o-1', proofPath: expect.stringMatching(/.png$/) }))
     const reply = body.messages.at(-1)?.body ?? ''
     expect(reply).toMatch(/recibimos tu pago de S\/ 200\.00/)
     expect(reply).toContain('PED-000012')
     expect(reply).toMatch(/en producción/)
     expect(body.status).toBe('open')
+  })
+
+  it('la captura queda en el mensaje: el cliente la pide con su token y nadie más la ve', async () => {
+    const { app } = await withOrder()
+    const body = (await (await upload(app, png())).json()) as ChatResponse
+    const mine = body.messages.find((m) => m.role === 'customer' && m.attachment)
+    expect(mine).toBeDefined()
+    const ask = (id: number, headers: Record<string, string>) => app.request(`/api/chat/attachments/${id}`, { headers }, { APP_ENV: 'development' } as Env)
+    const ok = await ask(mine!.id, { 'x-chat-token': TOKEN })
+    expect(ok.status).toBe(200)
+    expect(ok.headers.get('content-type')).toBe('image/png')
+    expect((await ok.arrayBuffer()).byteLength).toBeGreaterThan(0)
+    expect((await ask(mine!.id, { 'x-chat-token': 'otro-token-de-chat-aaaaaaaaaaaaaaaa' })).status).toBe(404)
+    expect((await ask(mine!.id, {})).status).toBe(400)
+    expect((await ask(99999, { 'x-chat-token': TOKEN })).status).toBe(404)
   })
 
   it('una segunda captura no vuelve a registrar el pago', async () => {

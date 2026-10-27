@@ -23,6 +23,8 @@ export interface RecordInput {
   contactPhone?: string
   /** Id del mensaje en el proveedor: un reintento con el mismo id no se duplica. */
   externalId?: string
+  /** Ruta de la imagen adjunta, ya guardada con `storeProof`. */
+  attachmentPath?: string
 }
 
 export interface RecordedMessage {
@@ -77,7 +79,11 @@ export interface ChatData {
   /** Guarda la captura y registra el pago: el pedido queda pagado, confirmado y en producción. */
   /** ¿Ya hay un pago registrado con ese número de operación de Yape o Plin? */
   operationUsed(provider: 'yape' | 'plin', code: string): Promise<boolean>
-  recordPayment(input: { orderId: string; conversationId: string; image: ProofImage; operation?: { provider: 'yape' | 'plin'; code: string } }): Promise<PaymentResult>
+  /** Guarda la captura en el bucket privado y devuelve su ruta. `folder` agrupa las capturas de una misma conversación. */
+  storeProof(image: ProofImage, folder: string): Promise<string>
+  /** La imagen de un mensaje de esa conversación (web: `ref` es el hash del token). Null si no existe o no es de esa conversación. */
+  readAttachment(input: { messageId: number; channel: ChatChannel; ref: string }): Promise<{ bytes: Uint8Array; contentType: string } | null>
+  recordPayment(input: { orderId: string; conversationId: string; proofPath: string; operation?: { provider: 'yape' | 'plin'; code: string } }): Promise<PaymentResult>
   /** Mensajes visibles para el cliente posteriores a `afterId`. Null si la conversación no existe. */
   messagesAfter(channel: ChatChannel, ref: string, afterId: number): Promise<{ status: ChatStatus; messages: ChatMessage[] } | null>
 }

@@ -74,10 +74,12 @@ export async function handlePaymentProof(
   input: { channel: ChatChannel; ref: string; image: ProofImage },
 ): Promise<ProofResult> {
   const { chat } = services
-  const sent = await chat.record({ channel: input.channel, ref: input.ref, role: 'customer', body: '📎 Subí la captura de mi pago.' })
+  // La imagen se guarda siempre y queda en el mensaje: el cliente la ve en su chat y la administración en Conversaciones.
+  const proofPath = await chat.storeProof(input.image, `chat/${input.ref.slice(0, 16)}`)
+  const sent = await chat.record({ channel: input.channel, ref: input.ref, role: 'customer', body: '📎 Subí la captura de mi pago.', attachmentPath: proofPath })
   const result: ProofResult = {
     status: sent.status,
-    messages: [{ id: sent.messageId, role: 'customer', body: '📎 Subí la captura de mi pago.', createdAt: now() }],
+    messages: [{ id: sent.messageId, role: 'customer', body: '📎 Subí la captura de mi pago.', createdAt: now(), attachment: true }],
   }
   const reply = async (body: string) => {
     const saved = await chat.record({ channel: input.channel, ref: input.ref, role: 'assistant', body })
@@ -121,7 +123,7 @@ export async function handlePaymentProof(
   }
 
   try {
-    const paid = await chat.recordPayment({ orderId: target.orderId, conversationId: target.conversationId, image: input.image, operation })
+    const paid = await chat.recordPayment({ orderId: target.orderId, conversationId: target.conversationId, proofPath, operation })
     if (paid.status === 'in_production') {
       await reply(`¡Listo, recibimos tu pago de ${money(target.total)}! Tu pedido ${paid.code} ya está en producción. Te avisamos cuando esté listo para la entrega. ¡Gracias por elegir Woodland!`)
     } else {

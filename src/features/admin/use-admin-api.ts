@@ -13,6 +13,13 @@ export function adminFetch<T>(token: string, path: string, init: RequestInit & {
   return apiFetch<T>(`/api/admin${path}`, { ...rest, headers, body: json === undefined ? rest.body : JSON.stringify(json) })
 }
 
+/** Una imagen privada del panel (por ejemplo la captura de pago de un cliente), pedida con la sesión del personal. */
+export async function adminImage(token: string, path: string, fetcher: typeof fetch = fetch): Promise<Blob> {
+  const response = await fetcher(`/api/admin${path}`, { headers: { Authorization: `Bearer ${token}` } })
+  if (!response.ok) throw new Error('No se pudo cargar la imagen.')
+  return response.blob()
+}
+
 export function errorMessage(error: unknown): string {
   return error instanceof ApiError ? error.message : 'Ocurrió un error inesperado.'
 }

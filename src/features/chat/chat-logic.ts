@@ -236,3 +236,10 @@ export function isPlainText(blocks: readonly RichBlock[]): boolean {
   const only = blocks[0]
   return blocks.length === 0 || (blocks.length === 1 && only!.kind === 'p' && only!.lines.every((l) => !l.label))
 }
+
+/** La imagen de un mensaje de esta conversación (la captura del pago). El token va en un encabezado, no en la dirección. */
+export async function chatImage(messageId: number, token: string, fetcher: typeof fetch = fetch): Promise<Blob> {
+  const response = await fetcher(`/api/chat/attachments/${messageId}`, { headers: { 'x-chat-token': token } })
+  if (!response.ok) throw new Error('No se pudo cargar la imagen.')
+  return response.blob()
+}

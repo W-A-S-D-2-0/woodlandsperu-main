@@ -31,6 +31,7 @@ import { GoogleSheetsError, readGoogleSheetsConfig, spreadsheetUrl, writeSheets 
 import { reportSheetRows, reportSheets } from '../../src/features/admin/report-logic'
 import { buildReport, reportBounds } from '../services/reports'
 import type { AppBindings } from '../types'
+import { imageResponse } from './chat'
 import { fail, parseBody, validate } from './http'
 
 type Ctx = Context<AppBindings>
@@ -240,6 +241,17 @@ export function adminRoutes(staffAuth: StaffAuthFactory, panelData: PanelDataFac
       const conversation = await d.getConversation(id)
       return conversation ? c.json(conversation) : notFound(c)
     }))
+    // La captura de pago de un mensaje, para verla en la conversación (imagen privada: solo administración).
+    .get(
+      '/conversations/messages/:id/attachment',
+      admin,
+      handle(async (c, d) => {
+        const id = Number(c.req.param('id'))
+        if (!Number.isInteger(id) || id < 1) return notFound(c)
+        const file = await d.getMessageAttachment(id)
+        return file ? imageResponse(file) : notFound(c)
+      }),
+    )
     .post(
       '/conversations/:id/status',
       admin,

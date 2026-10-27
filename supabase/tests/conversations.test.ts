@@ -50,6 +50,16 @@ describe('record_conversation_message', () => {
     expect((await messages(first.conversation_id)).map((m) => m.role)).toEqual(['customer', 'assistant'])
   })
 
+  it('un mensaje puede llevar una imagen adjunta (la captura de pago)', async () => {
+    const r = ref()
+    const { message_id } = await customerSays(r, '📎 Subí la captura de mi pago.', { attachment_path: 'chat/abc/1.png' })
+    const row = (await as(db, service, () => db.query<{ attachment_path: string | null }>('select attachment_path from public.conversation_messages where id = $1', [message_id]))).rows[0]
+    expect(row?.attachment_path).toBe('chat/abc/1.png')
+    const plain = await customerSays(r, 'otro mensaje')
+    const none = (await as(db, service, () => db.query<{ attachment_path: string | null }>('select attachment_path from public.conversation_messages where id = $1', [plain.message_id]))).rows[0]
+    expect(none?.attachment_path).toBeNull()
+  })
+
   it('un reintento con el mismo id del proveedor no duplica el mensaje', async () => {
     const r = `5191${Date.now()}`
     const payload = { channel: 'whatsapp', external_ref: r, role: 'customer', body: 'Hola por WhatsApp', external_id: `wamid.${Date.now()}` }

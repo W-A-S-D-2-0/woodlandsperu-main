@@ -16,6 +16,7 @@ interface MessageRow {
   role: ChatRole
   body: string
   created_at: string
+  attachment_path?: string | null
 }
 
 /** Los errores lanzados a propósito por las funciones traen mensajes en español aptos para el cliente. */
@@ -30,6 +31,7 @@ export const toChatMessage = (row: MessageRow): ChatMessage => ({
   role: row.role,
   body: row.body,
   createdAt: row.created_at,
+  ...(row.attachment_path ? { attachment: true } : {}),
 })
 
 /** Conversaciones con la clave de servicio: las funciones de registro solo las acepta el backend. */
@@ -50,6 +52,7 @@ export const createSupabaseChatData: ChatDataFactory = (env) => {
           contact_name: input.contactName ?? null,
           contact_phone: input.contactPhone ?? null,
           external_id: input.externalId ?? null,
+          attachment_path: input.attachmentPath ?? null,
         },
       })
       if (error) rethrow(error)
@@ -118,12 +121,29 @@ export const createSupabaseChatData: ChatDataFactory = (env) => {
       return (data as unknown[]).length > 0
     },
 
-    async recordPayment({ orderId, conversationId, image, operation }) {
-      const { data: order, error: orderError } = await db().from('orders').select('code').eq('id', orderId).single()
-      if (orderError || !order) throw new Error(`chat: ${orderError?.code ?? 'error'}`)
-      const path = `${order.code}/${Date.now()}.${image.ext}`
+    async storeProof(image, folder) {
+      const path = `${folder}/${Date.now()}.${image.ext}`
       const upload = await db().storage.from(PROOF_BUCKET).upload(path, image.bytes, { contentType: image.contentType, upsert: false })
       if (upload.error) throw new Error('chat: no se pudo guardar la captura')
+      return path
+    },
+
+    async readAttachment({ messageId, channel, ref }) {
+      const { data, error } = await db()
+        .from('conversation_messages')
+        .select('attachment_path, conversation:conversations!inner ( channel, external_ref )')
+        .eq('id', messageId)
+        .maybeSingle()
+      if (error) throw new Error(`chat: ${error.code ?? 'error'}`)
+      const row = data as { attachment_path: string | null; conversation: { channel: string; external_ref: string } } | null
+      if (!row?.attachment_path || row.conversation.channel !== channel || row.conversation.external_ref !== ref) return null
+      const file = await db().storage.from(PROOF_BUCKET).download(row.attachment_path)
+      if (file.error || !file.data) return null
+      return { bytes: new Uint8Array(await file.data.arrayBuffer()), contentType: file.data.type || 'image/jpeg' }
+    },
+
+    async recordPayment({ orderId, conversationId, proofPath, operation }) {
+      const path = proofPath
       const { data, error } = await db().rpc('record_chat_payment', {
         p_order_id: orderId,
         p_proof_path: path,
@@ -146,7 +166,7 @@ export const createSupabaseChatData: ChatDataFactory = (env) => {
       if (!conversation) return null
       const { data, error: messagesError } = await db()
         .from('conversation_messages')
-        .select('id, role, body, created_at')
+        .select('id, role, body, created_at, attachment_path')
         .eq('conversation_id', conversation.id)
         .gt('id', afterId)
         .order('id')

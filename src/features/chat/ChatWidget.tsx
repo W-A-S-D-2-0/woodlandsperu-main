@@ -2,10 +2,11 @@ import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 
 import { useLocation } from 'react-router'
 import { CHAT_MESSAGE_MAX, type ChatMessage, type ChatResponse, type ChatStatus } from '../../../shared/api/chat'
 import { chatGreeting } from '../../content/chat-greeting'
+import { AuthedImage } from '../../components/ui/AuthedImage'
 import { CHOICE_DEPOSIT, CHOICE_YAPE_PLIN, PAYMENT_CHOICE_LABEL, PROOF_BUTTON_LABEL } from '../../content/payment'
 import { useBackdropTone } from '../../hooks/useBackdropTone'
 import { ApiError, apiFetch } from '../../lib/api'
-import { createChatToken, lastMessageId, mergeMessages, messageTime, parseBody, startsNewConversation, statusNotice, trailingWarnings, transientMessages } from './chat-logic'
+import { chatImage, createChatToken, lastMessageId, mergeMessages, messageTime, parseBody, startsNewConversation, statusNotice, trailingWarnings, transientMessages } from './chat-logic'
 import { ChatBody } from './ChatBody'
 import { ChatChips } from './ChatChips'
 import { OPEN_CHAT_EVENT } from './open-chat'
@@ -83,6 +84,8 @@ export function ChatWidget() {
   const [error, setError] = useState<string | null>(null)
   // Captura del pago en camino al servidor.
   const [uploading, setUploading] = useState(false)
+  // Vista previa de la captura mientras se sube.
+  const [preview, setPreview] = useState<string | null>(null)
   const tokenRef = useRef<string | null>(null)
   const listRef = useRef<HTMLOListElement>(null)
   const lastIdRef = useRef(0)
@@ -208,6 +211,7 @@ export function ChatWidget() {
     }
     setError(null)
     setUploading(true)
+    setPreview(URL.createObjectURL(file))
     sendingRef.current = true
     try {
       const form = new FormData()
@@ -222,6 +226,10 @@ export function ChatWidget() {
     } finally {
       sendingRef.current = false
       setUploading(false)
+      setPreview((url) => {
+        if (url) URL.revokeObjectURL(url)
+        return null
+      })
       if (fileRef.current) fileRef.current.value = ''
     }
   }
@@ -302,12 +310,20 @@ export function ChatWidget() {
               <li key={m.id} className={`${m.role !== 'customer' && parseBody(m.body).some((b) => b.kind !== 'text') ? 'w-full max-w-full' : 'max-w-[85%]'} rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${bubble[m.role] ?? bubble.system}`}>
                 {m.role === 'staff' && <span className="mb-0.5 block text-[0.7rem] font-semibold tracking-[0.08em] text-madera-700 uppercase">Equipo Woodland</span>}
                 {m.role === 'customer' ? m.body : <ChatBody body={m.body} typing={m.id === typingId} onAsk={(message) => void submit(undefined, message)} onSeeAll={catalogOnPage ? seeCatalog : undefined} onCancel={m.id === last?.id && !pending && !uploading ? () => void submit(undefined, 'cancelar') : undefined} />}
+                {m.attachment && (
+                  <div className="mt-2">
+                    <AuthedImage cacheKey={`${tokenRef.current}:${m.id}`} alt="Captura de tu pago" load={() => chatImage(m.id, token())} />
+                  </div>
+                )}
                 {messageTime(m.createdAt) && <time dateTime={m.createdAt} className={`mt-1 block text-[0.65rem] ${m.role === 'customer' ? 'text-beige/70' : 'text-carbon-600'}`}>{messageTime(m.createdAt)}</time>}
               </li>
             ))}
             {uploading && (
               <>
-                <li className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-wrap ${bubble.customer}`}>📎 Subiendo tu captura…</li>
+                <li className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-wrap ${bubble.customer}`}>
+                  📎 Subiendo tu captura…
+                  {preview && <img src={preview} alt="Tu captura" className="mt-2 max-h-40 max-w-full rounded-xl object-contain" />}
+                </li>
                 <li className={`rounded-2xl px-3.5 py-2 ${bubble.assistant}`} aria-label="Teca está revisando tu pago">
                   <TypingDots />
                 </li>

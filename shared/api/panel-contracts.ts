@@ -235,6 +235,8 @@ export interface ConversationMessage {
   role: MessageRole
   body: string
   createdAt: string
+  /** Lleva una imagen (la captura de pago): se pide con GET /api/admin/conversations/messages/:id/attachment. */
+  attachment?: boolean
 }
 
 export interface ConversationDetail extends Omit<ConversationListItem, 'lastMessage'> {

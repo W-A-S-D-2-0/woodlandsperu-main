@@ -89,6 +89,8 @@ export interface PanelData {
   /** Marca la conversación como revisada (open) o la cierra (closed). El equipo no chatea con el cliente. */
   setConversationStatus(id: string, status: 'open' | 'closed'): Promise<void>
   deleteConversation(id: string): Promise<void>
+  /** La imagen adjunta de un mensaje (captura de pago); null si el mensaje no tiene. Solo administración. */
+  getMessageAttachment(messageId: number): Promise<{ bytes: Uint8Array; contentType: string } | null>
 
   /** Registros creados en [start, end) para armar un reporte, más el inventario actual. */
   getReportSource(range: { start: string; end: string }): Promise<ReportSource>

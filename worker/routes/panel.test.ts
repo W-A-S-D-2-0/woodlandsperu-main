@@ -58,6 +58,7 @@ function fakeData(): PanelData {
     getConversation: vi.fn(async () => null),
     setConversationStatus: vi.fn(async () => {}),
     deleteConversation: vi.fn(async () => {}),
+    getMessageAttachment: vi.fn(async () => null),
     getReportSource: vi.fn(async () => ({ conversations: [], quotes: [], orders: [], inventory: [], truncated: false })),
   }
 }

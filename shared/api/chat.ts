@@ -32,6 +32,8 @@ export interface ChatMessage {
   role: ChatRole
   body: string
   createdAt: string
+  /** El mensaje lleva una imagen (la captura del pago): se pide aparte con GET /api/chat/attachments/:id. */
+  attachment?: boolean
 }
 
 /** Respuesta de POST y GET /api/chat/messages. */
