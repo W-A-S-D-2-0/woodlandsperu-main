@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { ChatMessage, ChatResponse, ChatStatus } from '../../shared/api/chat'
+import { availableDays, slotInstant } from '../../shared/config/appointments'
 import type { ApiErrorBody, CatalogResponse, QuoteSubmittedResponse, StaffIdentity } from '../../shared/api/contracts'
 import type { ConversationDetail } from '../../shared/api/panel-contracts'
 import { createApp } from '../app'
@@ -48,6 +49,7 @@ function fakeChat() {
   const files = new Map<string, { bytes: Uint8Array; contentType: string }>()
   const conversations = new Map<string, ConversationInfo & { ref: string; handoffReason?: string }>()
   const byRef = new Map<string, string>()
+  const bookings: { ref: string; name: string; phone: string; startsAt: string }[] = []
   const orderState = { status: 'confirmed', paymentStatus: 'unpaid', stock: true }
   const chat: ChatData = {
     record: vi.fn(async (input: RecordInput) => {
@@ -95,6 +97,12 @@ function fakeChat() {
       const convRef = message ? conversations.get(message.conversationId)?.ref : undefined
       return message?.attachmentPath && convRef === ref && channel === 'web_chat' ? (files.get(message.attachmentPath) ?? null) : null
     }),
+    bookAppointment: vi.fn(async ({ ref, name, phone, startsAt }) => {
+      if (bookings.some((b) => b.startsAt === startsAt)) throw new ChatDataError('invalid_request', 'Esa hora ya fue tomada. Elige otra.')
+      bookings.push({ ref, name, phone, startsAt })
+      return { id: `a-${bookings.length}`, startsAt }
+    }),
+    takenAppointmentSlots: vi.fn(async () => bookings.map((b) => b.startsAt)),
     recordPayment: vi.fn(async () => {
       orderState.paymentStatus = 'paid'
       orderState.status = orderState.stock ? 'in_production' : 'pending_confirmation'
@@ -106,7 +114,7 @@ function fakeChat() {
       return { status: conversations.get(id)!.status as ChatStatus, messages: messages.filter((m) => m.conversationId === id && m.id > after) }
     }),
   }
-  return { chat, messages, conversations, orderState }
+  return { chat, messages, conversations, orderState, bookings }
 }
 
 const order = { orderId: 'o-1', code: 'PED-000012', status: 'confirmed', confirmed: true, total: 200, currency: 'PEN' as const }
@@ -896,5 +904,63 @@ describe('agresión verbal: no se guarda en el panel', () => {
     const body = (await (await sendWarned(app, 'qué porquería de tablas')).json()) as ChatResponse
     expect(body.transient).toBeDefined()
     expect(messages).toHaveLength(before)
+  })
+})
+
+describe('citas con la administración', () => {
+  const slot = () => {
+    const day = availableDays(new Date(), [])[0]!
+    return slotInstant(day.date, day.hours[0]!).toISOString()
+  }
+  const book = (app: ReturnType<typeof createApp>, body: Record<string, unknown>) =>
+    app.request('/api/chat/appointments', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token: TOKEN, ...body }) }, { APP_ENV: 'development' } as Env)
+  const appWith = () => {
+    const fake = fakeChat()
+    return { ...fake, app: createApp({ chatData: () => fake.chat, publicData: publicData, assistantModel: scripted() }) }
+  }
+
+  it('agenda la cita, la anota en el chat y la deja para el panel', async () => {
+    const { app, bookings, messages } = appWith()
+    const startsAt = slot()
+    const res = await book(app, { name: 'Mario Quispe', phone: '900 345 392', startsAt })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as ChatResponse
+    expect(bookings).toHaveLength(1)
+    expect(bookings[0]).toMatchObject({ name: 'Mario Quispe', phone: '900345392', startsAt })
+    expect(body.messages.map((m) => m.role)).toEqual(['customer', 'assistant'])
+    expect(body.messages[0]?.body).toContain('900345392')
+    expect(body.messages[1]?.body).toContain('Mario')
+    expect(messages).toHaveLength(2)
+  })
+
+  it('no agenda una hora que ya tomó otro cliente', async () => {
+    const { app, bookings } = appWith()
+    const startsAt = slot()
+    expect((await book(app, { name: 'Mario', phone: '900345392', startsAt })).status).toBe(200)
+    const again = await book(app, { name: 'Lucía', phone: '911222333', startsAt })
+    expect(again.status).toBe(422)
+    expect(bookings).toHaveLength(1)
+  })
+
+  it('rechaza horas que no se ofrecen (pasadas o con minutos)', async () => {
+    const { app, bookings } = appWith()
+    for (const startsAt of ['2020-01-06T14:00:00.000Z', new Date(Date.now() + 3 * 86_400_000 + 17 * 60_000).toISOString()]) {
+      expect((await book(app, { name: 'Mario', phone: '900345392', startsAt })).status).toBe(422)
+    }
+    expect(bookings).toHaveLength(0)
+  })
+
+  it('pide nombre y un celular válidos', async () => {
+    const { app } = appWith()
+    expect((await book(app, { name: '', phone: '900345392', startsAt: slot() })).status).toBe(422)
+    expect((await book(app, { name: 'Mario', phone: '12', startsAt: slot() })).status).toBe(422)
+  })
+
+  it('lista las horas ya tomadas', async () => {
+    const { app } = appWith()
+    const startsAt = slot()
+    await book(app, { name: 'Mario', phone: '900345392', startsAt })
+    const res = await app.request(`/api/chat/appointments/slots?token=${TOKEN}`, {}, { APP_ENV: 'development' } as Env)
+    expect(((await res.json()) as { taken: string[] }).taken).toEqual([startsAt])
   })
 })

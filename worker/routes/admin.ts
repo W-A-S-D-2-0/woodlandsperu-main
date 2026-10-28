@@ -3,6 +3,8 @@ import { Hono } from 'hono'
 import type { StaffMeResponse } from '../../shared/api/contracts'
 import type { ReportExportResponse, ReportPayload } from '../../shared/api/panel-contracts'
 import {
+  appointmentListQuery,
+  appointmentStatusBody,
   cancelOrderBody,
   confirmOrderBody,
   conversationListQuery,
@@ -225,6 +227,18 @@ export function adminRoutes(staffAuth: StaffAuthFactory, panelData: PanelDataFac
       return customer ? c.json(customer) : notFound(c)
     }))
     .post('/customers/:id/notes', admin, withIdBody(customerNoteBody, async (c, d, id, body) => (await d.addCustomerNote(id, body.body), c.json({ ok: true }, 201))))
+
+    // Citas que los clientes agendan en el chat para hablar con la administración
+    .get(
+      '/appointments',
+      admin,
+      handle(async (c, d) => {
+        const query = validate(c, appointmentListQuery, c.req.query())
+        if ('response' in query) return query.response
+        return c.json(await d.listAppointments(query.data.status))
+      }),
+    )
+    .post('/appointments/:id/status', admin, withIdBody(appointmentStatusBody, async (c, d, id, body) => (await d.setAppointmentStatus(id, body.status), ok(c))))
 
     // Conversaciones (chat web y WhatsApp): solo administración, para supervisar al asistente
     .get(

@@ -262,3 +262,62 @@ export async function chatImage(messageId: number, token: string, fetcher: typeo
   if (!response.ok) throw new Error('No se pudo cargar la imagen.')
   return response.blob()
 }
+
+/** Nombre y celular para agendar una cita: null si están bien, o qué falta. */
+export function validAppointmentContact(name: string, phone: string): string | null {
+  if (name.trim().length < 2) return 'Escribe tu nombre.'
+  if (!/^\+?[0-9]{6,15}$/.test(phone.replace(/[\s()-]/g, ''))) return 'Escribe un celular válido (solo números).'
+  return null
+}
+
+// --- Tarjeta del pedido ---------------------------------------------------------
+
+/** Un modelo de la lista de la pregunta «¿Cuál quieres?» del pedido paso a paso. */
+export interface ProductRow {
+  n: number
+  product: string
+  variant: string
+  dimensions: string | null
+  /** «S/ 100.00» o «precio por confirmar». */
+  price: string
+}
+
+const PRODUCT_STEP = 'Responde con el número o el nombre'
+const MODEL_ROW = /^(\d{1,2})\.\s+(.+?)\s+—\s+(.+)$/gm
+
+/** Los modelos de la pregunta del pedido (para armar la tarjeta), o null si el mensaje no es esa pregunta. */
+export function parseProductRows(body: string): ProductRow[] | null {
+  if (!body.includes(PRODUCT_STEP)) return null
+  const rows = [...body.matchAll(MODEL_ROW)].map((m) => {
+    const [product = '', variant = '', ...rest] = m[2]!.split(' · ')
+    return { n: Number(m[1]), product, variant, dimensions: rest.join(' · ') || null, price: m[3]!.trim() }
+  })
+  return rows.length > 0 ? rows : null
+}
+
+/** El mensaje de la pregunta sin la lista numerada ni «responde con el número» (eso lo reemplaza la tarjeta). */
+export function withoutProductRows(body: string): string {
+  return body
+    .split('\n')
+    .filter((line) => !/^\d{1,2}\.\s+.+—\s+/.test(line) && !line.includes(PRODUCT_STEP))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/^(Estos son nuestros modelos:|Estas son las medidas disponibles:)\n+/, 'Elige tu modelo, la cantidad y si quieres grabado:\n\n')
+}
+
+/** Cantidades que ofrece la tarjeta: 1 a 20, y de 5 en 5 hasta el tope del pedido por chat. */
+export function quantityOptions(max: number): number[] {
+  const options = Array.from({ length: Math.min(20, max) }, (_, i) => i + 1)
+  for (let n = 25; n <= max; n += 5) options.push(n)
+  return options
+}
+
+/**
+ * Lo que la tarjeta le dice a Teca. Una sola frase con modelo, cantidad y grabado: el pedido paso a paso la entiende y no
+ * vuelve a preguntar nada de eso.
+ */
+export function orderCardMessage(row: Pick<ProductRow, 'product' | 'variant'>, quantity: number, engraving: string | null): string {
+  const model = `${row.product} ${row.variant}`.trim()
+  const text = engraving?.replace(/[«»"“”\n\r]/g, ' ').replace(/\s+/g, ' ').trim()
+  return `Quiero ${quantity} ${quantity === 1 ? 'unidad' : 'unidades'} de ${model}. ${text ? `Grabado: «${text}»` : 'Sin grabado.'}`
+}

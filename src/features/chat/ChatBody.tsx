@@ -164,11 +164,11 @@ function WhatsappButton({ marker }: { marker: WhatsappMarker }) {
  * Un mensaje del asistente. Si es una pregunta del pedido paso a paso, la frase «escribe cancelar» no se muestra:
  * en su lugar va el botón «Cancelar» (`onCancel`, solo en el último mensaje, que es el que está esperando respuesta).
  */
-export function ChatBody({ body, typing = false, onAsk, onSeeAll, onCancel }: { body: string; typing?: boolean; onAsk?: (message: string) => void; onSeeAll?: () => void; onCancel?: () => void }) {
+export function ChatBody({ body, typing = false, onAsk, onSeeAll, onCancel, onSchedule }: { body: string; typing?: boolean; onAsk?: (message: string) => void; onSeeAll?: () => void; onCancel?: () => void; onSchedule?: () => void }) {
   const { text, inFlow } = splitFlowFooter(body)
   return (
     <>
-      <ChatContent body={text} typing={typing} onAsk={onAsk} onSeeAll={onSeeAll} />
+      <ChatContent body={text} typing={typing} onAsk={onAsk} onSeeAll={onSeeAll} onSchedule={onSchedule} />
       {inFlow && onCancel && (
         <button
           type="button"
@@ -183,7 +183,7 @@ export function ChatBody({ body, typing = false, onAsk, onSeeAll, onCancel }: { 
 }
 
 /** Texto de un mensaje del asistente: precios en tarjetas, líneas de pedido y total destacado. `typing` escribe el texto simple poco a poco. */
-function ChatContent({ body, typing = false, onAsk, onSeeAll }: { body: string; typing?: boolean; onAsk?: (message: string) => void; onSeeAll?: () => void }) {
+function ChatContent({ body, typing = false, onAsk, onSeeAll, onSchedule }: { body: string; typing?: boolean; onAsk?: (message: string) => void; onSeeAll?: () => void; onSchedule?: () => void }) {
   const blocks = parseBody(body)
   if (blocks.every((b) => b.kind === 'text')) return <RichText text={body} typing={typing} />
   return (
@@ -197,7 +197,21 @@ function ChatContent({ body, typing = false, onAsk, onSeeAll }: { body: string; 
           return <ProductCarousel key={i} items={items} onAsk={onAsk} onSeeAll={onSeeAll} />
         }
         if (b.kind === 'preview') return <PreviewCarousel key={i} marker={b} onAsk={onAsk} />
-        if (b.kind === 'whatsapp') return <WhatsappButton key={i} marker={b} />
+        if (b.kind === 'whatsapp')
+          return (
+            <div key={i} className="flex flex-wrap gap-2">
+              <WhatsappButton marker={b} />
+              {onSchedule && (
+                <button
+                  type="button"
+                  className="inline-flex min-h-10 items-center justify-center rounded-full border border-nogal/40 px-4 py-2 text-xs font-semibold text-nogal transition-colors hover:bg-nogal hover:text-marfil"
+                  onClick={onSchedule}
+                >
+                  Agendar cita
+                </button>
+              )}
+            </div>
+          )
         if (b.kind === 'text') return <RichText key={i} text={b.text} />
         if (b.kind === 'price') {
           const photo = photoForModel(b.name)

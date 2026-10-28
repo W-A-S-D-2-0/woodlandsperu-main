@@ -22,7 +22,7 @@ interface MessageRow {
 /** Los errores lanzados a propósito por las funciones traen mensajes en español aptos para el cliente. */
 function rethrow(error: { code?: string; message: string }): never {
   if (error.code === '54000') throw new ChatDataError('rate_limited', error.message)
-  if (error.code === '22023' || error.code === 'P0002') throw new ChatDataError('invalid_request', error.message)
+  if (error.code === '22023' || error.code === 'P0002' || error.code === '23505') throw new ChatDataError('invalid_request', error.message)
   throw new Error(`chat: ${error.code ?? 'error'}`)
 }
 
@@ -140,6 +140,21 @@ export const createSupabaseChatData: ChatDataFactory = (env) => {
       const file = await db().storage.from(PROOF_BUCKET).download(row.attachment_path)
       if (file.error || !file.data) return null
       return { bytes: new Uint8Array(await file.data.arrayBuffer()), contentType: file.data.type || 'image/jpeg' }
+    },
+
+    async bookAppointment({ ref, name, phone, startsAt }) {
+      const { data, error } = await db().rpc('create_appointment', {
+        p_request: { external_ref: ref, customer_name: name, contact_phone: phone, starts_at: startsAt },
+      })
+      if (error) rethrow(error)
+      const r = data as { id: string; starts_at: string }
+      return { id: r.id, startsAt: r.starts_at }
+    },
+
+    async takenAppointmentSlots(from, to) {
+      const { data, error } = await db().rpc('taken_appointment_slots', { p_from: from, p_to: to })
+      if (error) rethrow(error)
+      return (data as string[] | null) ?? []
     },
 
     async recordPayment({ orderId, conversationId, proofPath, operation }) {

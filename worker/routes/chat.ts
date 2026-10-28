@@ -1,11 +1,12 @@
 import type { Context, MiddlewareHandler } from 'hono'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
-import { chatPollQuery, chatSendBody, chatToken, type ChatResponse } from '../../shared/api/chat'
+import { appointmentBody, appointmentSlotsQuery, chatPollQuery, chatSendBody, chatToken, type ChatResponse } from '../../shared/api/chat'
 import { ChatDataError, type ChatDataFactory } from '../data/chat-data'
 import type { PublicDataFactory } from '../data/public-data'
 import { handleCustomerMessage, type AssistantModelFactory } from '../services/chat'
 import type { ReceiptReaderFactory } from '../integrations/receipt-reader'
+import { appointmentSlots, bookAppointment } from '../services/appointments'
 import { handlePaymentProof, PROOF_MAX_BYTES, sniffImage } from '../services/payment-proof'
 import type { AppBindings } from '../types'
 import { clientKey } from './client-key'
@@ -104,6 +105,33 @@ export function chatRoutes(chatData: ChatDataFactory, publicData: PublicDataFact
       if (!file) return fail(c, 404, 'not_found', 'No encontramos la imagen.')
       return imageResponse(file)
     })
+
+    // Citas con la administración: las horas ya tomadas y el registro de una cita nueva. Sin sesión; el token identifica el chat.
+    .get('/chat/appointments/slots', rateLimit, async (c) => {
+      const query = validate(c, appointmentSlotsQuery, c.req.query())
+      if ('response' in query) return query.response
+      const chat = chatData(c.env)
+      if (!chat) return unavailable(c)
+      return c.json(await appointmentSlots(chat, new Date()))
+    })
+
+    .post(
+      '/chat/appointments',
+      rateLimit,
+      bodyLimit({ maxSize: 4 * 1024, onError: (c) => fail(c as Context<AppBindings>, 413, 'payload_too_large', 'La solicitud es demasiado grande.') }),
+      async (c) => {
+        const body = await parseBody(c, appointmentBody)
+        if ('response' in body) return body.response
+        const chat = chatData(c.env)
+        if (!chat) return unavailable(c)
+        try {
+          return c.json<ChatResponse>(await bookAppointment(chat, await hashToken(body.data.token), body.data))
+        } catch (err) {
+          if (err instanceof ChatDataError) return fail(c, err.code === 'rate_limited' ? 429 : 422, err.code, err.message)
+          throw err
+        }
+      },
+    )
 
     .get('/chat/messages', rateLimit, async (c) => {
       const query = validate(c, chatPollQuery, c.req.query())

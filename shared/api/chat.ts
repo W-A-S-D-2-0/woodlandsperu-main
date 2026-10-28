@@ -47,3 +47,26 @@ export interface ChatResponse {
    */
   transient?: { reply: string; aggression: boolean }
 }
+
+// --- Citas con la administración ---------------------------------------------
+
+export const appointmentBody = z.object({
+  token: chatToken,
+  name: z.string().trim().min(2, 'Escribe tu nombre.').max(120),
+  phone: z
+    .string()
+    .trim()
+    .transform((v) => v.replace(/[^0-9+]/g, ''))
+    .pipe(z.string().regex(/^\+?[0-9]{6,15}$/, 'Escribe un celular válido.')),
+  /** Inicio de la hora elegida (ISO). */
+  startsAt: z.string().datetime({ offset: true }),
+})
+
+export const appointmentSlotsQuery = z.object({ token: chatToken })
+
+export type AppointmentInput = z.infer<typeof appointmentBody>
+
+/** Horas ya tomadas (ISO), para no ofrecerlas. */
+export interface AppointmentSlotsResponse {
+  taken: string[]
+}

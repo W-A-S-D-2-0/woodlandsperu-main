@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type {
+  AppointmentItem,
   ConversationDetail,
   ConversationMessage,
   ConversationListItem,
@@ -523,6 +524,17 @@ export const createSupabasePanelData: PanelDataFactory = (env, accessToken) => {
     },
     async deleteConversation(id) {
       await rpc('delete_conversation', { p_conversation_id: id })
+    },
+
+    // Citas que los clientes agendan en el chat: primero las pendientes, por fecha; luego las demás, de la más reciente.
+    async listAppointments(status) {
+      let query = db.from('appointments').select('id, customer_name, contact_phone, starts_at, status, created_at, conversation_id').order('starts_at', { ascending: status !== 'done' && status !== 'cancelled' }).limit(LIST_LIMIT)
+      if (status) query = query.eq('status', status)
+      const rows = check(await query) as Row[]
+      return { items: rows.map((row) => camelize<AppointmentItem>(row)) }
+    },
+    async setAppointmentStatus(id, status) {
+      await rpc('set_appointment_status', { p_appointment_id: id, p_status: status })
     },
 
     // Reportes: solo lectura del rango [start, end).

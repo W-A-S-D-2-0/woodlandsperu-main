@@ -245,6 +245,22 @@ export interface ConversationDetail extends Omit<ConversationListItem, 'lastMess
   messages: ConversationMessage[]
 }
 
+// --- Citas ------------------------------------------------------------------
+
+export type AppointmentStatus = 'pending' | 'done' | 'cancelled'
+
+export interface AppointmentItem {
+  id: string
+  customerName: string
+  contactPhone: string
+  /** Inicio de la cita (ISO). */
+  startsAt: string
+  status: AppointmentStatus
+  createdAt: string
+  /** Conversación de la que salió la cita, si todavía existe. */
+  conversationId: string | null
+}
+
 // --- Reportes ----------------------------------------------------------------
 
 export type SalesChannel = 'web' | 'web_chat' | 'whatsapp' | 'admin'

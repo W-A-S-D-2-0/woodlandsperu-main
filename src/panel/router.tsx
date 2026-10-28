@@ -40,6 +40,7 @@ export const panelRouter = createBrowserRouter(
                     { path: 'cotizaciones', lazy: async () => ({ Component: (await import('../features/admin/screens/QuotesPages')).QuotesPage }) },
                     { path: 'cotizaciones/:id', lazy: async () => ({ Component: (await import('../features/admin/screens/QuotesPages')).QuoteDetailPage }) },
                     { path: 'conversaciones', lazy: async () => ({ Component: (await import('../features/admin/screens/ConversationsPage')).ConversationsPage }) },
+                    { path: 'citas', lazy: async () => ({ Component: (await import('../features/admin/screens/AppointmentsPage')).AppointmentsPage }) },
                     { path: 'clientes', lazy: async () => ({ Component: (await import('../features/admin/screens/CustomersPages')).CustomersPage }) },
                     { path: 'pedidos/nueva', lazy: async () => ({ Component: (await import('../features/admin/screens/NewSalePage')).NewSalePage }) },
                     { path: 'clientes/:id', lazy: async () => ({ Component: (await import('../features/admin/screens/CustomersPages')).CustomerDetailPage }) },

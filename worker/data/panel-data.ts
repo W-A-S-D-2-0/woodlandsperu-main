@@ -1,4 +1,5 @@
 import type {
+  AppointmentItem,
   ConversationChannel,
   ConversationDetail,
   ConversationListItem,
@@ -91,6 +92,9 @@ export interface PanelData {
   deleteConversation(id: string): Promise<void>
   /** La imagen adjunta de un mensaje (captura de pago); null si el mensaje no tiene. Solo administración. */
   getMessageAttachment(messageId: number): Promise<{ bytes: Uint8Array; contentType: string } | null>
+
+  listAppointments(status?: string): Promise<ListResponse<AppointmentItem>>
+  setAppointmentStatus(id: string, status: 'pending' | 'done' | 'cancelled'): Promise<void>
 
   /** Registros creados en [start, end) para armar un reporte, más el inventario actual. */
   getReportSource(range: { start: string; end: string }): Promise<ReportSource>

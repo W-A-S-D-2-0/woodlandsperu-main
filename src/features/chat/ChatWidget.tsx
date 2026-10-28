@@ -6,9 +6,11 @@ import { AuthedImage } from '../../components/ui/AuthedImage'
 import { CHOICE_DEPOSIT, CHOICE_YAPE_PLIN, PAYMENT_CHOICE_LABEL, PROOF_BUTTON_LABEL } from '../../content/payment'
 import { useBackdropTone } from '../../hooks/useBackdropTone'
 import { ApiError, apiFetch } from '../../lib/api'
-import { chatImage, createChatToken, flowChips, lastMessageId, mergeMessages, messageTime, parseBody, startsNewConversation, statusNotice, trailingWarnings, transientMessages } from './chat-logic'
+import { chatImage, createChatToken, flowChips, lastMessageId, mergeMessages, messageTime, parseBody, parseProductRows, startsNewConversation, statusNotice, trailingWarnings, transientMessages, withoutProductRows } from './chat-logic'
+import { AppointmentCard } from './AppointmentCard'
 import { ChatBody } from './ChatBody'
 import { ChatChips } from './ChatChips'
+import { OrderCard } from './OrderCard'
 import { OPEN_CHAT_EVENT } from './open-chat'
 
 const PROOF_MAX_BYTES = 5 * 1024 * 1024
@@ -26,6 +28,7 @@ const GREETING: ChatMessage = {
 const QUICK_REPLIES = ['Ver los productos', 'Ver los precios', 'Quiero hacer un pedido', 'Pedido para mi empresa']
 const YES_NO = ['Sí', 'No']
 const PAYMENT_CHOICES = [CHOICE_YAPE_PLIN, CHOICE_DEPOSIT]
+const APPOINTMENT_CHIP = { label: '📅 Agendar cita', value: '__agendar_cita__' }
 const ADD_MORE_CHIP = { label: 'Agregar otra tabla', value: 'Agregar otra tabla' }
 // Salida de cualquier conversación: nunca desaparece de las respuestas rápidas.
 const ALWAYS_REPLY = 'Ver los productos'
@@ -74,6 +77,8 @@ export function ChatWidget() {
   // Mensaje de Teca que se está escribiendo ahora (solo el recién llegado, nunca los recuperados).
   const [typingId, setTypingId] = useState<number | null>(null)
   const [away, setAway] = useState(false)
+  // Tarjeta para agendar una cita con la administración.
+  const [scheduling, setScheduling] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -269,7 +274,9 @@ export function ChatWidget() {
   const inFlow = !!last && last.body.includes('Pedido paso a paso')
   // Teca pidió el pago y espera la captura: el botón para subirla se destaca.
   const awaitingProof = !uploading && !!last && last.role !== 'customer' && last.body.includes(PROOF_BUTTON_LABEL)
-  const chips = pending || uploading || awaitingProof
+  // La pregunta de los modelos se contesta en la tarjeta del pedido (modelo, cantidad y grabado), no con botones.
+  const orderRows = !pending && !uploading && inFlow && last && last.role !== 'customer' ? parseProductRows(last.body) : null
+  const chips = pending || uploading || awaitingProof || orderRows
     ? []
     : !last
       ? QUICK_REPLIES
@@ -285,6 +292,8 @@ export function ChatWidget() {
         : last.role !== 'customer' && !inFlow
           ? QUICK_REPLIES.filter((q) => q === ALWAYS_REPLY || !asked.has(q))
           : []
+  // «Agendar cita» siempre está a mano: quien prefiere hablar con la administración no depende del horario del equipo.
+  const rowChips = pending || uploading || scheduling ? [] : [...chips, APPOINTMENT_CHIP]
   const notice = statusNotice(status)
   // El servidor guarda el saludo en la conversación: no se muestra dos veces.
   const shown = [GREETING, ...messages.filter((m) => m.body !== GREETING.body)]
@@ -315,7 +324,8 @@ export function ChatWidget() {
             {shown.map((m) => (
               <li key={m.id} className={`${m.role !== 'customer' && parseBody(m.body).some((b) => b.kind !== 'text') ? 'w-full max-w-full' : 'max-w-[85%]'} rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${bubble[m.role] ?? bubble.system}`}>
                 {m.role === 'staff' && <span className="mb-0.5 block text-[0.7rem] font-semibold tracking-[0.08em] text-madera-700 uppercase">Equipo Woodland</span>}
-                {m.role === 'customer' ? m.body : <ChatBody body={m.body} typing={m.id === typingId} onAsk={(message) => void submit(undefined, message)} onSeeAll={catalogOnPage ? seeCatalog : undefined} onCancel={m.id === last?.id && !pending && !uploading ? () => void submit(undefined, 'cancelar') : undefined} />}
+                {m.role === 'customer' ? m.body : <ChatBody body={parseProductRows(m.body) ? withoutProductRows(m.body) : m.body} typing={m.id === typingId} onAsk={(message) => void submit(undefined, message)} onSeeAll={catalogOnPage ? seeCatalog : undefined} onCancel={m.id === last?.id && !pending && !uploading ? () => void submit(undefined, 'cancelar') : undefined} onSchedule={() => setScheduling(true)} />}
+                {m.id === last?.id && orderRows && <OrderCard rows={orderRows} onSubmit={(message) => void submit(undefined, message)} />}
                 {m.attachment && (
                   <div className="mt-2">
                     <AuthedImage cacheKey={`${tokenRef.current}:${m.id}`} alt="Captura de tu pago" load={() => chatImage(m.id, token())} />
@@ -344,6 +354,18 @@ export function ChatWidget() {
               </>
             )}
           </ol>
+            {scheduling && (
+              <AppointmentCard
+                token={token}
+                onClose={() => setScheduling(false)}
+                onBooked={(res) => {
+                  setScheduling(false)
+                  setStatus(res.status)
+                  setMessages((current) => mergeMessages(current, res.messages))
+                  setTypingId(res.messages.filter((m) => m.role === 'assistant').at(-1)?.id ?? null)
+                }}
+              />
+            )}
             {away && (
               <button
                 type="button"
@@ -359,7 +381,7 @@ export function ChatWidget() {
 
           </div>
 
-          {chips.length > 0 && <ChatChips options={chips} onPick={(q) => void submit(undefined, q)} />}
+          {rowChips.length > 0 && <ChatChips options={rowChips} onPick={(q) => (q === APPOINTMENT_CHIP.value ? setScheduling(true) : void submit(undefined, q))} />}
 
           {awaitingProof && (
             <div className="animate-chip-in border-t border-linea px-3 pt-3">

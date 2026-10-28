@@ -154,4 +154,7 @@ export const conversationStatuses = ['open', 'needs_human', 'with_human', 'close
 
 export const conversationListQuery = z.object({ status: z.enum(conversationStatuses).optional() })
 /** El equipo solo devuelve al asistente o cierra: derivar y tomar tienen su propia acción. */
+export const appointmentListQuery = z.object({ status: z.enum(['pending', 'done', 'cancelled']).optional() })
+export const appointmentStatusBody = z.object({ status: z.enum(['pending', 'done', 'cancelled']) })
+
 export const conversationStatusBody = z.object({ status: z.enum(['open', 'closed']) })

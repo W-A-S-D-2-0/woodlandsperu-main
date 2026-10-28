@@ -66,6 +66,11 @@ export interface PaymentResult {
   alreadyPaid: boolean
 }
 
+export interface BookedAppointment {
+  id: string
+  startsAt: string
+}
+
 /** Persistencia de las conversaciones. Se inyecta para probar sin red; la real usa la clave de servicio. */
 export interface ChatData {
   record(input: RecordInput): Promise<RecordedMessage>
@@ -84,6 +89,10 @@ export interface ChatData {
   /** La imagen de un mensaje de esa conversación (web: `ref` es el hash del token). Null si no existe o no es de esa conversación. */
   readAttachment(input: { messageId: number; channel: ChatChannel; ref: string }): Promise<{ bytes: Uint8Array; contentType: string } | null>
   recordPayment(input: { orderId: string; conversationId: string; proofPath: string; operation?: { provider: 'yape' | 'plin'; code: string } }): Promise<PaymentResult>
+  /** Registra una cita con la administración. Lanza ChatDataError si la hora ya fue tomada o los datos no son válidos. */
+  bookAppointment(input: { ref: string; name: string; phone: string; startsAt: string }): Promise<BookedAppointment>
+  /** Horas ya tomadas (ISO) en el rango [from, to). */
+  takenAppointmentSlots(from: string, to: string): Promise<string[]>
   /** Mensajes visibles para el cliente posteriores a `afterId`. Null si la conversación no existe. */
   messagesAfter(channel: ChatChannel, ref: string, afterId: number): Promise<{ status: ChatStatus; messages: ChatMessage[] } | null>
 }

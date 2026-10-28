@@ -1,5 +1,5 @@
 import { Link } from 'react-router'
-import type { ConversationListItem, DashboardResponse, ListResponse } from '../../../shared/api/panel-contracts'
+import type { AppointmentItem, ConversationListItem, DashboardResponse, ListResponse } from '../../../shared/api/panel-contracts'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { formatDateTime, formatMoney, orderStatusLabels, orderTone, plural, quoteStatusLabels, quoteTone } from './panel-logic'
 import { useAdminQuery } from './use-admin-api'
@@ -8,6 +8,8 @@ import { Badge, Card, PageHeader, primaryButton, QueryView, secondaryButton, Sta
 function Overview({ data }: { data: DashboardResponse }) {
   const { state: waiting } = useAdminQuery<ListResponse<ConversationListItem>>('/conversations?status=needs_human')
   const waitingCount = waiting.status === 'ok' ? waiting.data.items.length : null
+  const { state: appointments } = useAdminQuery<ListResponse<AppointmentItem>>('/appointments?status=pending')
+  const appointmentCount = appointments.status === 'ok' ? appointments.data.items.length : null
   const activeOrders = Object.entries(data.ordersByStatus).filter(([status]) => status !== 'delivered' && status !== 'cancelled')
 
   return (
@@ -27,7 +29,7 @@ function Overview({ data }: { data: DashboardResponse }) {
         <h2 id="pendientes" className="font-sans text-sm font-semibold tracking-[0.12em] text-madera-700 uppercase">
           Por atender
         </h2>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Stat
             label="Cotizaciones por revisar"
             value={data.quotesPending}
@@ -48,6 +50,13 @@ function Overview({ data }: { data: DashboardResponse }) {
                   ? 'El asistente respondió; hay algo que ve el equipo'
                   : 'El asistente atiende todo'
             }
+          />
+          <Stat
+            label="Citas pendientes"
+            value={appointmentCount ?? '—'}
+            alert={(appointmentCount ?? 0) > 0}
+            to="/citas"
+            hint={appointmentCount === null ? 'Cargando…' : appointmentCount > 0 ? 'Clientes que quieren hablar contigo' : 'Sin citas por atender'}
           />
           <Stat
             label="Productos con stock bajo"

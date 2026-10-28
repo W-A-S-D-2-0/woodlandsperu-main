@@ -85,7 +85,7 @@ interface Flow {
   /** Pedido corporativo con logo: el archivo lo coordina el equipo, así que siempre queda como cotización. */
   logo?: string
   /** Lo que el primer mensaje ya dijo (cantidad, grabado) y se aplica al elegir el modelo. */
-  prefill?: { qty?: number; engraving?: string }
+  prefill?: { qty?: number; engraving?: string | null }
   big?: { label: string; qty: number }
 }
 
@@ -117,8 +117,8 @@ function nextStep(f: Flow): Step {
     f.cur = null
     f.moreDone = true
   }
-  // La vista previa del grabado va sola: no se mezcla con la petición de datos.
-  if (f.preview) return 'preview'
+  // La vista previa del grabado va sola: no se mezcla con la petición de datos. Si falta la cantidad, esa se pregunta antes.
+  if (f.preview && (!f.cur || f.cur.qty !== undefined)) return 'preview'
   // Primero se elige la tabla (modelo, cantidad, grabado); el nombre y el contacto se piden juntos al final.
   if (f.type === 'business' && !f.company) return 'company'
   if (!f.moreDone) {
@@ -219,7 +219,7 @@ function apply(step: Step, raw: string, f: Flow, catalog: CatalogResponse): stri
   const text = raw.trim()
   switch (step) {
     case 'product': {
-      const match = matchEntry(text, listFor(f, catalog), !f.cur?.filter)
+      const match = matchEntry(headOf(text), listFor(f, catalog), !f.cur?.filter)
       if (match.kind === 'none' && CUSTOM.test(normalize(text))) {
         f.big = { label: CUSTOM_LABEL, qty: 0 }
         f.moreDone = true
@@ -228,7 +228,12 @@ function apply(step: Step, raw: string, f: Flow, catalog: CatalogResponse): stri
       }
       if (match.kind === 'none') return 'No encontré ese modelo.'
       if (match.kind === 'filter') f.cur = { filter: match.product.id }
-      else f.cur = withPrefill(match.entry, f)
+      else {
+        // La tarjeta del pedido manda modelo, cantidad y grabado juntos: lo dicho no se vuelve a preguntar.
+        const said = parsePrefill(text)
+        f.prefill = { ...f.prefill, ...(said.qty ? { qty: said.qty } : {}), ...(said.engraving !== undefined ? { engraving: said.engraving } : {}) }
+        f.cur = withPrefill(match.entry, f)
+      }
       return null
     }
     case 'qty': {
@@ -352,7 +357,21 @@ const isFlowQuestion = (body: string) => body.includes(FOOTER)
 function withPrefill(entry: Entry, f: Flow): Line & { filter?: string } {
   const { qty, engraving } = f.prefill ?? {}
   f.prefill = undefined
-  return { ...entry, ...(qty ? { qty } : {}), ...(engraving ? { engraving } : {}) }
+  // Un grabado que ya viene dicho también muestra cómo queda la tabla, igual que si lo hubiera escrito en el chat.
+  if (engraving) f.preview = { text: engraving, model: entry.product.name }
+  return { ...entry, ...(qty ? { qty } : {}), ...(engraving !== undefined ? { engraving } : {}) }
+}
+
+/** Lo que el mensaje dice del modelo, sin el texto a grabar (que podría nombrar otro modelo). */
+const headOf = (text: string) => text.replace(/Grabado:.*$/s, '')
+
+/** Cantidad y grabado que un mensaje ya dice: «2 unidades… Grabado: «Ana»» o «… Sin grabado». */
+function parsePrefill(text: string): NonNullable<Flow['prefill']> {
+  const n = normalize(headOf(text))
+  // La cantidad solo se toma si viene dicha como tal: las medidas del modelo también tienen números.
+  const qty = Number((n.match(/(\d{1,3})\s*(?:unidades|unidad|tablas|tabla|piezas|u)\b/) ?? n.match(/\bquiero (\d{1,3})\b/))?.[1])
+  const engraving = text.match(/Grabado:\s*(.+?)(?:\s·\s*Posici|$)/)?.[1]?.replace(/["«»“”]/g, '').trim().slice(0, 200)
+  return { qty: qty >= 1 && qty <= WEB_ORDER_MAX_UNITS ? qty : undefined, engraving: engraving || (/\bsin grabado\b/.test(n) ? null : undefined) }
 }
 
 /** El nombre que dio el cliente cuando Teca se lo preguntó en el saludo, si lo dio. */
@@ -375,12 +394,8 @@ function newFlow(first: string, catalog: CatalogResponse, name?: string): Flow {
   }
   if (/\blogo\b/.test(normalize(first))) flow.logo = first.trim().slice(0, 300)
   // Lo que el primer mensaje ya dice (modelo, cantidad, grabado) no se vuelve a preguntar.
-  const n = normalize(first)
-  // La cantidad solo se toma si viene dicha como tal: las medidas del modelo también tienen números.
-  const qty = Number((n.match(/(\d{1,3})\s*(?:unidades|unidad|tablas|tabla|piezas|u)\b/) ?? n.match(/\bquiero (\d{1,3})\b/))?.[1])
-  const engraving = first.match(/Grabado:\s*(.+?)(?:\s·\s*Posici|$)/)?.[1]?.replace(/["«»“”]/g, '').trim().slice(0, 200)
-  flow.prefill = { qty: qty >= 1 && qty <= WEB_ORDER_MAX_UNITS ? qty : undefined, engraving: engraving || undefined }
-  const match = matchEntry(first, listFor(flow, catalog), true)
+  flow.prefill = parsePrefill(first)
+  const match = matchEntry(headOf(first), listFor(flow, catalog), true)
   if (match.kind === 'ok') flow.cur = withPrefill(match.entry, flow)
   else if (match.kind === 'filter') flow.cur = { filter: match.product.id }
   return flow

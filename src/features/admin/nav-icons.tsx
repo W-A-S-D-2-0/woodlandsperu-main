@@ -47,6 +47,12 @@ const paths: Record<string, ReactNode> = {
     </>
   ),
   conversaciones: <path d="M4 4h12v9H9l-4 3v-3H4z" />,
+  citas: (
+    <>
+      <rect x="3.5" y="5" width="13" height="11.5" rx="1.5" />
+      <path d="M3.5 9h13M7 3.5v3M13 3.5v3" />
+    </>
+  ),
   reportes: (
     <>
       <path d="M4 16V9M10 16V4M16 16v-5" />

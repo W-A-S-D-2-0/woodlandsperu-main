@@ -224,9 +224,37 @@ describe('pedido paso a paso sin IA', () => {
 
   it('un pedido que llega de la web con el modelo y el grabado ya escritos no los vuelve a preguntar', async () => {
     const { out } = await chat('Quiero pedir Super Grill · XL. Grabado: "Ana" / "Luis" · Posición: Esquina · Letra: Clásica')
+    // Sin cantidad se pregunta primero; con ella, el grabado ya dicho también se ve en la tabla.
     expect(out.text).toMatch(/¿Cuántas unidades quieres de Super Grill · XL/)
-    const done = await chat('Quiero pedir Super Grill · XL. Grabado: "Ana" · Posición: Esquina', '2', WITH_NAME, YAPE)
+    const preview = await chat('Quiero pedir Super Grill · XL. Grabado: "Ana" · Posición: Esquina', '2')
+    expect(preview.out.text).toContain('Así quedaría «Ana»')
+    expect(preview.out.text).not.toContain('necesito estos datos')
+    const done = await chat('Quiero pedir Super Grill · XL. Grabado: "Ana" · Posición: Esquina', '2', 'continuar', WITH_NAME, YAPE)
     expect(done.out.call?.args).toMatchObject({ items: [{ variantId: V1, quantity: 2, customization: 'Ana' }] })
+  })
+
+  it('la tarjeta del pedido manda modelo, cantidad y «sin grabado» en un solo mensaje: pasa directo a pedir los datos', async () => {
+    const { out } = await chat('quiero hacer un pedido', 'Quiero 2 unidades de Super Grill XL. Sin grabado.')
+    expect(out.text).toContain('necesito estos datos')
+    const done = await chat('quiero hacer un pedido', 'Quiero 2 unidades de Super Grill XL. Sin grabado.', WITH_NAME, YAPE)
+    expect(done.out.call?.args).toMatchObject({ items: [{ variantId: V1, quantity: 2 }] })
+  })
+
+  it('con grabado, la tarjeta lleva primero a la vista previa de la tabla y recién después a los datos', async () => {
+    const { out } = await chat('quiero hacer un pedido', 'Quiero 3 unidades de Super Grill XL. Grabado: «La vida es dura»')
+    expect(out.text).toContain('Así quedaría «La vida es dura»')
+    expect(out.text).not.toContain('necesito estos datos')
+    const next = await chat('quiero hacer un pedido', 'Quiero 3 unidades de Super Grill XL. Grabado: «La vida es dura»', 'continuar')
+    expect(next.out.text).toContain('necesito estos datos')
+    const done = await chat('quiero hacer un pedido', 'Quiero 3 unidades de Super Grill XL. Grabado: «La vida es dura»', 'continuar', WITH_NAME, YAPE)
+    expect(done.out.call?.args).toMatchObject({ items: [{ variantId: V1, quantity: 3, customization: 'La vida es dura' }] })
+  })
+
+  it('el texto a grabar no se confunde con otro modelo al elegir el modelo', async () => {
+    const { out } = await chat('quiero hacer un pedido', 'Quiero 1 unidades de Super Grill XL. Grabado: «Serving Board»')
+    expect(out.text).toContain('Así quedaría «Serving Board»')
+    const done = await chat('quiero hacer un pedido', 'Quiero 1 unidades de Super Grill XL. Grabado: «Serving Board»', 'continuar', WITH_NAME, YAPE)
+    expect(done.out.call?.args).toMatchObject({ items: [{ variantId: V1, quantity: 1 }] })
   })
 
   it('un pedido con logo siempre queda como cotización para que el equipo coordine el archivo', async () => {

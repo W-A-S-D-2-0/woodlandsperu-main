@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatMessage } from '../../../shared/api/chat'
 import { chatToken } from '../../../shared/api/chat'
-import { createChatToken, lastMessageId, loadChatToken, messageTime, formatSizes, parseBody, photoForModel, typedLength, mergeMessages, splitFlowFooter, startsNewConversation, statusNotice, trailingWarnings, transientMessages, isPlainText, parseRich, chatImage, flowChips } from './chat-logic'
+import { createChatToken, lastMessageId, loadChatToken, messageTime, formatSizes, parseBody, photoForModel, typedLength, mergeMessages, splitFlowFooter, startsNewConversation, statusNotice, trailingWarnings, transientMessages, isPlainText, parseRich, chatImage, flowChips, validAppointmentContact, parseProductRows, withoutProductRows, quantityOptions, orderCardMessage } from './chat-logic'
 
 const msg = (id: number, body = 'x'): ChatMessage => ({ id, role: 'customer', body, createdAt: '2026-10-17T10:00:00Z' })
 
@@ -266,5 +266,51 @@ describe('flowChips', () => {
   it('las preguntas de texto libre no tienen botones', () => {
     expect(flowChips('Ya casi. Para registrar tu pedido necesito estos datos:')).toBeNull()
     expect(flowChips('Hola')).toBeNull()
+  })
+})
+
+describe("validAppointmentContact", () => {
+  it("pide nombre y un celular de solo números", () => {
+    expect(validAppointmentContact("Mario", "900 345 392")).toBeNull()
+    expect(validAppointmentContact("Mario", "+51 900345392")).toBeNull()
+    expect(validAppointmentContact("", "900345392")).toBe("Escribe tu nombre.")
+    expect(validAppointmentContact("Mario", "12")).toMatch(/celular/)
+    expect(validAppointmentContact("Mario", "abc")).toMatch(/celular/)
+  })
+})
+
+describe('tarjeta del pedido', () => {
+  const body = 'Estos son nuestros modelos:\n\n1. Moshaco · XL · 65*46*4 — S/ 100.00\n2. Ya Vuelta · Mediana — precio por confirmar\n\n¿Cuál quieres? Responde con el número o el nombre.\nSi buscas otra medida o un diseño propio, escríbelo.\n(Pedido paso a paso · escribe «cancelar» para salir)'
+
+  it('saca los modelos de la pregunta del pedido', () => {
+    expect(parseProductRows(body)).toEqual([
+      { n: 1, product: 'Moshaco', variant: 'XL', dimensions: '65*46*4', price: 'S/ 100.00' },
+      { n: 2, product: 'Ya Vuelta', variant: 'Mediana', dimensions: null, price: 'precio por confirmar' },
+    ])
+    expect(parseProductRows('Hola, ¿en qué te ayudo?')).toBeNull()
+  })
+
+  it('quita la lista del mensaje (la reemplaza la tarjeta) pero deja la frase final y el pie del pedido', () => {
+    const shown = withoutProductRows(body)
+    expect(shown).not.toMatch(/Moshaco|Responde con el número/)
+    expect(shown).toContain('Elige tu modelo, la cantidad y si quieres grabado')
+    expect(shown).toContain('otra medida o un diseño propio')
+    expect(shown).toContain('Pedido paso a paso')
+  })
+
+  it('ofrece de 1 a 20 y de 5 en 5 hasta el tope', () => {
+    const options = quantityOptions(100)
+    expect(options.slice(0, 3)).toEqual([1, 2, 3])
+    expect(options).toContain(20)
+    expect(options).not.toContain(22)
+    expect(options.at(-1)).toBe(100)
+    expect(quantityOptions(8)).toEqual([1, 2, 3, 4, 5, 6, 7, 8])
+  })
+
+  it('arma un solo mensaje con modelo, cantidad y grabado', () => {
+    const row = { product: 'Moshaco', variant: 'XL' }
+    expect(orderCardMessage(row, 2, null)).toBe('Quiero 2 unidades de Moshaco XL. Sin grabado.')
+    expect(orderCardMessage(row, 1, 'La vida es dura')).toBe('Quiero 1 unidad de Moshaco XL. Grabado: «La vida es dura»')
+    expect(orderCardMessage(row, 3, '  «Ana»\n y "Luis" ')).toBe('Quiero 3 unidades de Moshaco XL. Grabado: «Ana y Luis»')
   })
 })
