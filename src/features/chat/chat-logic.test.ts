@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatMessage } from '../../../shared/api/chat'
 import { chatToken } from '../../../shared/api/chat'
-import { createChatToken, lastMessageId, loadChatToken, messageTime, formatSizes, parseBody, photoForModel, typedLength, mergeMessages, splitFlowFooter, startsNewConversation, statusNotice, trailingWarnings, transientMessages, isPlainText, parseRich, chatImage } from './chat-logic'
+import { createChatToken, lastMessageId, loadChatToken, messageTime, formatSizes, parseBody, photoForModel, typedLength, mergeMessages, splitFlowFooter, startsNewConversation, statusNotice, trailingWarnings, transientMessages, isPlainText, parseRich, chatImage, flowChips } from './chat-logic'
 
 const msg = (id: number, body = 'x'): ChatMessage => ({ id, role: 'customer', body, createdAt: '2026-10-17T10:00:00Z' })
 
@@ -242,5 +242,25 @@ describe('parseRich', () => {
     expect(isPlainText(parseRich('¡Hola! ¿Qué te interesa?'))).toBe(true)
     expect(isPlainText(parseRich('Hola.\n\nSegundo párrafo.'))).toBe(false)
     expect(isPlainText(parseRich('Me falta tu correo.\nEjemplo: a@b.co'))).toBe(false)
+  })
+})
+
+describe('flowChips', () => {
+  it('el modelo se elige con un botón que envía su número', () => {
+    const body = 'Estos son nuestros modelos:\n\n1. Moshaco · Large · 65*46*4 — S/ 197.00\n2. Ya Vuelta · Circular · 40*1.5 — S/ 99.00\n\n¿Cuál quieres? Responde con el número o el nombre.'
+    expect(flowChips(body)).toEqual([
+      { label: 'Moshaco · Large · 65*46*4', value: '1' },
+      { label: 'Ya Vuelta · Circular · 40*1.5', value: '2' },
+    ])
+  })
+
+  it('la cantidad y el grabado tienen respuestas de un toque', () => {
+    expect(flowChips('¿Cuántas unidades quieres de Moshaco?')).toEqual(['1', '2', '3', '4', '5'])
+    expect(flowChips('¿Quieres grabado en esta tabla?')).toEqual([{ label: 'Sin grabado', value: 'no' }])
+  })
+
+  it('las preguntas de texto libre no tienen botones', () => {
+    expect(flowChips('Ya casi. Para registrar tu pedido necesito estos datos:')).toBeNull()
+    expect(flowChips('Hola')).toBeNull()
   })
 })

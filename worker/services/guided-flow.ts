@@ -2,6 +2,7 @@ import type { CatalogProduct, CatalogResponse, CatalogVariant } from '../../shar
 import { WEB_ORDER_MAX_UNITS } from '../../shared/api/public-schemas'
 import { lineTotal, resolveUnitPrice } from '../../src/features/catalog/pricing'
 import { CANCELLED_TEXT, GREETING_ASK } from '../../src/content/chat-greeting'
+import { detectPaymentChoice, paymentChoiceText, paymentConfigured } from '../../src/content/payment'
 import type { HistoryMessage, ModelOutput } from './assistant'
 import { looksLikeName, parseCustomerData } from './customer-data'
 
@@ -18,7 +19,7 @@ import { looksLikeEngravingDoubt } from './engraving-help'
 /** Cierra cada pregunta del flujo: así se reconoce, en el historial, que el flujo sigue en marcha. */
 const FOOTER = '(Pedido paso a paso · escribe «cancelar» para salir)'
 
-type Step = 'done' | 'data' | 'name' | 'email' | 'phone' | 'address' | 'type' | 'company' | 'product' | 'qty' | 'engrave' | 'more' | 'confirm' | 'big'
+type Step = 'done' | 'data' | 'name' | 'email' | 'phone' | 'address' | 'company' | 'product' | 'qty' | 'engrave' | 'confirm' | 'big'
 
 const TAGS: Record<Exclude<Step, 'big' | 'done'>, string> = {
   data: 'tus datos',
@@ -26,18 +27,28 @@ const TAGS: Record<Exclude<Step, 'big' | 'done'>, string> = {
   email: 'tu correo',
   phone: 'tu celular',
   address: 'tu dirección',
-  type: '¿Es para ti o para una empresa',
   company: '¿Cómo se llama tu empresa',
   product: 'Responde con el número o el nombre',
   qty: '¿Cuántas unidades',
   engrave: '¿Quieres grabado',
-  more: '¿Agregas otro producto',
   confirm: '¿Confirmas',
 }
 
-/** Lo que se pide al concretar el pedido, después de elegir las tablas. */
-const DATA_REQUEST =
-  'Ya casi. Para registrar tu pedido necesito estos datos:\n\n• Tu celular\n• Tu correo\n• Tu dirección de entrega (calle, número, distrito y ciudad)\n\nEnvíamelos en un solo mensaje.\n\nEjemplo:\n987654321, ana@correo.com, Jr. Lima 123, Tarapoto'
+/**
+ * Lo que se pide al concretar el pedido, después de elegir las tablas. El nombre se pide aquí, junto con el
+ * contacto, si no lo dio antes (en el saludo): así el cliente elige primero y se identifica al final.
+ */
+function dataRequest(f: Flow): string {
+  const withName = !f.name
+  const bullets = [withName ? '• Tu nombre completo' : null, '• Tu celular', '• Tu correo', '• Tu dirección de entrega (calle, número, distrito y ciudad)'].filter(Boolean).join('\n')
+  const example = `${withName ? 'Ana Pérez, ' : ''}987654321, ana@correo.com, Jr. Lima 123, Tarapoto`
+  return `Ya casi. Para registrar tu pedido necesito estos datos:\n\n${bullets}\n\nEnvíamelos en un solo mensaje.\n\nEjemplo:\n${example}`
+}
+
+/** El cliente quiere sumar otra tabla al resumen que ya vio. */
+const ADD_MORE = /agreg|anad|otra tabla|otro producto|otra mas|otro mas|una mas|mas productos/
+/** Una empresa se reconoce desde el primer mensaje; si no se nombra, el pedido es de una persona. */
+const BUSINESS = /empresa|negocio|restaurante|hotel|corporativ|\bruc\b|cafeteria/
 
 const CUSTOM = /a medida|medida propia|otra medida|diseno propio|diseno especial|personalizad[ao] aparte|no esta en|ninguno de/
 const CUSTOM_LABEL = 'Pieza a medida o diseño propio'
@@ -91,18 +102,23 @@ function parseQty(text: string): number | null {
 // --- Qué pregunta toca ---------------------------------------------------------
 
 function nextStep(f: Flow): Step {
-  // Al empezar solo se pide el nombre; el celular, el correo y la dirección se piden al concretar el pedido.
-  if (!f.name) return 'name'
-  if (!f.type) return 'type'
+  // Una tabla con modelo, cantidad y grabado resueltos (también los que ya venían dichos) pasa al pedido.
+  const c0 = f.cur
+  if (!f.moreDone && c0?.variant && c0.qty !== undefined && c0.engraving !== undefined) {
+    f.lines.push(c0 as Line)
+    f.cur = null
+    f.moreDone = true
+  }
+  // Primero se elige la tabla (modelo, cantidad, grabado); el nombre y el contacto se piden juntos al final.
   if (f.type === 'business' && !f.company) return 'company'
   if (!f.moreDone) {
     const c = f.cur
     if (!c?.variant) return 'product'
     if (c.qty === undefined) return 'qty'
-    if (c.engraving === undefined) return 'engrave'
-    return 'more'
+    return 'engrave'
   }
   if (!f.email && !f.phone && !f.address) return 'data'
+  if (!f.name) return 'name'
   if (!f.email) return 'email'
   if (!f.phone) return 'phone'
   if (!f.address) return 'address'
@@ -137,9 +153,15 @@ function summary(f: Flow): { text: string; allPriced: boolean; units: number } {
   const tail = f.logo
     ? 'Como lleva el logo de tu empresa, lo registro y el equipo coordina el logo contigo y confirma el precio final.'
     : allPriced
-    ? `Total a pagar: ${money(total)}\nLo registro como pedido y te dejo elegir cómo pagar.`
+    ? `Total a pagar: ${money(total)}`
     : 'Hay productos sin precio publicado: lo registro y el equipo confirma el precio final.'
   return { text: `Este es tu pedido:\n\n${lines.join('\n')}\n\n${tail}\n\nA nombre de: ${who}\nEntrega en: ${f.address}`, allPriced, units }
+}
+
+/** ¿Este pedido se paga en el chat? Con precio completo, sin logo y con los datos de Yape/Plin cargados. */
+function paysAtConfirm(f: Flow): boolean {
+  const s = summary(f)
+  return paymentConfigured() && s.allPriced && !f.logo && s.units <= WEB_ORDER_MAX_UNITS
 }
 
 function question(step: Step, f: Flow, catalog: CatalogResponse): string {
@@ -154,24 +176,24 @@ function question(step: Step, f: Flow, catalog: CatalogResponse): string {
       return `${TAGS.qty} quieres de ${entryLabel(f.cur as Entry)}?\n\nPuedes pedir hasta ${WEB_ORDER_MAX_UNITS} por pedido.`
     case 'engrave':
       return `${TAGS.engrave} en esta tabla?\n\n• Escribe el nombre o la frase que quieres grabar (normalmente va en una esquina)\n• O responde «no» si la prefieres lisa`
-    case 'more':
-      return `${TAGS.more}?\n\nResponde «sí» o «no».`
-    case 'type':
-      return `${TAGS.type}?\n\nResponde «persona» o «empresa».`
     case 'company':
       return `${TAGS.company}?`
     case 'data':
-      return DATA_REQUEST
+      return dataRequest(f)
     case 'name':
-      return `Para empezar: ${TAGS.name} registro el pedido?\n\nEscribe tu nombre completo.`
+      return `${TAGS.name} registro el pedido?\n\nEscribe tu nombre completo.`
     case 'email':
       return `Me falta ${TAGS.email}.\n\nEscríbelo para enviarte la confirmación.\nEjemplo: nombre@correo.com`
     case 'phone':
       return `Me falta ${TAGS.phone}.\n\nEs el número con el que te contactamos para la entrega.\nEjemplo: 987654321`
     case 'address':
       return `Me falta ${TAGS.address} de entrega.\n\nIncluye:\n• Calle y número\n• Distrito\n• Ciudad\n\nEjemplo: Jr. Lima 123, Tarapoto`
-    case 'confirm':
-      return `${summary(f).text}\n\n${TAGS.confirm} el pedido?\nResponde «sí» o «no».`
+    case 'confirm': {
+      const text = summary(f).text
+      // Con el pedido ya con precio, elegir cómo pagar es confirmarlo: un solo paso.
+      if (paysAtConfirm(f)) return `${text}\n\n${paymentChoiceText()}\nAl elegir, registro tu pedido. ¿Falta algo? Escribe «agregar otra tabla».`
+      return `${text}\n\n${TAGS.confirm} el pedido?\nResponde «sí» o «no», o escribe «agregar otra tabla».`
+    }
     case 'big':
     case 'done':
       return ''
@@ -214,22 +236,7 @@ function apply(step: Step, raw: string, f: Flow, catalog: CatalogResponse): stri
       if (no(text)) f.cur!.engraving = null
       else if (yes(text) && normalize(text).length < 12) return 'Escribe el texto exacto que quieres grabar, o responde «no».'
       else f.cur!.engraving = text.replace(/^["«“]|["»”]$/g, '').slice(0, 200)
-      return null
-    }
-    case 'more': {
-      // Con grabado en el producto, una duda («no me gusta», «ninguna me convence») la atiende Teca con imágenes.
-      if (f.cur?.engraving && looksLikeEngravingDoubt(text)) return 'Antes de seguir con tu pedido, vamos con tu duda del grabado.'
-      if (!yes(text) && !no(text)) return 'Responde «sí» o «no».'
-      f.lines.push(f.cur as Line)
-      f.cur = yes(text) ? {} : null
-      f.moreDone = !yes(text)
-      return null
-    }
-    case 'type': {
-      const n = normalize(text)
-      if (/empresa|negocio|restaurante|hotel|corporativ|\bclub\b|s\.?a\.?c|\bruc\b|cafeteria|tienda/.test(n)) f.type = 'business'
-      else if (/persona|particular|para mi|\byo\b|personal|casa|regalo|individual/.test(n)) f.type = 'individual'
-      else return 'Responde «persona» o «empresa».'
+      // Con el grabado resuelto la tabla pasa sola al pedido (ver nextStep); si quiere otra, lo dice al ver el resumen.
       return null
     }
     case 'company':
@@ -237,10 +244,12 @@ function apply(step: Step, raw: string, f: Flow, catalog: CatalogResponse): stri
       f.company = text.slice(0, 200)
       return null
     case 'data': {
-      // El nombre ya se pidió al empezar: aquí solo se leen celular, correo y dirección.
-      const { email, phone, address } = parseCustomerData(text, { withName: false })
-      Object.assign(f, { ...(email ? { email } : {}), ...(phone ? { phone } : {}), ...(address ? { address } : {}) })
-      return email || phone || address ? null : 'No pude leer tus datos. Envíame en un solo mensaje tu celular, tu correo y tu dirección de entrega.'
+      // Una duda del grabado («no me gusta cómo quedaría») no son datos de contacto: la atiende Teca con imágenes.
+      if (f.lines.some((l) => l.engraving) && looksLikeEngravingDoubt(text)) return 'Antes de seguir con tu pedido, vamos con tu duda del grabado.'
+      // El nombre se lee aquí solo si aún no lo dio (en el saludo); lo demás es celular, correo y dirección.
+      const { name, email, phone, address } = parseCustomerData(text, { withName: !f.name })
+      Object.assign(f, { ...(name && !f.name ? { name } : {}), ...(email ? { email } : {}), ...(phone ? { phone } : {}), ...(address ? { address } : {}) })
+      return name || email || phone || address ? null : `No pude leer tus datos. Envíame en un solo mensaje ${f.name ? '' : 'tu nombre, '}tu celular, tu correo y tu dirección de entrega.`
     }
     case 'name': {
       const name = text.replace(/^(me llamo|mi nombre es|soy|nombre:?)\s+/i, '').trim()
@@ -268,7 +277,20 @@ function apply(step: Step, raw: string, f: Flow, catalog: CatalogResponse): stri
     }
     case 'confirm':
       if (f.lines.some((l) => l.engraving) && looksLikeEngravingDoubt(text)) return 'Antes de confirmar, vamos con tu duda del grabado.'
-      if (!yes(text)) return no(text) ? 'cancel' : 'Responde «sí» para confirmar o «no» para cancelar.'
+      // Más tablas: se vuelve a la lista de modelos y luego al resumen con todo junto.
+      if (ADD_MORE.test(normalize(text))) {
+        f.moreDone = false
+        f.cur = {}
+        return null
+      }
+      // Elegir cómo pagar es confirmar el pedido. El depósito aún no está disponible.
+      const choice = paysAtConfirm(f) ? detectPaymentChoice(text) : null
+      if (choice === 'deposit') return 'Por ahora el pago por depósito no está disponible aquí. Puedes pagar con Yape o Plin.'
+      if (choice === 'yape_plin') {
+        f.confirmed = true
+        return null
+      }
+      if (!yes(text)) return no(text) ? 'cancel' : paysAtConfirm(f) ? 'Elige cómo pagar o escribe «no» para cancelar.' : 'Responde «sí» para confirmar o «no» para cancelar.'
       f.confirmed = true
       return null
     case 'big':
@@ -324,7 +346,8 @@ export function nameFromGreeting(history: readonly HistoryMessage[]): string | u
 }
 
 function newFlow(first: string, catalog: CatalogResponse, name?: string): Flow {
-  const flow: Flow = { lines: [], cur: null, moreDone: false, ...(name ? { name } : {}) }
+  // No se pregunta si es persona o empresa: se deduce del primer mensaje (y del logo), si no, es una persona.
+  const flow: Flow = { lines: [], cur: null, moreDone: false, type: BUSINESS.test(normalize(first)) || /\blogo\b/.test(normalize(first)) ? 'business' : 'individual', ...(name ? { name } : {}) }
   if (CUSTOM.test(normalize(first))) {
     flow.big = { label: CUSTOM_LABEL, qty: 0 }
     flow.moreDone = true

@@ -6,7 +6,7 @@ import { AuthedImage } from '../../components/ui/AuthedImage'
 import { CHOICE_DEPOSIT, CHOICE_YAPE_PLIN, PAYMENT_CHOICE_LABEL, PROOF_BUTTON_LABEL } from '../../content/payment'
 import { useBackdropTone } from '../../hooks/useBackdropTone'
 import { ApiError, apiFetch } from '../../lib/api'
-import { chatImage, createChatToken, lastMessageId, mergeMessages, messageTime, parseBody, startsNewConversation, statusNotice, trailingWarnings, transientMessages } from './chat-logic'
+import { chatImage, createChatToken, flowChips, lastMessageId, mergeMessages, messageTime, parseBody, startsNewConversation, statusNotice, trailingWarnings, transientMessages } from './chat-logic'
 import { ChatBody } from './ChatBody'
 import { ChatChips } from './ChatChips'
 import { OPEN_CHAT_EVENT } from './open-chat'
@@ -26,6 +26,7 @@ const GREETING: ChatMessage = {
 const QUICK_REPLIES = ['Ver los productos', 'Ver los precios', 'Quiero hacer un pedido', 'Pedido para mi empresa']
 const YES_NO = ['Sí', 'No']
 const PAYMENT_CHOICES = [CHOICE_YAPE_PLIN, CHOICE_DEPOSIT]
+const ADD_MORE_CHIP = { label: 'Agregar otra tabla', value: 'Agregar otra tabla' }
 // Salida de cualquier conversación: nunca desaparece de las respuestas rápidas.
 const ALWAYS_REPLY = 'Ver los productos'
 
@@ -273,7 +274,12 @@ export function ChatWidget() {
     : !last
       ? QUICK_REPLIES
       : last.role !== 'customer' && last.body.includes(PAYMENT_CHOICE_LABEL)
-        ? PAYMENT_CHOICES
+        ? // En el resumen del pedido (paso a paso) también se puede sumar otra tabla.
+          inFlow
+          ? [...PAYMENT_CHOICES, ADD_MORE_CHIP]
+          : PAYMENT_CHOICES
+        : last.role !== 'customer' && inFlow && flowChips(last.body)
+        ? flowChips(last.body)!
         : last.role !== 'customer' && last.body.includes('(sí/no)')
         ? YES_NO
         : last.role !== 'customer' && !inFlow

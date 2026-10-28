@@ -157,6 +157,23 @@ export function splitFlowFooter(body: string): { text: string; inFlow: boolean }
   return FLOW_FOOTER.test(body) ? { text: body.replace(FLOW_FOOTER, '').trimEnd(), inFlow: true } : { text: body, inFlow: false }
 }
 
+/** Una respuesta rápida: `label` es lo que se ve en el botón y `value` lo que se envía como mensaje. */
+export type Chip = string | { label: string; value: string }
+
+/**
+ * Botones de respuesta para la pregunta en curso del pedido paso a paso, o null si la pregunta no los tiene. Así el
+ * cliente elige el modelo, la cantidad o «sin grabado» con un toque en vez de escribir.
+ */
+export function flowChips(body: string): Chip[] | null {
+  if (body.includes('Responde con el número o el nombre')) {
+    const rows = [...body.matchAll(/^(\d{1,2})\.\s+(.+?)\s+—\s/gm)]
+    return rows.length > 0 ? rows.map((r) => ({ label: r[2]!, value: r[1]! })) : null
+  }
+  if (body.includes('¿Cuántas unidades')) return ['1', '2', '3', '4', '5']
+  if (body.includes('¿Quieres grabado')) return [{ label: 'Sin grabado', value: 'no' }]
+  return null
+}
+
 /**
  * ¿Lo que escribe el cliente abre una conversación nueva? Sí cuando la anterior ya terminó (canceló, registró su cotización o
  * pagó) y toca un botón o saluda con «Hola». Cualquier otra cosa sigue en la misma conversación: por ejemplo, un pedido sin pagar.

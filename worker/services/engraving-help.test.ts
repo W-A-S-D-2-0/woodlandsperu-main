@@ -101,15 +101,12 @@ describe('dudas de personalización', () => {
   })
 
   it('en pleno pedido, una duda del grabado se atiende sin perder el paso', () => {
-    const data = 'Ana Pérez'
     const history: HistoryMessage[] = [customer('quiero hacer un pedido')]
     const step = (body: string) => {
       const out = guidedFlowFirst(history, catalog)!
       history.push(teca(out.text), customer(body))
       return out
     }
-    step(data)
-    step('persona')
     step('1')
     step('1')
     const engrave = guidedFlowFirst(history, catalog)!
@@ -171,13 +168,12 @@ describe('con todas las tablas del catálogo', () => {
 })
 
 describe('dudas en cualquier paso del pedido', () => {
-  const data = 'Ana Pérez'
-  const contact = '987654321, ana@example.com, Jr. Lima 123, Tarapoto'
+  const contact = 'Ana Pérez, 987654321, ana@example.com, Jr. Lima 123, Tarapoto'
   /** Lleva el pedido hasta el paso pedido y devuelve la conversación y la pregunta de ese paso. */
   function until(steps: string[]) {
     const history: HistoryMessage[] = [customer('quiero hacer un pedido')]
     let out = guidedFlowFirst(history, catalog)!
-    for (const body of [data, 'persona', '1', '1', ...steps]) {
+    for (const body of ['1', '1', ...steps]) {
       history.push(teca(out.text), customer(body))
       out = guidedFlowFirst(history, catalog)!
     }
@@ -186,7 +182,7 @@ describe('dudas en cualquier paso del pedido', () => {
 
   it('«ninguna» al preguntar por el grabado significa que no quiere grabado', () => {
     const { out } = until(['ninguna'])
-    expect(out.text).toContain('¿Agregas otro producto?')
+    expect(out.text).toMatch(/necesito estos datos/)
   })
 
   it('«no me gusta» al preguntar por el grabado pide el texto para mostrarlo', () => {
@@ -199,15 +195,15 @@ describe('dudas en cualquier paso del pedido', () => {
     const { out } = until(['Ana', 'no me gusta cómo quedaría'])
     expect(preview(out.text)!.line1).toBe('Ana')
     expect(preview(out.text)!.model).toBe('Ya Vuelta')
-    expect(out.text).toContain('¿Agregas otro producto?')
+    expect(out.text).toMatch(/necesito estos datos/)
     expect(out.call).toBeUndefined()
   })
 
   it('en la confirmación, «no me gusta cómo queda» no cancela el pedido', () => {
-    const { out } = until(['Ana', 'no', contact, 'no me gusta cómo queda'])
+    const { out } = until(['Ana', contact, 'no me gusta cómo queda'])
     expect(out.text).not.toMatch(/cancelé/)
     expect(preview(out.text)).toBeDefined()
-    expect(out.text).toContain('¿Confirmas')
+    expect(out.text).toContain('Este es tu pedido')
   })
 
   it('«quiero personalizar la tabla con el nombre «Marta»» muestra cómo quedaría', () => {

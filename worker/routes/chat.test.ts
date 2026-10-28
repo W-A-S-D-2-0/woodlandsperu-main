@@ -785,16 +785,16 @@ describe('saludo de Teca: pide el nombre', () => {
     const body = (await (await sendGreeted(app, 'quiero hacer un pedido')).json()) as ChatResponse
     const reply = body.messages.at(-1)!.body
     expect(reply).not.toMatch(/A nombre de quién/)
-    expect(reply).toMatch(/persona.*empresa/)
+    expect(reply).toMatch(/Responde con el número/)
   })
 
-  it('si el cliente no da su nombre sino una consulta, se atiende la consulta y el pedido lo pedirá después', async () => {
+  it('si el cliente no da su nombre sino una consulta, se atiende la consulta y el pedido va directo a los modelos', async () => {
     const { chat } = fakeChat()
     const app = createApp({ chatData: () => chat, publicData: () => publicData(), assistantModel: createAssistantModel })
     const first = (await (await sendGreeted(app, '¿cuáles son los precios?')).json()) as ChatResponse
     expect(first.messages.at(-1)!.body).toContain('S/ 100.00')
     const flow = (await (await sendGreeted(app, 'quiero hacer un pedido')).json()) as ChatResponse
-    expect(flow.messages.at(-1)!.body).toMatch(/A nombre de quién/)
+    expect(flow.messages.at(-1)!.body).toMatch(/Responde con el número/)
   })
 })
 

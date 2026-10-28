@@ -3,7 +3,7 @@ import { defaultEngravingPosition, engravingFonts, engravingLimits, engravingPos
 import { brigitte } from '../../src/content/site'
 import { buildPreviewMarker, buildWhatsappMarker, parseMarkerLine, positionLabel, previewQuery } from '../../src/features/engraving/preview-marker'
 import type { HistoryMessage } from './assistant'
-import { looksLikeName } from './customer-data'
+import { looksLikeName, parseCustomerData } from './customer-data'
 
 /**
  * Dudas de personalización (nombre en otra posición, «no me gusta», «cómo se vería»): Teca muestra la tabla con el
@@ -123,10 +123,12 @@ function recommend(exclude: readonly EngravingPosition[], count: number, avoid: 
 /** Nombre que dio el cliente al comenzar su pedido, si lo hizo. */
 export function customerName(history: readonly HistoryMessage[]): string | undefined {
   for (let i = 1; i < history.length; i++) {
-    if (history[i - 1]!.role === 'assistant' && history[i - 1]!.body.includes('¿A nombre de quién') && history[i]!.role === 'customer') {
-      const answer = history[i]!.body
-      return looksLikeName(answer) ?? undefined
-    }
+    if (history[i - 1]!.role !== 'assistant' || history[i]!.role !== 'customer') continue
+    const asked = history[i - 1]!.body
+    const answer = history[i]!.body
+    if (asked.includes('¿A nombre de quién')) return looksLikeName(answer) ?? undefined
+    // Si el nombre se pidió junto con los demás datos, es el primer dato del mensaje.
+    if (asked.includes('• Tu nombre completo')) return parseCustomerData(answer).name
   }
   return undefined
 }
