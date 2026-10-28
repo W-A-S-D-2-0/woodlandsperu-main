@@ -114,6 +114,14 @@ function shownBefore(history: readonly HistoryMessage[]): EngravingPosition[][] 
   return rounds
 }
 
+/** Frase que distingue la vista previa automática (al escribir el grabado) de las que Teca muestra al resolver una duda. */
+const AUTO_PREVIEW = 'escribe «continuar» para dejarla ahí'
+
+/** Cuántas veces Teca ya respondió a una duda con imágenes: la vista previa automática no cuenta como duda atendida. */
+function answeredRounds(history: readonly HistoryMessage[]): number {
+  return history.filter((m) => m.role === 'assistant' && !m.body.includes(AUTO_PREVIEW) && m.body.split('\n').some((line) => parseMarkerLine(line)?.kind === 'preview')).length
+}
+
 function recommend(exclude: readonly EngravingPosition[], count: number, avoid: ReadonlySet<EngravingPosition>, prefer: readonly EngravingPosition[] = []): EngravingPosition[] {
   const pool = RECOMMENDED.filter((p) => !exclude.includes(p))
   const ordered = [...pool.filter((p) => prefer.includes(p)).sort((a, b) => prefer.indexOf(a) - prefer.indexOf(b)), ...pool.filter((p) => !prefer.includes(p))]
@@ -201,8 +209,9 @@ export function engravingHelpReply(history: readonly HistoryMessage[], catalog: 
 
   // Ya vio recomendaciones y sigue sin convencerse (o pide hablar con alguien): pasa a Brigitte.
   // Una queja de ubicación («muy abajo») da una pista concreta: se prueba otra ronda antes de pasar a una persona.
-  const locationHint = (TOO_LOW.test(n) || TOO_HIGH.test(n)) && rounds.length < 2
-  if (WANTS_BRIGITTE.test(n) || (DOUBT.test(n) && rounds.length > 0 && asked === null && !locationHint)) {
+  const answered = answeredRounds(history)
+  const locationHint = (TOO_LOW.test(n) || TOO_HIGH.test(n)) && answered < 2
+  if (WANTS_BRIGITTE.test(n) || (DOUBT.test(n) && answered > 0 && asked === null && !locationHint)) {
     // El mensaje parte de lo que el cliente pidió al principio y lista lo que Teca le mostró.
     const original = rounds[0]?.[0] ?? position
     const lastShown = [...new Set(rounds.flat())].filter((p) => p !== original)
@@ -226,6 +235,26 @@ export function engravingHelpReply(history: readonly HistoryMessage[], catalog: 
   const suggested = positions.filter((p) => p !== position)
   const close = `Toca «Quiero esta posición» en la que más te guste. Si ninguna te convence, escríbele a ${brigitte.name} (ventas): te ayuda a definirlo.`
   return `${lead}\n${buildPreviewMarker({ ...common, positions })}\n${close}\n${whatsapp(suggested)}`
+}
+
+/** «la esquina inferior derecha», «el centro»: la posición dicha en una frase. */
+export const positionPhrase = phrase
+
+/**
+ * Lo que Teca muestra en cuanto el cliente escribe el texto a grabar: la tabla con ese texto en las tres posiciones
+ * más habituales (la primera es la esquina inferior derecha, la de casi todos los pedidos). Lleva la marca [[vista|…]].
+ */
+export function engravingPreviewText(text: string, model?: string): string {
+  const positions = RECOMMENDED.slice(0, 3)
+  const line1 = text.slice(0, engravingLimits.line1)
+  return `Así quedaría «${line1}» en ${phrase(positions[0]!)}. Toca «Quiero esta posición» en la que más te guste, o ${AUTO_PREVIEW}.\n${buildPreviewMarker({ line1, line2: '', font: 'classic', model, positions })}`
+}
+
+/** La posición que el cliente tocó en la vista previa («Prefiero la posición Centro»), o null si el mensaje es otra cosa. */
+export function chosenPosition(text: string): { value: EngravingPosition; label: string } | null {
+  const n = normalize(text)
+  if (!CHOSE.test(n)) return null
+  return engravingPositions.find((p) => n.endsWith(normalize(p.label))) ?? null
 }
 
 /** El texto del cliente en el paso del grabado parece una duda o una orden de posición, no el texto a grabar. */

@@ -42,8 +42,8 @@ async function chat(...messages: string[]) {
 const CONTACT = '987 654 321, ana@example.com, Jr. Lima 123, Tarapoto'
 const WITH_NAME = `Ana Pérez, ${CONTACT}`
 const YAPE = 'Yape / Plin'
-/** Hasta pedir los datos: modelo 1, una unidad y grabado «Ana». */
-const UP_TO_DATA = ['quiero cotizar', '1', '1', 'Ana']
+/** Hasta pedir los datos: modelo 1, una unidad, grabado «Ana» y seguir tras ver la vista previa. */
+const UP_TO_DATA = ['quiero cotizar', '1', '1', 'Ana', 'continuar']
 
 describe('pedido paso a paso sin IA', () => {
   it('al empezar muestra los modelos: no pregunta el nombre ni si es persona o empresa', async () => {
@@ -70,6 +70,29 @@ describe('pedido paso a paso sin IA', () => {
     expect(out.text).toMatch(/Yape \/ Plin/)
     expect(out.text).toMatch(/agregar otra tabla/)
     expect((await chat(...UP_TO_DATA, WITH_NAME, YAPE)).out.call?.name).toBe('create_order')
+  })
+
+  it('al escribir el texto del grabado, Teca muestra cómo queda la tabla antes de seguir con el pedido', async () => {
+    const { out } = await chat('quiero cotizar', '1', '1', 'La vida es dura')
+    expect(out.text).toContain('Así quedaría «La vida es dura» en la esquina inferior derecha')
+    expect(out.text).toMatch(/\[\[vista\|/)
+    expect(out.text).toContain('Super Grill')
+    // La vista previa va sola: los datos se piden después, no junto a las imágenes.
+    expect(out.text).not.toMatch(/necesito estos datos/)
+    expect(out.text).toContain('«continuar»')
+    expect((await chat('quiero cotizar', '1', '1', 'La vida es dura', 'continuar')).out.text).toMatch(/necesito estos datos/)
+    // Sin grabado no hay vista previa.
+    expect((await chat('quiero cotizar', '1', '1', 'no')).out.text).not.toMatch(/\[\[vista\|/)
+  })
+
+  it('la posición que toca en la vista previa queda anotada en el pedido', async () => {
+    const chosen = await chat('quiero cotizar', '1', '1', 'Ana', 'Prefiero la posición Centro')
+    expect(chosen.out.text).toContain('dejamos «Ana» en el centro')
+    expect(chosen.out.text).toMatch(/necesito estos datos/)
+    const summary = await chat('quiero cotizar', '1', '1', 'Ana', 'Prefiero la posición Centro', WITH_NAME)
+    expect(summary.out.text).toContain('(grabado: «Ana» · centro)')
+    const done = await chat('quiero cotizar', '1', '1', 'Ana', 'Prefiero la posición Centro', WITH_NAME, YAPE)
+    expect(done.out.call?.args).toMatchObject({ items: [{ customization: 'Ana · centro' }] })
   })
 
   it('el depósito aún no está disponible: avisa y vuelve a ofrecer el resumen sin crear el pedido', async () => {

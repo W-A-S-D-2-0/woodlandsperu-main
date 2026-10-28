@@ -7,7 +7,7 @@ import type { HistoryMessage, ModelOutput } from './assistant'
 import { looksLikeName, parseCustomerData } from './customer-data'
 
 export { looksLikeName }
-import { looksLikeEngravingDoubt } from './engraving-help'
+import { chosenPosition, engravingPreviewText, looksLikeEngravingDoubt, positionPhrase } from './engraving-help'
 
 /**
  * Flujo de pedido/cotización SIN IA, paso a paso. Es lo que garantiza que el chat nunca falle: si la IA está
@@ -19,9 +19,10 @@ import { looksLikeEngravingDoubt } from './engraving-help'
 /** Cierra cada pregunta del flujo: así se reconoce, en el historial, que el flujo sigue en marcha. */
 const FOOTER = '(Pedido paso a paso · escribe «cancelar» para salir)'
 
-type Step = 'done' | 'data' | 'name' | 'email' | 'phone' | 'address' | 'company' | 'product' | 'qty' | 'engrave' | 'confirm' | 'big'
+type Step = 'done' | 'data' | 'name' | 'email' | 'phone' | 'address' | 'company' | 'product' | 'qty' | 'engrave' | 'preview' | 'confirm' | 'big'
 
 const TAGS: Record<Exclude<Step, 'big' | 'done'>, string> = {
+  preview: '«continuar»',
   data: 'tus datos',
   name: '¿A nombre de quién',
   email: 'tu correo',
@@ -45,6 +46,9 @@ function dataRequest(f: Flow): string {
   return `Ya casi. Para registrar tu pedido necesito estos datos:\n\n${bullets}\n\nEnvíamelos en un solo mensaje.\n\nEjemplo:\n${example}`
 }
 
+/** Seguir con el pedido después de ver cómo queda el grabado. */
+const CONTINUE = /^(continuar|continua|seguir|sigue|sigamos|listo|ok|okay|dale|si|esta bien|asi esta bien|perfecto)\b/
+
 /** El cliente quiere sumar otra tabla al resumen que ya vio. */
 const ADD_MORE = /agreg|anad|otra tabla|otro producto|otra mas|otro mas|una mas|mas productos/
 /** Una empresa se reconoce desde el primer mensaje; si no se nombra, el pedido es de una persona. */
@@ -62,6 +66,8 @@ interface Line extends Entry {
   qty?: number
   /** undefined = aún no se preguntó; null = sin grabado. */
   engraving?: string | null
+  /** Dónde va el grabado, si lo eligió en la vista previa («esquina inferior derecha»); si no, lo define el equipo. */
+  position?: string
 }
 interface Flow {
   lines: Line[]
@@ -74,6 +80,8 @@ interface Flow {
   phone?: string
   address?: string
   confirmed?: boolean
+  /** Grabado recién escrito: se le muestra la tabla y se espera que siga («continuar») o elija otra posición. */
+  preview?: { text: string; model: string }
   /** Pedido corporativo con logo: el archivo lo coordina el equipo, así que siempre queda como cotización. */
   logo?: string
   /** Lo que el primer mensaje ya dijo (cantidad, grabado) y se aplica al elegir el modelo. */
@@ -109,6 +117,8 @@ function nextStep(f: Flow): Step {
     f.cur = null
     f.moreDone = true
   }
+  // La vista previa del grabado va sola: no se mezcla con la petición de datos.
+  if (f.preview) return 'preview'
   // Primero se elige la tabla (modelo, cantidad, grabado); el nombre y el contacto se piden juntos al final.
   if (f.type === 'business' && !f.company) return 'company'
   if (!f.moreDone) {
@@ -147,7 +157,7 @@ function summary(f: Flow): { text: string; allPriced: boolean; units: number } {
     if (sum === null || f.logo) allPriced = false
     else total += sum
     const price = sum === null ? 'precio por confirmar' : money(sum)
-    return `• ${l.qty} × ${entryLabel(l)} — ${price}${l.engraving ? ` (grabado: «${l.engraving}»)` : ''}`
+    return `• ${l.qty} × ${entryLabel(l)} — ${price}${l.engraving ? ` (grabado: «${l.engraving}»${l.position ? ` · ${l.position}` : ''})` : ''}`
   })
   const who = [f.name, f.company ? `(${f.company})` : null, f.email, f.phone].filter(Boolean).join(' · ')
   const tail = f.logo
@@ -176,6 +186,8 @@ function question(step: Step, f: Flow, catalog: CatalogResponse): string {
       return `${TAGS.qty} quieres de ${entryLabel(f.cur as Entry)}?\n\nPuedes pedir hasta ${WEB_ORDER_MAX_UNITS} por pedido.`
     case 'engrave':
       return `${TAGS.engrave} en esta tabla?\n\n• Escribe el nombre o la frase que quieres grabar (normalmente va en una esquina)\n• O responde «no» si la prefieres lisa`
+    case 'preview':
+      return engravingPreviewText(f.preview!.text, f.preview!.model)
     case 'company':
       return `${TAGS.company}?`
     case 'data':
@@ -237,7 +249,15 @@ function apply(step: Step, raw: string, f: Flow, catalog: CatalogResponse): stri
       else if (yes(text) && normalize(text).length < 12) return 'Escribe el texto exacto que quieres grabar, o responde «no».'
       else f.cur!.engraving = text.replace(/^["«“]|["»”]$/g, '').slice(0, 200)
       // Con el grabado resuelto la tabla pasa sola al pedido (ver nextStep); si quiere otra, lo dice al ver el resumen.
+      if (f.cur!.engraving) f.preview = { text: f.cur!.engraving, model: f.cur!.product!.name }
       return null
+    }
+    case 'preview': {
+      // Lo que sigue a la vista previa: continuar, una duda (la atiende Teca con imágenes) o ya los datos del pedido.
+      if (looksLikeEngravingDoubt(text)) return 'Antes de seguir con tu pedido, vamos con tu duda del grabado.'
+      f.preview = undefined
+      if (CONTINUE.test(normalize(text))) return null
+      return apply(nextStep(f), raw, f, catalog)
     }
     case 'company':
       if (text.length < 2) return 'Escribe el nombre de tu empresa.'
@@ -378,6 +398,8 @@ export function guidedFlowReply(history: readonly HistoryMessage[], catalog: Cat
   let candidate: Flow | null = null
   let lastError: string | null = null
   let cancelled = false
+  /** Del último mensaje del cliente: la posición del grabado que tocó en la vista previa. */
+  let positioned: { text: string; where: string } | null = null
   const last = history.length - 1
   for (const m of history) {
     if (m.role === 'assistant') {
@@ -390,10 +412,20 @@ export function guidedFlowReply(history: readonly HistoryMessage[], catalog: Cat
     if (m.role !== 'customer') continue
     lastError = null
     cancelled = false
+    positioned = null
     if (flow) {
       if (/cancel|empez\w* de nuevo|olvid/.test(normalize(m.body))) {
         flow = null
         cancelled = true
+        continue
+      }
+      // Tocó una posición en la vista previa del grabado: queda anotada en esa tabla y el pedido sigue donde estaba.
+      const where = chosenPosition(m.body)
+      const target = where ? [flow.cur, ...flow.lines.toReversed()].find((l) => l?.engraving) : null
+      if (where && target) {
+        target.position = where.label.toLowerCase()
+        positioned = { text: target.engraving!, where: positionPhrase(where.value) }
+        flow.preview = undefined
         continue
       }
       const step = nextStep(flow)
@@ -435,7 +467,7 @@ export function guidedFlowReply(history: readonly HistoryMessage[], catalog: Cat
       phone: flow.phone,
       shippingAddress: flow.address,
       message: [`Dirección de entrega: ${flow.address}`, flow.logo ? `Pedido con logo: ${flow.logo}` : null].filter(Boolean).join(' · '),
-      items: flow.lines.map((l) => ({ variantId: l.variant.id, quantity: l.qty, customization: l.engraving ?? undefined })),
+      items: flow.lines.map((l) => ({ variantId: l.variant.id, quantity: l.qty, customization: l.engraving ? `${l.engraving}${l.position ? ` · ${l.position}` : ''}` : undefined })),
     }
     return { text: '', call: { name: s.allPriced && !flow.logo && s.units <= WEB_ORDER_MAX_UNITS ? 'create_order' : 'create_quote_request', args } }
   }
@@ -443,8 +475,11 @@ export function guidedFlowReply(history: readonly HistoryMessage[], catalog: Cat
 ${FOOTER}`
   if (lastError) {
     const info = options.info(history[last]!.body)
+    // Una duda sobre la vista previa se atiende sola, sin repetir las imágenes ni pedir datos.
+    if (step === 'preview') return { text: `${info ?? lastError}\n\nSi ya quedó como quieres, escribe «continuar».\n${FOOTER}` }
     return { text: `${info ?? lastError}\n\n${prompt}` }
   }
+  if (positioned) return { text: `Perfecto, dejamos «${positioned.text}» en ${positioned.where}.\n\n${prompt}` }
   return { text: prompt }
 }
 

@@ -171,6 +171,8 @@ export function flowChips(body: string): Chip[] | null {
   }
   if (body.includes('¿Cuántas unidades')) return ['1', '2', '3', '4', '5']
   if (body.includes('¿Quieres grabado')) return [{ label: 'Sin grabado', value: 'no' }]
+  // Vista previa del grabado: seguir con el pedido (o tocar otra posición en las imágenes).
+  if (body.includes('escribe «continuar»')) return [{ label: 'Continuar', value: 'continuar' }]
   return null
 }
 

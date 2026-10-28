@@ -259,6 +259,10 @@ describe('flowChips', () => {
     expect(flowChips('¿Quieres grabado en esta tabla?')).toEqual([{ label: 'Sin grabado', value: 'no' }])
   })
 
+  it('la vista previa del grabado tiene el botón para continuar', () => {
+    expect(flowChips('Así quedaría «Ana» en la esquina. Toca «Quiero esta posición» o escribe «continuar» para dejarla ahí.')).toEqual([{ label: 'Continuar', value: 'continuar' }])
+  })
+
   it('las preguntas de texto libre no tienen botones', () => {
     expect(flowChips('Ya casi. Para registrar tu pedido necesito estos datos:')).toBeNull()
     expect(flowChips('Hola')).toBeNull()

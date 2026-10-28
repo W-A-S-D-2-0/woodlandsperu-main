@@ -195,12 +195,14 @@ describe('dudas en cualquier paso del pedido', () => {
     const { out } = until(['Ana', 'no me gusta cómo quedaría'])
     expect(preview(out.text)!.line1).toBe('Ana')
     expect(preview(out.text)!.model).toBe('Ya Vuelta')
-    expect(out.text).toMatch(/necesito estos datos/)
+    // Sigue en la vista previa: no se piden datos hasta que diga «continuar».
+    expect(out.text).toContain('«continuar»')
+    expect(out.text).not.toMatch(/necesito estos datos/)
     expect(out.call).toBeUndefined()
   })
 
   it('en la confirmación, «no me gusta cómo queda» no cancela el pedido', () => {
-    const { out } = until(['Ana', contact, 'no me gusta cómo queda'])
+    const { out } = until(['Ana', 'continuar', contact, 'no me gusta cómo queda'])
     expect(out.text).not.toMatch(/cancelé/)
     expect(preview(out.text)).toBeDefined()
     expect(out.text).toContain('Este es tu pedido')
