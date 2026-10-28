@@ -71,6 +71,7 @@ function TypingDots() {
 /** Chat flotante con el asistente de Woodland. Cada carga de la página empieza una conversación nueva (el equipo conserva las anteriores en el panel). */
 export function ChatWidget() {
   const [open, setOpen] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   // Globo de bienvenida junto al botón: sale a los pocos segundos y, si se cierra, no vuelve en esta visita.
   const [teaser, setTeaser] = useState(false)
   const teaserDismissed = useRef(false)
@@ -304,7 +305,7 @@ export function ChatWidget() {
         <section
           role="dialog"
           aria-labelledby={titleId}
-          className="relative mb-3 flex h-[min(38rem,calc(100dvh-6rem))] w-[min(26rem,calc(100vw-2rem))] max-sm:h-[calc(100dvh-5.5rem)] animate-chat-open flex-col overflow-hidden rounded-3xl border border-linea bg-marfil shadow-2xl shadow-nogal/30"
+          className={`relative mb-3 flex ${expanded ? 'h-[calc(100dvh-6rem)] w-[min(48rem,calc(100vw-2rem))]' : 'h-[min(38rem,calc(100dvh-6rem))] w-[min(26rem,calc(100vw-2rem))]'} max-sm:h-[calc(100dvh-5.5rem)] animate-chat-open flex-col overflow-hidden rounded-3xl border border-linea bg-marfil shadow-2xl shadow-nogal/30`}
         >
           <header className="relative flex items-center gap-3 bg-nogal px-4 py-3.5 text-marfil">
             <Avatar size="size-11" pulse />
@@ -314,6 +315,17 @@ export function ChatWidget() {
               </h2>
               <p className="text-xs text-beige/85">Asistente automático de Woodland · respuestas orientativas</p>
             </div>
+            <button
+              type="button"
+              aria-label={expanded ? 'Reducir el chat' : 'Expandir el chat'}
+              aria-pressed={expanded}
+              className="relative inline-flex size-11 items-center justify-center rounded-full transition-colors hover:bg-marfil/15 max-sm:hidden"
+              onClick={() => setExpanded((v) => !v)}
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                {expanded ? <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" /> : <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />}
+              </svg>
+            </button>
             <button type="button" aria-label="Cerrar el chat" className="relative inline-flex size-11 items-center justify-center rounded-full text-xl transition-colors hover:bg-marfil/15" onClick={() => setOpen(false)}>
               ×
             </button>
