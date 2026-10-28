@@ -277,7 +277,7 @@ function orderReply(order: OrderSubmittedResponse, paid?: 'yape_plin' | null): s
   const tail = `${deliveryNote} Puedes seguirlo en la web, en "Consulta tu pedido", con ese código y tu correo o teléfono.`
   // El cliente ya eligió Yape / Plin al confirmar: se le dan los datos de pago de una vez, sin volver a preguntar.
   const request = paid === 'yape_plin' ? paymentRequestText(order.code, order.total) : null
-  if (request) return `${head}\n\n${tail}\n\n${request}`
+  if (request) return `${head}\n\n${request}`
   // Con los datos de Yape/Plin cargados, el cliente elige cómo pagar (por ahora solo Yape/Plin está activo).
   if (paymentConfigured()) return `${head}\n\n${tail}\n\n${paymentChoiceText()}`
   const pay = paymentChatText(order.code, order.total)

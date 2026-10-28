@@ -673,7 +673,10 @@ describe('POST /api/chat/payment-proof', () => {
     expect(deposit).toContain('¿Cómo quieres pagar?')
     expect(deposit).not.toContain('Subir captura de pago')
     const yape = ((await (await send(app, 'Yape / Plin')).json()) as ChatResponse).messages.at(-1)?.body ?? ''
-    expect(yape).toContain('paga ahora S/ 200.00 por Yape o Plin al 965 402 725')
+    expect(yape).toContain('Paga ahora por Yape o Plin')
+    expect(yape).toContain('• Monto: S/ 200.00')
+    expect(yape).toContain('• Número: 965 402 725')
+    expect(yape).toContain('• Mensaje del pago: PED-000012')
     expect(yape).toContain('PED-000012')
     expect(yape).toContain('Subir captura de pago')
   })

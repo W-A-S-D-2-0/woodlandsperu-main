@@ -145,7 +145,10 @@ describe('pedido paso a paso sin IA', () => {
     const turn = await run(YAPE)
     expect(turn.order?.code).toBe('PED-000001')
     expect(turn.reply).toContain('Subir captura de pago')
+    expect(turn.reply).toContain('• Mensaje del pago: PED-000001')
     expect(turn.reply).not.toContain('¿Cómo quieres pagar?')
+    // Mensaje corto: el aviso de plazos y de seguimiento no se repite junto a los datos de pago.
+    expect(turn.reply).not.toContain('Consulta tu pedido')
     expect(out.call?.args).toMatchObject({ shippingAddress: 'Jr. Lima 123, Tarapoto', phone: '987654321', customerType: 'individual' })
     expect(created[0]).toMatchObject({ customer: { fullName: 'Ana Pérez', email: 'ana@example.com' }, items: [{ variantId: V1, quantity: 1, customization: 'Ana' }] })
     // Confirmar con «sí» sigue funcionando: entonces se pregunta cómo pagar.
