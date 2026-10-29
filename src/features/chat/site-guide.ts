@@ -29,7 +29,7 @@ export const GUIDES: Readonly<Record<GuideId, Guide>> = {
   grabado: {
     label: '✏️ Probar mi grabado',
     path: '/',
-    selector: '#corporativo',
+    selector: '[aria-label="Personaliza tu tabla"]',
     tab: 'personal',
     going: 'Te llevo a probar tu grabado…',
     arrived: 'Escribe tu nombre o frase y mira cómo queda en la tabla.',
@@ -37,7 +37,7 @@ export const GUIDES: Readonly<Record<GuideId, Guide>> = {
   empresa: {
     label: '🏢 Ver opciones para empresas',
     path: '/',
-    selector: '#corporativo',
+    selector: '[aria-label="Personaliza tu tabla"]',
     tab: 'company',
     going: 'Te llevo a la sección para empresas…',
     arrived: 'Sube tu logo para ver cómo quedaría. Si quieres cotizar, me llamas.',
@@ -77,4 +77,40 @@ export function parseGuideValue(value: string): GuideId | null {
 /** Botón que lleva a un destino. */
 export function guideChip(id: GuideId): { label: string; value: string } {
   return { label: GUIDES[id].label, value: guideValue(id) }
+}
+
+/** Altura (px) a la que queda la sección bajo el encabezado fijo. */
+const HEADER_OFFSET = 64
+
+/**
+ * Desplaza la página hasta `target` con un deslizamiento suave propio. Recalcula el destino en cada cuadro: si la página
+ * cambia de alto mientras baja (imágenes, secciones fijadas), llega igual. Devuelve una función que lo cancela.
+ */
+export function glideTo(target: HTMLElement, duration = 1100, onDone?: () => void): () => void {
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  const from = window.scrollY
+  const started = performance.now()
+  let frame = 0
+  let moved = false
+  const destination = () => Math.max(0, target.getBoundingClientRect().top + window.scrollY - HEADER_OFFSET)
+  const step = (now: number) => {
+    moved = true
+    const t = reduce ? 1 : Math.min(1, (now - started) / duration)
+    const eased = 1 - Math.pow(1 - t, 3)
+    window.scrollTo({ top: from + (destination() - from) * eased, behavior: 'instant' })
+    if (t < 1) frame = requestAnimationFrame(step)
+    else onDone?.()
+  }
+  frame = requestAnimationFrame(step)
+  // Si el navegador no pinta cuadros (pestaña en segundo plano), se salta directo al destino.
+  const fallback = window.setTimeout(() => {
+    if (moved) return
+    cancelAnimationFrame(frame)
+    window.scrollTo({ top: destination(), behavior: 'instant' })
+    onDone?.()
+  }, 400)
+  return () => {
+    cancelAnimationFrame(frame)
+    window.clearTimeout(fallback)
+  }
 }

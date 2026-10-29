@@ -12,7 +12,7 @@ import { ChatBody } from './ChatBody'
 import { ChatChips } from './ChatChips'
 import { OrderCard } from './OrderCard'
 import { OPEN_CHAT_EVENT, ORDER_MODEL_EVENT, selectModel, type OrderModel } from './open-chat'
-import { GUIDES, guideChip, parseGuideValue, type GuideId } from './site-guide'
+import { GUIDES, glideTo, guideChip, parseGuideValue, type GuideId } from './site-guide'
 
 const PROOF_MAX_BYTES = 5 * 1024 * 1024
 const POLL_MS = 6000
@@ -106,6 +106,7 @@ export function ChatWidget() {
   // Teca llevando al cliente a una parte de la web: «going» mientras viaja, «arrived» al llegar.
   const [guiding, setGuiding] = useState<{ id: GuideId; phase: 'going' | 'arrived' } | null>(null)
   const guideTimer = useRef<number | undefined>(undefined)
+  const glideCancel = useRef<(() => void) | null>(null)
   // Modelo elegido en el catálogo: su tarjeta de pedido (cantidad y grabado) aparece al final de la conversación.
   const [orderDraft, setOrderDraft] = useState<ProductRow | null>(null)
   useEffect(() => {
@@ -275,12 +276,14 @@ export function ChatWidget() {
       if (guide.tab) document.getElementById(`personalize-tab-${guide.tab}`)?.click()
       afterArrive?.()
       if (target) {
-        target.scrollIntoView({ block: 'start', behavior: 'smooth' })
+        glideCancel.current?.()
+        glideCancel.current = glideTo(target)
         target.classList.remove('animate-guide-glow')
         void target.offsetWidth
         target.classList.add('animate-guide-glow')
         window.setTimeout(() => target.classList.remove('animate-guide-glow'), 2600)
-      } else {
+      } else if (!guide.selector) {
+        glideCancel.current?.()
         window.scrollTo({ top: 0, behavior: 'smooth' })
       }
       guideTimer.current = window.setTimeout(() => setGuiding({ id, phase: 'arrived' }), 900)
