@@ -233,6 +233,20 @@ describe('pedido paso a paso sin IA', () => {
     expect(done.out.call?.args).toMatchObject({ items: [{ variantId: V1, quantity: 2, customization: 'Ana' }] })
   })
 
+  it('la tabla diseñada en «Para ti» se muestra tal cual y el pedido sigue directo a los datos, sin elegir posición', async () => {
+    const first = 'Quiero 2 unidades de Super Grill · XL. Grabado: "Ana" / "2026" · Posición: Centro · Letra: Cursiva'
+    const { out } = await chat(first)
+    expect(out.text).toContain('Así quedará tu tabla: «Ana» y «2026» en el centro, con letra cursiva.')
+    expect(out.text).toContain('[[vista|Ana|2026|italic|center|Super Grill]]')
+    expect(out.text).not.toContain('Quiero esta posición')
+    expect(out.text).toContain('necesito estos datos')
+    // La imagen va solo en esa respuesta: al seguir con el pedido no se repite.
+    const next = await chat(first, WITH_NAME)
+    expect(next.out.text).not.toContain('[[vista')
+    const done = await chat(first, WITH_NAME, YAPE)
+    expect(done.out.call?.args).toMatchObject({ items: [{ variantId: V1, quantity: 2, customization: 'Ana / 2026 · centro' }] })
+  })
+
   it('la tarjeta del pedido manda modelo, cantidad y «sin grabado» en un solo mensaje: pasa directo a pedir los datos', async () => {
     const { out } = await chat('quiero hacer un pedido', 'Quiero 2 unidades de Super Grill XL. Sin grabado.')
     expect(out.text).toContain('necesito estos datos')

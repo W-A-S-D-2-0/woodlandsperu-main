@@ -123,6 +123,19 @@ function ProductCarousel({ items, onAsk, onSeeAll }: { items: ProductBlock[]; on
 /** La tabla con el nombre en cada posición recomendada, en un carrusel: se elige la que gusta con un toque. */
 function PreviewCarousel({ marker, onAsk }: { marker: PreviewMarker; onAsk?: (message: string) => void }) {
   const { ref, handlers } = useDragScroll<HTMLDivElement>()
+  // Una sola posición: es la tabla que el cliente ya diseñó en «Para ti». Se muestra grande y sin elegir otra.
+  if (marker.positions.length === 1) {
+    const position = marker.positions[0]!
+    return (
+      <figure className="animate-chip-in overflow-hidden rounded-xl border border-linea bg-marfil p-2">
+        <EngravingBoard line1={marker.line1} line2={marker.line2} font={marker.font} position={position} model={marker.model} />
+        <figcaption className="flex items-center gap-1.5 px-1 pt-2 text-xs font-semibold text-nogal">
+          <span aria-hidden="true" className="size-1.5 rounded-full bg-madera" />
+          Tu tabla{marker.model ? ` ${marker.model}` : ''} · {positionLabel(position)}
+        </figcaption>
+      </figure>
+    )
+  }
   return (
     <div
       ref={ref}

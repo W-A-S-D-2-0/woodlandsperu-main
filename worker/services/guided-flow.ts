@@ -7,6 +7,8 @@ import type { HistoryMessage, ModelOutput } from './assistant'
 import { looksLikeName, parseCustomerData } from './customer-data'
 
 export { looksLikeName }
+import { engravingFonts, engravingPositions, type EngravingFont, type EngravingPosition } from '../../src/content/engraving'
+import { buildPreviewMarker } from '../../src/features/engraving/preview-marker'
 import { chosenPosition, engravingPreviewText, looksLikeEngravingDoubt, positionPhrase } from './engraving-help'
 
 /**
@@ -69,6 +71,14 @@ interface Line extends Entry {
   /** Dónde va el grabado, si lo eligió en la vista previa («esquina inferior derecha»); si no, lo define el equipo. */
   position?: string
 }
+/** El grabado tal como el cliente lo diseñó en «Para ti»: texto, letra y posición. */
+interface Design {
+  line1: string
+  line2: string
+  font: EngravingFont
+  position: EngravingPosition
+}
+
 interface Flow {
   lines: Line[]
   cur: (Partial<Line> & { filter?: string }) | null
@@ -84,8 +94,10 @@ interface Flow {
   preview?: { text: string; model: string }
   /** Pedido corporativo con logo: el archivo lo coordina el equipo, así que siempre queda como cotización. */
   logo?: string
-  /** Lo que el primer mensaje ya dijo (cantidad, grabado) y se aplica al elegir el modelo. */
-  prefill?: { qty?: number; engraving?: string | null }
+  /** Lo que el primer mensaje ya dijo (cantidad, grabado y, desde «Para ti», el diseño) y se aplica al elegir el modelo. */
+  prefill?: { qty?: number; engraving?: string | null; design?: Design }
+  /** Tabla diseñada en «Para ti»: se muestra tal cual en la respuesta y el pedido sigue sin elegir posición. */
+  designed?: Design & { model: string }
   big?: { label: string; qty: number }
 }
 
@@ -355,8 +367,14 @@ export const startsFlow = (text: string) => {
 const isFlowQuestion = (body: string) => body.includes(FOOTER)
 
 function withPrefill(entry: Entry, f: Flow): Line & { filter?: string } {
-  const { qty, engraving } = f.prefill ?? {}
+  const { qty, engraving, design } = f.prefill ?? {}
   f.prefill = undefined
+  // Diseñado en «Para ti»: ya eligió letra y posición, así que se muestra su tabla y no se le ofrecen otras posiciones.
+  if (engraving && design) {
+    f.designed = { ...design, model: entry.product.name }
+    const position = engravingPositions.find((p) => p.value === design.position)!.label.toLowerCase()
+    return { ...entry, ...(qty ? { qty } : {}), engraving, position }
+  }
   // Un grabado que ya viene dicho también muestra cómo queda la tabla, igual que si lo hubiera escrito en el chat.
   if (engraving) f.preview = { text: engraving, model: entry.product.name }
   return { ...entry, ...(qty ? { qty } : {}), ...(engraving !== undefined ? { engraving } : {}) }
@@ -371,7 +389,20 @@ function parsePrefill(text: string): NonNullable<Flow['prefill']> {
   // La cantidad solo se toma si viene dicha como tal: las medidas del modelo también tienen números.
   const qty = Number((n.match(/(\d{1,3})\s*(?:unidades|unidad|tablas|tabla|piezas|u)\b/) ?? n.match(/\bquiero (\d{1,3})\b/))?.[1])
   const engraving = text.match(/Grabado:\s*(.+?)(?:\s·\s*Posici|$)/)?.[1]?.replace(/["«»“”]/g, '').trim().slice(0, 200)
-  return { qty: qty >= 1 && qty <= WEB_ORDER_MAX_UNITS ? qty : undefined, engraving: engraving || (/\bsin grabado\b/.test(n) ? null : undefined) }
+  const design = engraving ? parseDesign(text) : undefined
+  return { qty: qty >= 1 && qty <= WEB_ORDER_MAX_UNITS ? qty : undefined, engraving: engraving || (/\bsin grabado\b/.test(n) ? null : undefined), ...(design ? { design } : {}) }
+}
+
+/**
+ * El diseño que manda «Para ti»: «Grabado: "Ana" / "2026" · Posición: Centro · Letra: Cursiva». Null si el mensaje no trae
+ * la posición y la letra (por ejemplo, un grabado escrito a mano en el chat).
+ */
+function parseDesign(text: string): Design | null {
+  const lines = [...(text.match(/Grabado:\s*(.+?)(?:\s·\s*Posici|$)/)?.[1] ?? '').matchAll(/"([^"]+)"/g)].map((m) => m[1]!.trim())
+  const position = engravingPositions.find((p) => normalize(text).includes(`posicion: ${normalize(p.label)}`))?.value
+  const font = engravingFonts.find((x) => normalize(text).includes(`letra: ${normalize(x.label)}`))?.value
+  if (!lines[0] || !position || !font) return null
+  return { line1: lines[0], line2: lines[1] ?? '', font, position }
 }
 
 /** El nombre que dio el cliente cuando Teca se lo preguntó en el saludo, si lo dio. */
@@ -457,9 +488,12 @@ export function guidedFlowReply(history: readonly HistoryMessage[], catalog: Cat
   const lastMessage = history[last]
   if (lastMessage?.role !== 'customer') return null
   // El flujo arranca solo si se permite; si ya estaba en marcha, continúa siempre.
+  // La tabla diseñada en «Para ti» se muestra solo en la respuesta al mensaje que la trajo.
+  let designed: Flow['designed'] = undefined
   if (!flow) {
     if (!options.allowStart || !candidate) return null
     flow = candidate
+    designed = flow.designed
   }
 
   const step = nextStep(flow)
@@ -495,7 +529,14 @@ ${FOOTER}`
     return { text: `${info ?? lastError}\n\n${prompt}` }
   }
   if (positioned) return { text: `Perfecto, dejamos «${positioned.text}» en ${positioned.where}.\n\n${prompt}` }
+  if (designed) return { text: `${designedText(designed)}\n\n${prompt}` }
   return { text: prompt }
+}
+
+/** Cómo quedará la tabla que el cliente diseñó en «Para ti», con su imagen. */
+function designedText(d: NonNullable<Flow['designed']>): string {
+  const font = engravingFonts.find((x) => x.value === d.font)!.label.toLowerCase()
+  return `Así quedará tu tabla: «${d.line1}»${d.line2 ? ` y «${d.line2}»` : ''} en ${positionPhrase(d.position)}, con letra ${font}.\n${buildPreviewMarker({ line1: d.line1, line2: d.line2, font: d.font, positions: [d.position], model: d.model })}`
 }
 
 /** El nombre aparece como palabra completa: «L» no debe coincidir con la «l» de «tablas». */
