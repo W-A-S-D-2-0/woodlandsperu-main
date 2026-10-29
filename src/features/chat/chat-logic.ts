@@ -158,7 +158,60 @@ export function splitFlowFooter(body: string): { text: string; inFlow: boolean }
 }
 
 /** Una respuesta rápida: `label` es lo que se ve en el botón y `value` lo que se envía como mensaje. */
-export type Chip = string | { label: string; value: string }
+export type Chip = string | { label: string; value: string; primary?: boolean }
+
+export const APPOINTMENT_CHIP_VALUE = '__agendar_cita__'
+export const APPOINTMENT_CHIP = { label: '📅 Agendar cita', value: APPOINTMENT_CHIP_VALUE, primary: true as boolean }
+const SEE_PRODUCTS = 'Ver los productos'
+const SEE_PRICES = 'Ver los precios'
+const ORDER = 'Quiero hacer un pedido'
+const CORPORATE = 'Pedido para mi empresa'
+const ENGRAVING = '¿Cómo es el grabado?'
+const DELIVERY = '¿Cuáles son los plazos de entrega?'
+
+const STRONG_BUY = /\b(quiero (comprar|pedir|una|unas|dos|tres|\d+)|quisiera|me interesa|lo quiero|las quiero|cotiza|cotizar|cotizacion|como (pago|compro)|donde (pago|compro)|yape|plin)\b/
+const BUY_SIGNAL = /\b(quiero|pedido|comprar|pedir|precio|precios|cuanto|cuesta|cotiza|plazo|entrega|envio|pagar|yape|plin|me interesa|stock)\b/
+const TOPIC_ENGRAVING = /(grabad|grabar|logo|personaliz|nombre|frase)/
+const TOPIC_CORPORATE = /\b(empresa|corporativ|ruc|factura|mayor|docena|clientes|colaboradores)/
+const TOPIC_DELIVERY = /\b(plazo|entrega|envio|delivery|demora|llega|provincia)/
+
+/**
+ * Botones que se anticipan a lo que el cliente quiere, según cómo avanza la charla (como el autocompletado de un buscador).
+ * Cuanto más muestra ganas de comprar, más arriba sube «Agendar cita»; si ya está decidido, es el botón principal.
+ * Solo hace falta en conversaciones libres: el pedido paso a paso trae sus propios botones.
+ */
+export function predictChips(messages: Pick<ChatMessage, 'role' | 'body'>[]): Chip[] {
+  const said = messages.filter((m) => m.role === 'customer').map((m) => plain(m.body))
+  const lastSaid = said.at(-1) ?? ''
+  const interest = said.filter((t) => BUY_SIGNAL.test(t)).length
+  const ready = STRONG_BUY.test(lastSaid) || interest >= 2
+
+  const ranked: Chip[] = []
+  const push = (chip: Chip) => {
+    const value = typeof chip === 'string' ? chip : chip.value
+    if (!ranked.some((c) => (typeof c === 'string' ? c : c.value) === value)) ranked.push(chip)
+  }
+
+  if (ready) push(APPOINTMENT_CHIP)
+  if (TOPIC_CORPORATE.test(lastSaid)) push(CORPORATE)
+  if (TOPIC_ENGRAVING.test(lastSaid)) push(ENGRAVING)
+  if (TOPIC_DELIVERY.test(lastSaid)) push(DELIVERY)
+  if (interest > 0) push(ORDER)
+  push(SEE_PRICES)
+  push(SEE_PRODUCTS)
+  push(ORDER)
+  push(CORPORATE)
+  push(ENGRAVING)
+  push(DELIVERY)
+
+  // Lo que ya se preguntó no se vuelve a ofrecer (salvo salir al catálogo y la cita).
+  const fresh = ranked.filter((c) => {
+    const value = typeof c === 'string' ? c : c.value
+    return value === APPOINTMENT_CHIP_VALUE || value === SEE_PRODUCTS || !said.includes(plain(value))
+  })
+  const chips = fresh.slice(0, 4)
+  return chips.some((c) => typeof c !== 'string' && c.value === APPOINTMENT_CHIP_VALUE) ? chips : [...chips, { ...APPOINTMENT_CHIP, primary: false }]
+}
 
 /**
  * Botones de respuesta para la pregunta en curso del pedido paso a paso, o null si la pregunta no los tiene. Así el

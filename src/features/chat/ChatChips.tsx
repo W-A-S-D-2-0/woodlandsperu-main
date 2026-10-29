@@ -9,13 +9,13 @@ export function ChatChips({ options, onPick }: { options: Chip[]; onPick: (value
       className="flex flex-wrap gap-2 bg-marfil px-4 pt-2.5 pb-3"
     >
       {options.map((option, i) => {
-        const { label, value } = typeof option === 'string' ? { label: option, value: option } : option
+        const { label, value, primary } = typeof option === 'string' ? { label: option, value: option, primary: false } : { primary: false, ...option }
         return (
           <button
             key={`${label}-${i}`}
             type="button"
             style={{ animationDelay: `${i * 70}ms` }}
-            className="min-h-9 animate-chip-in rounded-full border border-madera/60 bg-white px-3.5 text-xs font-medium text-nogal transition-all duration-200 select-none hover:-translate-y-1 hover:border-nogal hover:bg-nogal hover:text-marfil hover:shadow-md active:translate-y-0"
+            className={`min-h-9 animate-chip-in rounded-full border px-3.5 text-xs font-medium transition-all ${primary ? 'border-nogal bg-nogal text-marfil shadow-sm' : 'border-madera/60 bg-white text-nogal'} duration-200 select-none hover:-translate-y-1 hover:border-nogal hover:bg-nogal hover:text-marfil hover:shadow-md active:translate-y-0`}
             onClick={() => onPick(value)}
           >
             {label}

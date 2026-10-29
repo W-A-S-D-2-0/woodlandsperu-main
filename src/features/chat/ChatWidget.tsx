@@ -6,7 +6,7 @@ import { AuthedImage } from '../../components/ui/AuthedImage'
 import { CHOICE_DEPOSIT, CHOICE_YAPE_PLIN, PAYMENT_CHOICE_LABEL, PROOF_BUTTON_LABEL } from '../../content/payment'
 import { useBackdropTone } from '../../hooks/useBackdropTone'
 import { ApiError, apiFetch } from '../../lib/api'
-import { chatImage, createChatToken, flowChips, lastMessageId, mergeMessages, messageTime, parseBody, parseProductRows, startsNewConversation, statusNotice, trailingWarnings, transientMessages, withoutProductRows } from './chat-logic'
+import { APPOINTMENT_CHIP, APPOINTMENT_CHIP_VALUE, chatImage, createChatToken, flowChips, lastMessageId, mergeMessages, messageTime, parseBody, parseProductRows, predictChips, startsNewConversation, statusNotice, trailingWarnings, transientMessages, withoutProductRows } from './chat-logic'
 import { AppointmentCard } from './AppointmentCard'
 import { ChatBody } from './ChatBody'
 import { ChatChips } from './ChatChips'
@@ -28,10 +28,7 @@ const GREETING: ChatMessage = {
 const QUICK_REPLIES = ['Ver los productos', 'Ver los precios', 'Quiero hacer un pedido', 'Pedido para mi empresa']
 const YES_NO = ['Sí', 'No']
 const PAYMENT_CHOICES = [CHOICE_YAPE_PLIN, CHOICE_DEPOSIT]
-const APPOINTMENT_CHIP = { label: '📅 Agendar cita', value: '__agendar_cita__' }
 const ADD_MORE_CHIP = { label: 'Agregar otra tabla', value: 'Agregar otra tabla' }
-// Salida de cualquier conversación: nunca desaparece de las respuestas rápidas.
-const ALWAYS_REPLY = 'Ver los productos'
 
 const bubble: Record<string, string> = {
   customer: 'ml-auto animate-msg-right rounded-br-md bg-nogal text-marfil shadow-sm',
@@ -271,7 +268,6 @@ export function ChatWidget() {
 
   // Atajos de respuesta: al comenzar, y «Sí/No» cuando el asistente pregunta eso.
   const last = messages.at(-1)
-  const asked = new Set(messages.filter((m) => m.role === 'customer').map((m) => m.body))
   const inFlow = !!last && last.body.includes('Pedido paso a paso')
   // Teca pidió el pago y espera la captura: el botón para subirla se destaca.
   const awaitingProof = !uploading && !!last && last.role !== 'customer' && last.body.includes(PROOF_BUTTON_LABEL)
@@ -291,10 +287,10 @@ export function ChatWidget() {
         : last.role !== 'customer' && last.body.includes('(sí/no)')
         ? YES_NO
         : last.role !== 'customer' && !inFlow
-          ? QUICK_REPLIES.filter((q) => q === ALWAYS_REPLY || !asked.has(q))
+          ? predictChips(messages)
           : []
   // «Agendar cita» siempre está a mano: quien prefiere hablar con la administración no depende del horario del equipo.
-  const rowChips = pending || uploading || scheduling ? [] : [...chips, APPOINTMENT_CHIP]
+  const rowChips = pending || uploading || scheduling ? [] : chips.some((c) => typeof c !== 'string' && c.value === APPOINTMENT_CHIP_VALUE) ? chips : [...chips, { ...APPOINTMENT_CHIP, primary: false }]
   const notice = statusNotice(status)
   // El servidor guarda el saludo en la conversación: no se muestra dos veces.
   const shown = [GREETING, ...messages.filter((m) => m.body !== GREETING.body)]
@@ -393,7 +389,7 @@ export function ChatWidget() {
 
           </div>
 
-          {rowChips.length > 0 && <ChatChips options={rowChips} onPick={(q) => (q === APPOINTMENT_CHIP.value ? setScheduling(true) : void submit(undefined, q))} />}
+          {rowChips.length > 0 && <ChatChips options={rowChips} onPick={(q) => (q === APPOINTMENT_CHIP_VALUE ? setScheduling(true) : void submit(undefined, q))} />}
 
           {awaitingProof && (
             <div className="animate-chip-in border-t border-linea px-3 pt-3">

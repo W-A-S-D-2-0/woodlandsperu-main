@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatMessage } from '../../../shared/api/chat'
 import { chatToken } from '../../../shared/api/chat'
-import { createChatToken, lastMessageId, loadChatToken, messageTime, formatSizes, parseBody, photoForModel, typedLength, mergeMessages, splitFlowFooter, startsNewConversation, statusNotice, trailingWarnings, transientMessages, isPlainText, parseRich, chatImage, flowChips, validAppointmentContact, parseProductRows, withoutProductRows, quantityOptions, orderCardMessage } from './chat-logic'
+import { createChatToken, lastMessageId, loadChatToken, messageTime, formatSizes, parseBody, photoForModel, typedLength, mergeMessages, splitFlowFooter, startsNewConversation, statusNotice, trailingWarnings, transientMessages, isPlainText, parseRich, chatImage, flowChips, validAppointmentContact, parseProductRows, withoutProductRows, quantityOptions, orderCardMessage, predictChips, APPOINTMENT_CHIP_VALUE } from './chat-logic'
 
 const msg = (id: number, body = 'x'): ChatMessage => ({ id, role: 'customer', body, createdAt: '2026-10-17T10:00:00Z' })
 
@@ -312,5 +312,40 @@ describe('tarjeta del pedido', () => {
     expect(orderCardMessage(row, 2, null)).toBe('Quiero 2 unidades de Moshaco XL. Sin grabado.')
     expect(orderCardMessage(row, 1, 'La vida es dura')).toBe('Quiero 1 unidad de Moshaco XL. Grabado: «La vida es dura»')
     expect(orderCardMessage(row, 3, '  «Ana»\n y "Luis" ')).toBe('Quiero 3 unidades de Moshaco XL. Grabado: «Ana y Luis»')
+  })
+})
+
+describe('predictChips', () => {
+  const said = (...texts: string[]) => texts.map((body) => ({ role: 'customer' as const, body }))
+  const values = (chips: ReturnType<typeof predictChips>) => chips.map((c) => (typeof c === 'string' ? c : c.value))
+
+  it('al empezar ofrece los atajos de siempre y la cita al final', () => {
+    const v = values(predictChips([]))
+    expect(v[0]).toBe('Ver los precios')
+    expect(v.at(-1)).toBe(APPOINTMENT_CHIP_VALUE)
+  })
+
+  it('si el cliente quiere comprar, la cita pasa a ser el botón principal', () => {
+    expect(predictChips(said('Me interesa una tabla'))[0]).toMatchObject({ value: APPOINTMENT_CHIP_VALUE, primary: true })
+  })
+
+  it('con varias señales de interés seguidas también se anticipa la cita', () => {
+    expect(predictChips(said('cuanto cuesta', 'y el plazo de entrega'))[0]).toMatchObject({ value: APPOINTMENT_CHIP_VALUE, primary: true })
+  })
+
+  it('un tema concreto sube su botón: empresa o grabado', () => {
+    expect(values(predictChips(said('somos una empresa')))).toContain('Pedido para mi empresa')
+    expect(values(predictChips(said('hola, mi logo')))[0]).toBe('¿Cómo es el grabado?')
+  })
+
+  it('no repite lo que el cliente ya preguntó, salvo ver los productos y la cita', () => {
+    const v = values(predictChips(said('ver los precios')))
+    expect(v).not.toContain('Ver los precios')
+    expect(v).toContain('Ver los productos')
+    expect(v).toContain(APPOINTMENT_CHIP_VALUE)
+  })
+
+  it('sin tildes ni mayúsculas igual reconoce la intención de compra', () => {
+    expect(predictChips(said('QUISIERA COTIZACIÓN'))[0]).toMatchObject({ value: APPOINTMENT_CHIP_VALUE })
   })
 })
