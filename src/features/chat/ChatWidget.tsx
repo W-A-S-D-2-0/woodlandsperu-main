@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react'
-import { useLocation } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { CHAT_MESSAGE_MAX, type ChatMessage, type ChatResponse, type ChatStatus } from '../../../shared/api/chat'
 import { chatGreeting } from '../../content/chat-greeting'
 import { AuthedImage } from '../../components/ui/AuthedImage'
@@ -12,6 +12,7 @@ import { ChatBody } from './ChatBody'
 import { ChatChips } from './ChatChips'
 import { OrderCard } from './OrderCard'
 import { OPEN_CHAT_EVENT } from './open-chat'
+import { GUIDES, parseGuideValue, type GuideId } from './site-guide'
 
 const PROOF_MAX_BYTES = 5 * 1024 * 1024
 const POLL_MS = 6000
@@ -101,6 +102,10 @@ export function ChatWidget() {
 
   // Solo en la portada: en las demás páginas el globo taparía lo que se está leyendo.
   const { pathname } = useLocation()
+  const navigate = useNavigate()
+  // Teca llevando al cliente a una parte de la web: «going» mientras viaja, «arrived» al llegar.
+  const [guiding, setGuiding] = useState<{ id: GuideId; phase: 'going' | 'arrived' } | null>(null)
+  const guideTimer = useRef<number | undefined>(undefined)
   useEffect(() => {
     if (pathname !== '/') return
     const id = window.setTimeout(() => {
@@ -251,6 +256,36 @@ export function ChatWidget() {
     document.querySelector(CATALOG_SELECTOR)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
   }
 
+  // El chat se recoge, la página se desplaza hasta la sección y esta se ilumina; Teca queda al lado para volver.
+  const goTo = (id: GuideId) => {
+    const guide = GUIDES[id]
+    window.clearTimeout(guideTimer.current)
+    setOpen(false)
+    setGuiding({ id, phase: 'going' })
+    if (pathname !== guide.path) void navigate(guide.path)
+    const started = Date.now()
+    const arrive = () => {
+      const target = guide.selector ? document.querySelector<HTMLElement>(guide.selector) : null
+      if (guide.selector && !target && Date.now() - started < 3000) {
+        guideTimer.current = window.setTimeout(arrive, 120)
+        return
+      }
+      if (guide.tab) document.getElementById(`personalize-tab-${guide.tab}`)?.click()
+      if (target) {
+        target.scrollIntoView({ block: 'start', behavior: 'smooth' })
+        target.classList.remove('animate-guide-glow')
+        void target.offsetWidth
+        target.classList.add('animate-guide-glow')
+        window.setTimeout(() => target.classList.remove('animate-guide-glow'), 2600)
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      }
+      guideTimer.current = window.setTimeout(() => setGuiding({ id, phase: 'arrived' }), 900)
+    }
+    guideTimer.current = window.setTimeout(arrive, 700)
+  }
+  useEffect(() => () => window.clearTimeout(guideTimer.current), [])
+
   const submitRef = useRef(submit)
   useEffect(() => {
     submitRef.current = submit
@@ -389,7 +424,12 @@ export function ChatWidget() {
 
           </div>
 
-          {rowChips.length > 0 && <ChatChips options={rowChips} onPick={(q) => (q === APPOINTMENT_CHIP_VALUE ? setScheduling(true) : void submit(undefined, q))} />}
+          {rowChips.length > 0 && <ChatChips options={rowChips} onPick={(q) => {
+            const dest = parseGuideValue(q)
+            if (dest) goTo(dest)
+            else if (q === APPOINTMENT_CHIP_VALUE) setScheduling(true)
+            else void submit(undefined, q)
+          }} />}
 
           {awaitingProof && (
             <div className="animate-chip-in border-t border-linea px-3 pt-3">
@@ -466,7 +506,28 @@ export function ChatWidget() {
         </section>
       )}
 
-      {teaser && pathname === '/' && !open && (
+      {guiding && !open && (
+        <div role="status" className="relative mb-3 ml-auto flex w-fit max-w-[18rem] animate-guide-pop items-start gap-2.5 rounded-2xl rounded-br-md border border-linea bg-white py-2.5 pr-2 pl-2.5 text-sm text-nogal shadow-lg">
+          <Avatar size="size-8" pulse={guiding.phase === 'going'} />
+          <div className="min-w-0 flex-1">
+            <p>{guiding.phase === 'going' ? GUIDES[guiding.id].going : GUIDES[guiding.id].arrived}</p>
+            {guiding.phase === 'going' ? (
+              <span aria-hidden="true" className="mt-1.5 block h-1 w-24 overflow-hidden rounded-full bg-beige">
+                <span className="block h-full w-1/2 animate-[dot_1.2s_ease-in-out_infinite] rounded-full bg-madera" />
+              </span>
+            ) : (
+              <button type="button" className="mt-1.5 text-xs font-semibold text-madera-700 underline underline-offset-2" onClick={() => { setGuiding(null); setOpen(true) }}>
+                Volver al chat
+              </button>
+            )}
+          </div>
+          <button type="button" aria-label="Cerrar el mensaje" className="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-carbon-600 hover:bg-beige" onClick={() => setGuiding(null)}>
+            ×
+          </button>
+        </div>
+      )}
+
+      {teaser && pathname === '/' && !open && !guiding && (
         <div className="relative mb-3 ml-auto flex w-fit max-w-[16rem] animate-msg-left items-start gap-2 rounded-2xl rounded-br-md border border-linea bg-white py-2.5 pr-2 pl-3.5 text-sm text-nogal shadow-lg">
           <button type="button" className="text-left" onClick={() => setOpen(true)}>
             ¿Te ayudo a elegir tu tabla?

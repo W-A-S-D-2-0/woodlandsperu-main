@@ -335,7 +335,7 @@ describe('predictChips', () => {
 
   it('un tema concreto sube su botón: empresa o grabado', () => {
     expect(values(predictChips(said('somos una empresa')))).toContain('Pedido para mi empresa')
-    expect(values(predictChips(said('hola, mi logo')))[0]).toBe('¿Cómo es el grabado?')
+    expect(values(predictChips(said('hola, mi logo')))[0]).toBe('__ir:grabado__')
   })
 
   it('no repite lo que el cliente ya preguntó, salvo ver los productos y la cita', () => {
@@ -343,6 +343,12 @@ describe('predictChips', () => {
     expect(v).not.toContain('Ver los precios')
     expect(v).toContain('Ver los productos')
     expect(v).toContain(APPOINTMENT_CHIP_VALUE)
+  })
+
+  it('lo que se ve mejor en la web trae un botón que lleva a esa parte de la página', () => {
+    expect(values(predictChips(said('quiero poner mi logo')))).toContain('__ir:grabado__')
+    expect(values(predictChips(said('somos una empresa')))).toContain('__ir:empresa__')
+    expect(values(predictChips(said('que modelos tienen')))).toContain('__ir:catalogo__')
   })
 
   it('sin tildes ni mayúsculas igual reconoce la intención de compra', () => {

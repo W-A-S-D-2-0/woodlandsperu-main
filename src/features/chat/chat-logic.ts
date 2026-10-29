@@ -1,5 +1,6 @@
 import type { ChatMessage } from '../../../shared/api/chat'
 import { endsOperation, isGreetingWord } from '../../content/chat-greeting'
+import { guideChip } from './site-guide'
 import { modelPhotos, type ModelPhoto } from '../../content/model-photos'
 import { parseMarkerLine, type PreviewMarker, type WhatsappMarker } from '../engraving/preview-marker'
 
@@ -173,6 +174,7 @@ const STRONG_BUY = /\b(quiero (comprar|pedir|una|unas|dos|tres|\d+)|quisiera|me 
 const BUY_SIGNAL = /\b(quiero|pedido|comprar|pedir|precio|precios|cuanto|cuesta|cotiza|plazo|entrega|envio|pagar|yape|plin|me interesa|stock)\b/
 const TOPIC_ENGRAVING = /(grabad|grabar|logo|personaliz|nombre|frase)/
 const TOPIC_CORPORATE = /\b(empresa|corporativ|ruc|factura|mayor|docena|clientes|colaboradores)/
+const TOPIC_CATALOG = /(producto|catalogo|modelo|tabla|medida|tamano|foto)/
 const TOPIC_DELIVERY = /\b(plazo|entrega|envio|delivery|demora|llega|provincia)/
 
 /**
@@ -193,6 +195,10 @@ export function predictChips(messages: Pick<ChatMessage, 'role' | 'body'>[]): Ch
   }
 
   if (ready) push(APPOINTMENT_CHIP)
+  // Lo que se entiende mejor viendo se resuelve en la web: el botón lleva a esa parte de la página.
+  if (TOPIC_ENGRAVING.test(lastSaid)) push(guideChip('grabado'))
+  if (TOPIC_CORPORATE.test(lastSaid)) push(guideChip('empresa'))
+  if (TOPIC_CATALOG.test(lastSaid)) push(guideChip('catalogo'))
   if (TOPIC_CORPORATE.test(lastSaid)) push(CORPORATE)
   if (TOPIC_ENGRAVING.test(lastSaid)) push(ENGRAVING)
   if (TOPIC_DELIVERY.test(lastSaid)) push(DELIVERY)

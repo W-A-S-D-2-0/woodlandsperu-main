@@ -37,12 +37,35 @@
   --animate-unzoom: unzoom 1.8s var(--ease-suave) both;
 
   /* Chat: entrada de la ventana, burbujas, puntitos de "escribiendo" y pulso del botón. */
+  --animate-guide-glow: guide-glow 2.4s var(--ease-suave) both;
+  --animate-guide-pop: guide-pop 0.5s var(--ease-suave) both;
   --animate-chat-open: chat-open 0.45s var(--ease-suave) both;
   --animate-msg-left: msg-left 0.45s var(--ease-suave) both;
   --animate-msg-right: msg-right 0.35s var(--ease-suave) both;
   --animate-chip-in: chip-in 0.4s var(--ease-suave) both;
   --animate-dot: dot 1.2s ease-in-out infinite;
   --animate-halo: halo 2.6s ease-out infinite;
+
+  /* Teca te lleva a una parte de la web: la sección se ilumina un momento al llegar. */
+  @keyframes guide-glow {
+    0% {
+      box-shadow: inset 0 0 0 0 transparent;
+    }
+    22% {
+      box-shadow: inset 0 0 0 6px color-mix(in srgb, var(--color-brasa) 85%, transparent);
+    }
+    100% {
+      box-shadow: inset 0 0 0 0 transparent;
+    }
+  }
+
+  @keyframes guide-pop {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.9);
+      transform-origin: bottom right;
+    }
+  }
 
   @keyframes chat-open {
     from {
