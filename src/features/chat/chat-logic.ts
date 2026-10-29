@@ -163,8 +163,6 @@ export type Chip = string | { label: string; value: string; primary?: boolean }
 
 export const APPOINTMENT_CHIP_VALUE = '__agendar_cita__'
 export const APPOINTMENT_CHIP = { label: '📅 Agendar cita', value: APPOINTMENT_CHIP_VALUE, primary: true as boolean }
-const SEE_PRODUCTS = 'Ver los productos'
-const SEE_PRICES = 'Ver los precios'
 const ORDER = 'Quiero hacer un pedido'
 const CORPORATE = 'Pedido para mi empresa'
 const ENGRAVING = '¿Cómo es el grabado?'
@@ -203,17 +201,16 @@ export function predictChips(messages: Pick<ChatMessage, 'role' | 'body'>[]): Ch
   if (TOPIC_ENGRAVING.test(lastSaid)) push(ENGRAVING)
   if (TOPIC_DELIVERY.test(lastSaid)) push(DELIVERY)
   if (interest > 0) push(ORDER)
-  push(SEE_PRICES)
-  push(SEE_PRODUCTS)
+  push(guideChip('catalogo'))
   push(ORDER)
   push(CORPORATE)
   push(ENGRAVING)
   push(DELIVERY)
 
-  // Lo que ya se preguntó no se vuelve a ofrecer (salvo salir al catálogo y la cita).
+  // Lo que ya se preguntó no se vuelve a ofrecer (salvo la cita y los botones que llevan a la web).
   const fresh = ranked.filter((c) => {
     const value = typeof c === 'string' ? c : c.value
-    return value === APPOINTMENT_CHIP_VALUE || value === SEE_PRODUCTS || !said.includes(plain(value))
+    return value === APPOINTMENT_CHIP_VALUE || value.startsWith('__ir:') || !said.includes(plain(value))
   })
   const chips = fresh.slice(0, 4)
   return chips.some((c) => typeof c !== 'string' && c.value === APPOINTMENT_CHIP_VALUE) ? chips : [...chips, { ...APPOINTMENT_CHIP, primary: false }]

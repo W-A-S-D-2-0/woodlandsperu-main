@@ -321,7 +321,7 @@ describe('predictChips', () => {
 
   it('al empezar ofrece los atajos de siempre y la cita al final', () => {
     const v = values(predictChips([]))
-    expect(v[0]).toBe('Ver los precios')
+    expect(v[0]).toBe('__ir:catalogo__')
     expect(v.at(-1)).toBe(APPOINTMENT_CHIP_VALUE)
   })
 
@@ -338,10 +338,10 @@ describe('predictChips', () => {
     expect(values(predictChips(said('hola, mi logo')))[0]).toBe('__ir:grabado__')
   })
 
-  it('no repite lo que el cliente ya preguntó, salvo ver los productos y la cita', () => {
-    const v = values(predictChips(said('ver los precios')))
-    expect(v).not.toContain('Ver los precios')
-    expect(v).toContain('Ver los productos')
+  it('no repite lo que el cliente ya preguntó, salvo el catálogo y la cita', () => {
+    const v = values(predictChips(said('quiero hacer un pedido')))
+    expect(v).not.toContain('Quiero hacer un pedido')
+    expect(v).toContain('__ir:catalogo__')
     expect(v).toContain(APPOINTMENT_CHIP_VALUE)
   })
 

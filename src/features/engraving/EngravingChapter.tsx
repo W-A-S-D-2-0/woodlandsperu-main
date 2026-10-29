@@ -3,7 +3,7 @@ import { engravingContent, engravingFonts, engravingLimits, engravingPositions, 
 import { landingImages } from '../../content/home'
 import { formatPrice } from '../catalog/catalog-format'
 import { useCatalog } from '../catalog/use-catalog'
-import { openChat } from '../chat/open-chat'
+import { openChat, SELECT_MODEL_EVENT, type SelectedModel } from '../chat/open-chat'
 import { fontClass, positionClass } from './EngravingBoard'
 import {
   defaultEngraving,
@@ -92,10 +92,26 @@ export function EngravingChapter() {
   // quemado no se reinicia en cada tecla.
   const [burned, setBurned] = useState<EngravingValues | null>(null)
   const [runKey, setRunKey] = useState(0)
+  // Cantidad que se eligió en el chat antes de venir a personalizar; sin ella se pide como siempre.
+  const [quantity, setQuantity] = useState<number | null>(null)
 
   const products = catalog.kind === 'ok' ? catalog.data.products : []
   const product = products.find((p) => p.id === productId) ?? null
   const variant = product?.variants.find((v) => v.id === variantId) ?? null
+
+  // El chat trae el modelo y la cantidad ya elegidos: se reflejan en los selectores de esta sección.
+  useEffect(() => {
+    const onSelect = (event: Event) => {
+      const pick = (event as CustomEvent<SelectedModel>).detail
+      const found = products.find((p) => p.name === pick.product)
+      if (!found) return
+      setProductId(found.id)
+      setVariantId(found.variants.find((v) => v.name === pick.variant)?.id ?? found.variants[0]?.id ?? '')
+      setQuantity(pick.quantity)
+    }
+    window.addEventListener(SELECT_MODEL_EVENT, onSelect)
+    return () => window.removeEventListener(SELECT_MODEL_EVENT, onSelect)
+  }, [products])
 
   useEffect(() => {
     const element = sectionRef.current
@@ -137,7 +153,8 @@ export function EngravingChapter() {
     if (!ready) return
     // El chat recibe el modelo y el grabado ya escritos: no hay que repetirlos.
     const what = variant && product ? `${product.name} · ${variant.name}` : 'una tabla grabada'
-    openChat(`Quiero pedir ${what}. ${engravingSummary(values)}`)
+    if (quantity) openChat(`Quiero ${quantity} ${quantity === 1 ? 'unidad' : 'unidades'} de ${what}. ${engravingSummary(values)}`)
+    else openChat(`Quiero pedir ${what}. ${engravingSummary(values)}`)
   }
 
   return (
@@ -211,6 +228,11 @@ export function EngravingChapter() {
             </Labeled>
           </div>
           {!product && <p className="-mt-3 text-xs text-beige/75">{engravingContent.noModel}</p>}
+          {product && variant && quantity && (
+            <p className="-mt-3 animate-chip-in rounded-xl border border-brasa/50 bg-nogal-800/60 px-4 py-2.5 text-sm text-marfil">
+              Tu pedido: {quantity} {quantity === 1 ? 'tabla' : 'tablas'} · {product.name} · {variant.name}
+            </p>
+          )}
 
           <div className="flex flex-wrap items-center gap-4">
             <button

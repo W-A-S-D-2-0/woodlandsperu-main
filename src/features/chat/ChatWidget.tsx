@@ -6,13 +6,13 @@ import { AuthedImage } from '../../components/ui/AuthedImage'
 import { CHOICE_DEPOSIT, CHOICE_YAPE_PLIN, PAYMENT_CHOICE_LABEL, PROOF_BUTTON_LABEL } from '../../content/payment'
 import { useBackdropTone } from '../../hooks/useBackdropTone'
 import { ApiError, apiFetch } from '../../lib/api'
-import { APPOINTMENT_CHIP, APPOINTMENT_CHIP_VALUE, chatImage, createChatToken, flowChips, lastMessageId, mergeMessages, messageTime, parseBody, parseProductRows, predictChips, startsNewConversation, statusNotice, trailingWarnings, transientMessages, withoutProductRows } from './chat-logic'
+import { APPOINTMENT_CHIP, APPOINTMENT_CHIP_VALUE, chatImage, createChatToken, flowChips, lastMessageId, mergeMessages, messageTime, parseBody, parseProductRows, predictChips, type ProductRow, startsNewConversation, statusNotice, trailingWarnings, transientMessages, withoutProductRows } from './chat-logic'
 import { AppointmentCard } from './AppointmentCard'
 import { ChatBody } from './ChatBody'
 import { ChatChips } from './ChatChips'
 import { OrderCard } from './OrderCard'
-import { OPEN_CHAT_EVENT } from './open-chat'
-import { GUIDES, parseGuideValue, type GuideId } from './site-guide'
+import { OPEN_CHAT_EVENT, ORDER_MODEL_EVENT, selectModel, type OrderModel } from './open-chat'
+import { GUIDES, guideChip, parseGuideValue, type GuideId } from './site-guide'
 
 const PROOF_MAX_BYTES = 5 * 1024 * 1024
 const POLL_MS = 6000
@@ -26,7 +26,7 @@ const GREETING: ChatMessage = {
   createdAt: '',
 }
 
-const QUICK_REPLIES = ['Ver los productos', 'Ver los precios', 'Quiero hacer un pedido', 'Pedido para mi empresa']
+const QUICK_REPLIES = [guideChip('catalogo'), 'Quiero hacer un pedido', 'Pedido para mi empresa']
 const YES_NO = ['Sí', 'No']
 const PAYMENT_CHOICES = [CHOICE_YAPE_PLIN, CHOICE_DEPOSIT]
 const ADD_MORE_CHIP = { label: 'Agregar otra tabla', value: 'Agregar otra tabla' }
@@ -106,6 +106,8 @@ export function ChatWidget() {
   // Teca llevando al cliente a una parte de la web: «going» mientras viaja, «arrived» al llegar.
   const [guiding, setGuiding] = useState<{ id: GuideId; phase: 'going' | 'arrived' } | null>(null)
   const guideTimer = useRef<number | undefined>(undefined)
+  // Modelo elegido en el catálogo: su tarjeta de pedido (cantidad y grabado) aparece al final de la conversación.
+  const [orderDraft, setOrderDraft] = useState<ProductRow | null>(null)
   useEffect(() => {
     if (pathname !== '/') return
     const id = window.setTimeout(() => {
@@ -257,7 +259,7 @@ export function ChatWidget() {
   }
 
   // El chat se recoge, la página se desplaza hasta la sección y esta se ilumina; Teca queda al lado para volver.
-  const goTo = (id: GuideId) => {
+  const goTo = (id: GuideId, afterArrive?: () => void) => {
     const guide = GUIDES[id]
     window.clearTimeout(guideTimer.current)
     setOpen(false)
@@ -271,6 +273,7 @@ export function ChatWidget() {
         return
       }
       if (guide.tab) document.getElementById(`personalize-tab-${guide.tab}`)?.click()
+      afterArrive?.()
       if (target) {
         target.scrollIntoView({ block: 'start', behavior: 'smooth' })
         target.classList.remove('animate-guide-glow')
@@ -286,6 +289,12 @@ export function ChatWidget() {
   }
   useEffect(() => () => window.clearTimeout(guideTimer.current), [])
 
+  // Con grabado, el pedido sigue en «Para ti»: el modelo y la cantidad llegan ya elegidos.
+  const engraveIn = (row: ProductRow, quantity: number) => {
+    setOrderDraft(null)
+    goTo('grabado', () => selectModel({ product: row.product, variant: row.variant, quantity }))
+  }
+
   const submitRef = useRef(submit)
   useEffect(() => {
     submitRef.current = submit
@@ -297,8 +306,19 @@ export function ChatWidget() {
       const message = (event as CustomEvent<string | undefined>).detail
       if (message) void submitRef.current(undefined, message)
     }
+    const onOrderModel = (event: Event) => {
+      const model = (event as CustomEvent<OrderModel>).detail
+      dismissTeaser()
+      setGuiding(null)
+      setOpen(true)
+      setOrderDraft({ n: 1, product: model.product, variant: model.variant, dimensions: model.dimensions, price: model.price })
+    }
     window.addEventListener(OPEN_CHAT_EVENT, onOpen)
-    return () => window.removeEventListener(OPEN_CHAT_EVENT, onOpen)
+    window.addEventListener(ORDER_MODEL_EVENT, onOrderModel)
+    return () => {
+      window.removeEventListener(OPEN_CHAT_EVENT, onOpen)
+      window.removeEventListener(ORDER_MODEL_EVENT, onOrderModel)
+    }
   }, [])
 
   // Atajos de respuesta: al comenzar, y «Sí/No» cuando el asistente pregunta eso.
@@ -325,7 +345,7 @@ export function ChatWidget() {
           ? predictChips(messages)
           : []
   // «Agendar cita» siempre está a mano: quien prefiere hablar con la administración no depende del horario del equipo.
-  const rowChips = pending || uploading || scheduling ? [] : chips.some((c) => typeof c !== 'string' && c.value === APPOINTMENT_CHIP_VALUE) ? chips : [...chips, { ...APPOINTMENT_CHIP, primary: false }]
+  const rowChips = pending || uploading || scheduling || orderDraft ? [] : chips.some((c) => typeof c !== 'string' && c.value === APPOINTMENT_CHIP_VALUE) ? chips : [...chips, { ...APPOINTMENT_CHIP, primary: false }]
   const notice = statusNotice(status)
   // El servidor guarda el saludo en la conversación: no se muestra dos veces.
   const shown = [GREETING, ...messages.filter((m) => m.body !== GREETING.body)]
@@ -368,7 +388,7 @@ export function ChatWidget() {
               <li key={m.id} className={`${m.role !== 'customer' && parseBody(m.body).some((b) => b.kind !== 'text') ? 'w-full max-w-full' : 'max-w-[85%]'} rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${bubble[m.role] ?? bubble.system}`}>
                 {m.role === 'staff' && <span className="mb-0.5 block text-[0.7rem] font-semibold tracking-[0.08em] text-madera-700 uppercase">Equipo Woodland</span>}
                 {m.role === 'customer' ? m.body : <ChatBody body={parseProductRows(m.body) ? withoutProductRows(m.body) : m.body} typing={m.id === typingId} onAsk={(message) => void submit(undefined, message)} onSeeAll={catalogOnPage ? seeCatalog : undefined} onCancel={m.id === last?.id && !pending && !uploading ? () => void submit(undefined, 'cancelar') : undefined} onSchedule={() => setScheduling(true)} />}
-                {m.id === last?.id && orderRows && <OrderCard rows={orderRows} onSubmit={(message) => void submit(undefined, message)} />}
+                {m.id === last?.id && orderRows && <OrderCard rows={orderRows} onSubmit={(message) => void submit(undefined, message)} onEngrave={engraveIn} />}
                 {m.attachment && (
                   <div className="mt-2">
                     <AuthedImage cacheKey={`${tokenRef.current}:${m.id}`} alt="Captura de tu pago" load={() => chatImage(m.id, token())} />
@@ -377,6 +397,20 @@ export function ChatWidget() {
                 {messageTime(m.createdAt) && <time dateTime={m.createdAt} className={`mt-1 block text-[0.65rem] ${m.role === 'customer' ? 'text-beige/70' : 'text-carbon-600'}`}>{messageTime(m.createdAt)}</time>}
               </li>
             ))}
+            {orderDraft && !pending && !uploading && (
+              <li className={`w-full max-w-full rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${bubble.assistant}`}>
+                Elegiste <strong className="font-semibold text-nogal">{orderDraft.product} · {orderDraft.variant}</strong>. Dime cuántas tablas quieres y si la prefieres con grabado.
+                <OrderCard
+                  key={`${orderDraft.product}-${orderDraft.variant}`}
+                  rows={[orderDraft]}
+                  onSubmit={(message) => {
+                    setOrderDraft(null)
+                    void submit(undefined, message)
+                  }}
+                  onEngrave={engraveIn}
+                />
+              </li>
+            )}
             {uploading && (
               <>
                 <li className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-wrap ${bubble.customer}`}>

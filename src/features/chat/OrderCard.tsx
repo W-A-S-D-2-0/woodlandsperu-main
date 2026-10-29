@@ -2,25 +2,24 @@ import { useState, type FormEvent } from 'react'
 import { WEB_ORDER_MAX_UNITS } from '../../../shared/api/public-schemas'
 import { orderCardMessage, photoForModel, quantityOptions, type ProductRow } from './chat-logic'
 
-const ENGRAVING_MAX = 60
 const QUANTITIES = quantityOptions(WEB_ORDER_MAX_UNITS)
 
 /**
- * El pedido en una sola tarjeta dentro del chat: se elige el modelo, la cantidad y, si se quiere, el grabado. Al continuar se
- * manda un solo mensaje; con grabado, Teca muestra enseguida cómo queda la tabla.
+ * El pedido en una sola tarjeta dentro del chat: se elige el modelo, la cantidad y si se quiere grabado. Sin grabado, al continuar
+ * se manda un solo mensaje y sigue el pedido. Con grabado, `onEngrave` lleva a «Para ti», donde se ve cómo queda la tabla.
  */
-export function OrderCard({ rows, onSubmit }: { rows: ProductRow[]; onSubmit: (message: string) => void }) {
+export function OrderCard({ rows, onSubmit, onEngrave }: { rows: ProductRow[]; onSubmit: (message: string) => void; onEngrave: (row: ProductRow, quantity: number) => void }) {
   const [chosen, setChosen] = useState<number | null>(rows.length === 1 ? rows[0]!.n : null)
   const [quantity, setQuantity] = useState(1)
   const [engrave, setEngrave] = useState(false)
-  const [text, setText] = useState('')
   const row = rows.find((r) => r.n === chosen) ?? null
-  const ready = !!row && (!engrave || text.trim().length > 0)
+  const ready = !!row
 
   function submit(event: FormEvent) {
     event.preventDefault()
     if (!row || !ready) return
-    onSubmit(orderCardMessage(row, quantity, engrave ? text : null))
+    if (engrave) onEngrave(row, quantity)
+    else onSubmit(orderCardMessage(row, quantity, null))
   }
 
   return (
@@ -72,19 +71,7 @@ export function OrderCard({ rows, onSubmit }: { rows: ProductRow[]; onSubmit: (m
           <input type="checkbox" className="size-5 shrink-0 accent-[var(--color-nogal)]" checked={engrave} onChange={(e) => setEngrave(e.target.checked)} />
           Quiero mi tabla con grabado
         </label>
-        {engrave && (
-          <label className="grid animate-chip-in gap-1 text-[0.7rem] font-semibold tracking-[0.08em] text-madera-700 uppercase">
-            Nombre o frase a grabar
-            <input
-              className="min-h-11 w-full rounded-xl border border-linea bg-white px-3 text-sm font-normal tracking-normal text-carbon normal-case focus-visible:border-madera"
-              maxLength={ENGRAVING_MAX}
-              placeholder="Ejemplo: Familia Pérez"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-            />
-            <span className="text-[0.7rem] font-normal tracking-normal text-carbon-600 normal-case">Al continuar verás cómo queda tu tabla.</span>
-          </label>
-        )}
+        {engrave && <p className="animate-chip-in text-xs text-carbon-600">Te llevo a «Para ti» con tu modelo ya elegido: ahí escribes el grabado y ves cómo queda en la tabla.</p>}
       </div>
 
       <button
@@ -92,7 +79,7 @@ export function OrderCard({ rows, onSubmit }: { rows: ProductRow[]; onSubmit: (m
         disabled={!ready}
         className="min-h-11 rounded-full bg-nogal px-5 text-sm font-semibold text-marfil transition-colors hover:bg-madera-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {row ? 'Continuar' : 'Elige un modelo'}
+        {!row ? 'Elige un modelo' : engrave ? 'Ir a personalizar mi tabla' : 'Continuar'}
       </button>
     </form>
   )
