@@ -1,10 +1,10 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { engravingContent, engravingFonts, engravingLimits, engravingPositions, type EngravingFont } from '../../content/engraving'
-import { landingImages } from '../../content/home'
-import { formatPrice } from '../catalog/catalog-format'
+import { boardScale, boardShapeForSize, boardSize } from '../../content/board-shapes'
 import { useCatalog } from '../catalog/use-catalog'
 import { openChat, SELECT_MODEL_EVENT, type SelectedModel } from '../chat/open-chat'
-import { fontClass, positionClass } from './EngravingBoard'
+import { alignClass, BoardSilhouette, fontClass, textPlacement, textShape } from './EngravingBoard'
+import { ModelPicker, sizeLabel } from './ModelPicker'
 import {
   defaultEngraving,
   engravingSummary,
@@ -64,11 +64,11 @@ function Labeled({ label, hint, children }: { label: string; hint?: string; chil
 }
 
 /** Una línea grabada: capa oscura (ya quemada) y capa de brasa (el frente que avanza). */
-function EngravedLine({ text, font, size, runKey, animate }: { text: string; font: EngravingFont; size: number; runKey: string; animate: boolean }) {
+function EngravedLine({ text, font, size, runKey, animate, light = false }: { text: string; font: EngravingFont; size: number; runKey: string; animate: boolean; light?: boolean }) {
   const base = `${fontClass[font]} leading-tight whitespace-nowrap`
   return (
     <span key={runKey} className={`relative block ${animate ? 'burn-run' : ''}`} style={{ fontSize: `${size}cqw` }}>
-      <span className={`burn block text-carbon/90 mix-blend-multiply ${base}`}>{text}</span>
+      <span className={`burn block ${light ? 'text-marfil' : 'text-carbon/90 mix-blend-multiply'} ${base}`}>{text}</span>
       <span aria-hidden="true" className={`burn-heat absolute inset-0 block text-brasa [text-shadow:0_0_10px_var(--color-ambar)] ${base}`}>
         {text}
       </span>
@@ -95,9 +95,10 @@ export function EngravingChapter() {
   // Cantidad que se eligió en el chat antes de venir a personalizar; sin ella se pide como siempre.
   const [quantity, setQuantity] = useState<number | null>(null)
 
-  const products = catalog.kind === 'ok' ? catalog.data.products : []
-  const product = products.find((p) => p.id === productId) ?? null
-  const variant = product?.variants.find((v) => v.id === variantId) ?? null
+  const products = useMemo(() => (catalog.kind === 'ok' ? catalog.data.products : []), [catalog])
+  // Sin elección todavía se muestra el primer modelo: la vista previa siempre tiene una tabla real.
+  const product = products.find((p) => p.id === productId) ?? products.find((p) => p.variants.length > 0) ?? null
+  const variant = product?.variants.find((v) => v.id === variantId) ?? product?.variants[0] ?? null
 
   // El chat trae el modelo y la cantidad ya elegidos: se reflejan en los selectores de esta sección.
   useEffect(() => {
@@ -144,10 +145,15 @@ export function EngravingChapter() {
     return () => clearTimeout(timer)
   }, [values])
 
+  // La silueta y el tamaño de la tabla elegida: la más grande del catálogo se dibuja a lo ancho y las demás en proporción.
+  const largest = Math.max(0, ...products.flatMap((p) => p.variants.map((v) => boardSize(v.dimensionsLabel)?.width ?? 0)))
+  const shape = boardShapeForSize(product?.name, variant?.dimensionsLabel)
+  const scale = boardScale(variant?.dimensionsLabel, largest)
+  const writeShape = textShape(shape)
+
   const set = <K extends keyof EngravingValues>(key: K, value: EngravingValues[K]) => setValues((v) => ({ ...v, [key]: value }))
   const ready = hasEngravingText(values)
   const clean = burned
-  const boardImage = landingImages.engraveBoard
 
   function order() {
     if (!ready) return
@@ -168,6 +174,20 @@ export function EngravingChapter() {
             </h2>
             <p className="mt-5 max-w-md text-lg leading-relaxed text-beige/85">{engravingContent.body}</p>
           </div>
+
+          {products.length > 0 ? (
+            <ModelPicker
+              products={products}
+              productId={product?.id ?? ''}
+              variantId={variant?.id ?? ''}
+              onChange={(nextProduct, nextVariant) => {
+                setProductId(nextProduct)
+                setVariantId(nextVariant)
+              }}
+            />
+          ) : (
+            <p className="text-xs text-beige/75">{engravingContent.noModel}</p>
+          )}
 
           <Labeled label="¿Qué grabamos?" hint={`Hasta ${engravingLimits.line1} caracteres.`}>
             {(id) => (
@@ -191,43 +211,6 @@ export function EngravingChapter() {
           <Choice legend="Dónde va el grabado" name="engrave-position" options={engravingPositions} value={values.position} onChange={(v) => set('position', v)} />
           <Choice legend="Letra" name="engrave-font" options={engravingFonts} value={values.font} onChange={(v) => set('font', v)} />
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Labeled label="Modelo">
-              {(id) => (
-                <select
-                  id={id}
-                  className={inputClass}
-                  value={productId}
-                  disabled={products.length === 0}
-                  onChange={(e) => {
-                    setProductId(e.target.value)
-                    setVariantId(products.find((p) => p.id === e.target.value)?.variants[0]?.id ?? '')
-                  }}
-                >
-                  <option value="">{products.length === 0 ? 'Aún sin catálogo' : 'Definir al cotizar'}</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </Labeled>
-            <Labeled label="Medida">
-              {(id) => (
-                <select id={id} className={inputClass} value={variantId} disabled={!product} onChange={(e) => setVariantId(e.target.value)}>
-                  {!product && <option value="">—</option>}
-                  {product?.variants.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name}
-                      {v.dimensionsLabel ? ` · ${v.dimensionsLabel}` : ''} · {formatPrice(v.price)}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </Labeled>
-          </div>
-          {!product && <p className="-mt-3 text-xs text-beige/75">{engravingContent.noModel}</p>}
           {product && variant && quantity && (
             <p className="-mt-3 animate-chip-in rounded-xl border border-brasa/50 bg-nogal-800/60 px-4 py-2.5 text-sm text-marfil">
               Tu pedido: {quantity} {quantity === 1 ? 'tabla' : 'tablas'} · {product.name} · {variant.name}
@@ -249,30 +232,46 @@ export function EngravingChapter() {
 
         {/* La tabla: se queda a la vista mientras se recorren los controles (escritorio). */}
         <div className="sticky top-16 z-20 order-first -mx-5 bg-nogal-800/95 px-5 pt-2 pb-3 backdrop-blur-sm sm:-mx-8 sm:px-8 lg:top-24 lg:order-last lg:mx-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
-          <div
-            role="img"
-            aria-label={clean ? `Vista previa del grabado: ${clean.line1}${clean.line2 ? `, ${clean.line2}` : ''}` : 'Vista previa de la tabla, aún sin texto'}
-            className="board relative mx-auto aspect-[3/2] max-h-[34dvh] w-full overflow-hidden rounded-2xl lg:max-h-none"
-            style={boardImage ? { backgroundImage: `url(${boardImage.src})`, backgroundSize: 'cover' } : undefined}
-          >
-            <div className={`absolute flex flex-col gap-[0.35em] ${positionClass[clean?.position ?? values.position]}`}>
-              {clean ? (
-                <>
-                  <EngravedLine text={clean.line1} font={clean.font} size={engravingFontSize(clean.line1, clean.font, 'line1')} runKey={`1-${runKey}`} animate />
-                  {clean.line2 && (
-                    <EngravedLine text={clean.line2} font={clean.font} size={engravingFontSize(clean.line2, clean.font, 'line2')} runKey={`2-${runKey}`} animate />
-                  )}
-                </>
-              ) : (
-                <span
-                  className={`block text-carbon/45 ${fontClass[values.font]} ${inView ? 'burn-run' : ''}`}
-                  style={{ fontSize: `${engravingFontSize(engravingContent.placeholder, values.font, 'line1')}cqw` }}
-                >
-                  {engravingContent.placeholder}
-                </span>
-              )}
-            </div>
+          <div className="mx-auto w-full max-w-[51dvh] rounded-2xl bg-[radial-gradient(circle_at_50%_40%,color-mix(in_srgb,var(--color-beige)_14%,transparent),transparent_70%)] lg:max-w-none">
+            <BoardSilhouette
+              key={product?.id ?? 'generica'}
+              shape={shape}
+              scale={scale}
+              className="animate-chip-in"
+              label={`Vista previa${product ? ` en la tabla ${product.name}${variant ? ` ${variant.name}` : ''}` : ''}: ${clean ? `${clean.line1}${clean.line2 ? `, ${clean.line2}` : ''}` : 'aún sin texto'}`}
+            >
+              <div className={`absolute flex flex-col gap-[0.35em] ${alignClass[clean?.position ?? values.position]}`} style={textPlacement(clean?.position ?? values.position, writeShape)}>
+                {clean ? (
+                  <>
+                    <EngravedLine text={clean.line1} font={clean.font} size={engravingFontSize(clean.line1, clean.font, 'line1', writeShape.room)} runKey={`1-${runKey}`} animate light={shape.dark} />
+                    {clean.line2 && (
+                      <EngravedLine text={clean.line2} font={clean.font} size={engravingFontSize(clean.line2, clean.font, 'line2', writeShape.room)} runKey={`2-${runKey}`} animate light={shape.dark} />
+                    )}
+                  </>
+                ) : (
+                  <span
+                    className={`block whitespace-nowrap ${shape.dark ? 'text-marfil/55' : 'text-carbon/45'} ${fontClass[values.font]} ${inView ? 'burn-run' : ''}`}
+                    style={{ fontSize: `${engravingFontSize(engravingContent.placeholder, values.font, 'line1', writeShape.room)}cqw` }}
+                  >
+                    {engravingContent.placeholder}
+                  </span>
+                )}
+              </div>
+            </BoardSilhouette>
           </div>
+          {product && variant && (
+            <p key={variant.id} className="mt-2 flex animate-chip-in items-center justify-center gap-2 text-sm text-beige">
+              <span className="font-semibold text-marfil">{product.name}</span>
+              <span aria-hidden="true">·</span>
+              {variant.name}
+              {variant.dimensionsLabel && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="text-ambar">{sizeLabel(variant.dimensionsLabel)}</span>
+                </>
+              )}
+            </p>
+          )}
           <p className="mt-3 hidden text-xs text-beige/70 lg:block">{engravingContent.boardNote}</p>
         </div>
       </div>

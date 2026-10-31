@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { boardShapeFor, defaultBoardShape } from '../../content/board-shapes'
+import { boardScale, boardShapeFor, boardShapeForSize, boardSize, defaultBoardShape } from '../../content/board-shapes'
 import { engravingPositions } from '../../content/engraving'
 import { modelPhotos } from '../../content/model-photos'
 import { textPlacement } from './EngravingBoard'
@@ -14,10 +14,14 @@ describe('silueta de cada tabla', () => {
   })
 
   it('reconoce el nombre sin importar tildes ni mayúsculas, y usa la genérica si no lo conoce', () => {
-    expect(boardShapeFor('ÑAÑITO').kind).toBe('rounded-sides')
+    expect(boardShapeFor('ÑAÑITO').dark).toBe(true)
     expect(boardShapeFor('bosques amazonicos').ratio).toBeCloseTo(40 / 16)
     expect(boardShapeFor('Ya Vuelta').kind).toBe('round')
     expect(boardShapeFor('Sacha Paleta').kind).toBe('paddle')
+    // Como en sus fotos: Bosques Amazónicos con agujero, Huambrilla con mango y Ñañito con ranura.
+    expect(boardShapeFor('Bosques Amazónicos').kind).toBe('hole')
+    expect(boardShapeFor('Huambrilla').kind).toBe('handle')
+    expect(boardShapeFor('Ñañito').slot).toBe(true)
     expect(boardShapeFor('Moshaco').groove).toBe(true)
     expect(boardShapeFor(undefined)).toBe(defaultBoardShape)
     expect(boardShapeFor('Tabla inventada')).toBe(defaultBoardShape)
@@ -55,5 +59,27 @@ describe('silueta de cada tabla', () => {
         expect(width, `${name} ${font}`).toBeLessThanOrEqual(shape.room + 0.5)
       }
     }
+  })
+})
+
+describe('medidas de cada tabla', () => {
+  it('lee ancho y alto de la medida del catálogo', () => {
+    expect(boardSize('65*46*4')).toEqual({ width: 65, height: 46 })
+    expect(boardSize('40*1.5')).toBeNull()
+    expect(boardSize(null)).toBeNull()
+  })
+
+  it('las rectangulares toman la proporción de cada medida; la redonda y la de mango no cambian', () => {
+    expect(boardShapeForSize('Moshaco', '35*25*2').ratio).toBeCloseTo(35 / 25)
+    expect(boardShapeForSize('Moshaco', '35*25*2').groove).toBe(true)
+    expect(boardShapeForSize('Ya Vuelta', '40*1.5').ratio).toBe(1)
+    expect(boardShapeForSize('Sacha Paleta', '52*30*2').ratio).toBeCloseTo(52 / 30)
+  })
+
+  it('el tamaño se dibuja relativo a la tabla más grande, sin bajar del mínimo', () => {
+    expect(boardScale('65*46*4', 65)).toBe(1)
+    expect(boardScale('50*38*4', 65)).toBeCloseTo(50 / 65)
+    expect(boardScale('30*18*1.5', 65)).toBe(0.5)
+    expect(boardScale(null, 65)).toBe(1)
   })
 })
