@@ -4,7 +4,6 @@ import { boardScale, boardShapeForSize, boardSize } from '../../content/board-sh
 import { useCatalog } from '../catalog/use-catalog'
 import { openChat, SELECT_MODEL_EVENT, type SelectedModel } from '../chat/open-chat'
 import { alignClass, BoardSilhouette, fontClass, textPlacement, textShape } from './EngravingBoard'
-import { ModelPicker, sizeLabel } from './ModelPicker'
 import {
   defaultEngraving,
   engravingSummary,
@@ -13,6 +12,9 @@ import {
   normalizeEngraving,
   type EngravingValues,
 } from './engraving-logic'
+
+/** «65*46*4» → «65 × 46 × 4 cm». */
+const sizeLabel = (dimensions: string) => `${dimensions.replaceAll('*', ' × ')} cm`
 
 const inputClass =
   'min-h-11 w-full rounded-lg border border-beige/25 bg-nogal/70 px-3 text-base text-marfil placeholder:text-beige/50 focus-visible:border-marfil'
@@ -175,20 +177,6 @@ export function EngravingChapter() {
             <p className="mt-5 max-w-md text-lg leading-relaxed text-beige/85">{engravingContent.body}</p>
           </div>
 
-          {products.length > 0 ? (
-            <ModelPicker
-              products={products}
-              productId={product?.id ?? ''}
-              variantId={variant?.id ?? ''}
-              onChange={(nextProduct, nextVariant) => {
-                setProductId(nextProduct)
-                setVariantId(nextVariant)
-              }}
-            />
-          ) : (
-            <p className="text-xs text-beige/75">{engravingContent.noModel}</p>
-          )}
-
           <Labeled label="¿Qué grabamos?" hint={`Hasta ${engravingLimits.line1} caracteres.`}>
             {(id) => (
               <input
@@ -270,6 +258,14 @@ export function EngravingChapter() {
                   <span className="text-ambar">{sizeLabel(variant.dimensionsLabel)}</span>
                 </>
               )}
+            </p>
+          )}
+          {/* El modelo se elige con Teca: la tarjeta del pedido trae aquí el modelo y la medida. */}
+          {products.length > 0 && (
+            <p className="mt-1 text-center">
+              <button type="button" className="text-xs font-semibold text-ambar underline underline-offset-2 hover:text-marfil" onClick={() => openChat('Quiero hacer un pedido')}>
+                ¿Otra tabla? Elígela con Teca
+              </button>
             </p>
           )}
           <p className="mt-3 hidden text-xs text-beige/70 lg:block">{engravingContent.boardNote}</p>
