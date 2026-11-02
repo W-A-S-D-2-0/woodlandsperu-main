@@ -9,6 +9,8 @@
  *  - madera-700 (cobre oscuro): texto pequeño (≈5.7:1).
  *  - madera (cobre #B5703A): solo texto grande, bordes o detalles (≈3.6:1).
  *  - brasa / ámbar: solo sobre fondos oscuros (nogal), para el grabado, chispas y brillos.
+ *  - exito / aviso / alerta: estados del panel (listo o pagado / falta algo / problema). El texto oscuro va
+ *    sobre su fondo "-claro" (≥5.5:1) y siempre con una palabra que lo diga, no solo el color.
  */
 @theme {
   --color-nogal: #2b2118;
@@ -24,6 +26,14 @@
   --color-carbon: #22201c;
   --color-carbon-600: #5a5650;
   --color-linea: #ddd1be;
+
+  /* Estados del panel. */
+  --color-exito: #2f4a36;
+  --color-exito-claro: #e3ebe2;
+  --color-aviso: #7a4a1e;
+  --color-aviso-claro: #f6e6d0;
+  --color-alerta: #8a2a1c;
+  --color-alerta-claro: #f7e0da;
 
   --font-display: 'Fraunces Variable', ui-serif, Georgia, serif;
   --font-sans: 'Manrope Variable', ui-sans-serif, system-ui, sans-serif;
@@ -154,6 +164,11 @@
   html {
     color-scheme: light;
     -webkit-text-size-adjust: 100%;
+  }
+
+  /* Panel interno: todo un 12.5 % más grande (base 18 px) para leerse sin esfuerzo. La web pública no cambia. */
+  html.panel {
+    font-size: 112.5%;
   }
 
   body {

@@ -2,14 +2,14 @@ import { useRef, useState } from 'react'
 import { primaryButtonClass, secondaryButtonClass } from './AuthNotice'
 
 /** Botón «Cerrar sesión» que antes pregunta «¿Deseas cerrar sesión?». */
-export function SignOutButton({ onConfirm, className }: { onConfirm: () => Promise<void> | void; className: string }) {
+export function SignOutButton({ onConfirm, className, label = 'Cerrar sesión' }: { onConfirm: () => Promise<void> | void; className: string; label?: string }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const [pending, setPending] = useState(false)
 
   return (
     <>
       <button type="button" className={className} onClick={() => dialog.current?.showModal()}>
-        Cerrar sesión
+        {label}
       </button>
       <dialog
         ref={dialog}

@@ -1,7 +1,7 @@
 # Cómo continuar el proyecto (traspaso entre sesiones)
 
-Última actualización: 2026-10-17 (rediseño visual sin commit; ver 3b), después del commit `5508633` (rama `main`, publicada en
-https://github.com/Pedrivizz/woodlandsperu).
+Última actualización: 2026-11-02 (rediseño del panel interno; ver 12). Antes: 2026-10-17 (rediseño visual de la web; ver 3b),
+después del commit `5508633` (rama `main`, publicada en https://github.com/Pedrivizz/woodlandsperu).
 
 ## 1. Contexto en 30 segundos
 
@@ -280,3 +280,66 @@ Datos de prueba en producción (2026-10-23): las 8 variantes se llevaron a 100 c
 
 - **Agendar cita**: el chat siempre tiene el botón «📅 Agendar cita» (y junto al WhatsApp de Brigitte). El cliente elige día y hora, deja nombre y celular (`AppointmentCard`); `POST /api/chat/appointments` guarda la cita (tabla `appointments`, migración `20261028100000_citas.sql`) y deja constancia en la conversación. Brigitte la ve en el panel, módulo **Citas** (pendientes / atendidas / canceladas) y en el resumen («Citas pendientes»). Una sola cita pendiente por hora (índice único). **Horarios provisionales** en `shared/config/appointments.ts` (lun–vie 9–12 y 15–17 h, sáb 9–12 h, 14 días, 2 h de antelación; hora de Lima): Brigitte debe confirmarlos. La migración NO está aplicada en la base remota: hace falta autorización.
 - **Pedido en una tarjeta** (`OrderCard`): al pedir, la pregunta de modelos se contesta con una tarjeta (modelos con foto y precio, `select` de cantidad, casilla de grabado). Manda un solo mensaje («Quiero 2 unidades de Moshaco Large. Grabado: «Ana»» / «… Sin grabado.») que el pedido paso a paso entiende (`parsePrefill`): con grabado muestra la vista previa y «Continuar»; después pide los datos y el pago.
+
+## 12. Rediseño del panel para el equipo (2026-11-02)
+
+Pedido del usuario: el panel se veía simple y lo usan dos personas de 40 a 50 años (Brigitte en la laptop, Alex en el
+celular del taller): simplificarlo y que se lea sin esfuerzo. Se hizo primero un boceto en un lienzo de diseño privado
+(https://claude.ai/artifact/W9iGou94rRBmAyAFLQBd7s) y, con el OK del usuario, se pasó a todas las pantallas. Sin
+migraciones ni cambios en el Worker. Verificado en laptop y celular (375 px) con datos reales, y `npm run check` pasa
+(51 archivos, **637 pruebas**). **Sin commit**: la carpeta local no es un repositorio git.
+
+**Base visual**
+- Letra 12,5 % más grande solo en el panel: `html.panel { font-size: 112.5% }` (base 18 px) en `src/styles/index.css`
+  y `class="panel"` en `panel/index.html`. La web pública no cambia.
+- Tokens de estado nuevos: `exito` / `aviso` / `alerta` y sus `-claro` (verde = listo o pagado, ámbar = falta algo,
+  rojo = problema; nogal = en el taller; gris = cerrado). `StatusTone` suma `alert`. Cada etiqueta lleva una palabra,
+  no solo color.
+- Sin letra de 12 px ni títulos en mayúsculas espaciadas; botones de 48–56 px (`primaryButtonLarge`,
+  `secondaryButtonLarge` en `ui.tsx`). Componentes comunes nuevos: `StepLine` (línea de pasos) y `NextStep`
+  (recuadro «Siguiente paso» con la acción del momento).
+- Acciones peligrosas (cancelar, archivar, eliminar, ocultar) siempre abajo, aparte, en rojo y con confirmación.
+
+**Menú** (`modules.ts`: `adminSections`, `sectionsFor`, `sectionForPath`)
+- 5 secciones: Hoy · Ventas (Pedidos, Cotizaciones) · Clientes y chats (Clientes, Conversaciones, Citas) · Taller y
+  stock (Producción, Stock) · Productos y reportes. Dentro de cada sección, pestañas (`SectionTabs` en `AdminLayout`).
+- El taller ve «Taller y stock» y «Pedidos» (una sección con un solo módulo toma su nombre). En el celular el menú es
+  una barra inferior; el usuario y «Cerrar sesión» pasaron a la barra lateral (en celular, «Salir» arriba).
+- El módulo `inventario` ahora se llama **Stock** (la ruta sigue siendo `/inventario`).
+
+**Pantallas**
+- **Hoy** (antes Resumen, `AdminOverviewPage` + `today-logic.ts`): saludo por hora de Lima y lista «Por hacer» con
+  una fila por tarea (stock bajo, pagos por confirmar, pedidos por confirmar, cotizaciones, chats, citas); debajo
+  «Todo en orden» y «Cómo va el mes». Las cifras detalladas viven en Reportes.
+- **Pedidos**: tarjetas con filtros con cantidad (`?ver=cobrar|confirmar|taller|entregar`, `orderFilters`) y
+  buscador. Detalle con 5 pasos y un botón para el siguiente, caja de pago, cliente con WhatsApp (`whatsappLink`),
+  notas y cancelar aparte. Textos de estado: «Por confirmar», «En el taller».
+- **Cotizaciones**: tarjetas con filtros (`?ver=responder|esperando|aceptadas|cerradas`; las archivadas ya no salen
+  en «Todas»). Detalle con 4 pasos (Poner precios → Enviar → Cliente acepta → Crear pedido); el formulario del paso
+  actual va dentro de «Siguiente paso». Lo que falta de precio se marca en ámbar en «Qué pidió».
+- **Conversaciones**: la bandeja muestra el motivo que dejó el asistente; el detalle tiene «Marcar como revisada»
+  como única acción principal; «Cerrar» y «Eliminar chat» van abajo y aparte (eliminar pide confirmar).
+- **Clientes**: tarjetas; ficha con Llamar / WhatsApp / correo, lo comprado (`people-logic.ts: customerSummary`),
+  pedidos y cotizaciones como filas, y notas del equipo.
+- **Citas**: agrupadas por día de Lima («Hoy», «Mañana»…), hora grande, Llamar / WhatsApp / «Ya la atendí»,
+  aviso «Ya pasó la hora»; cancelar al final con confirmación. Solo se vio con 2 citas simuladas en el navegador
+  (la base no tenía ninguna).
+- **Producción** (Alex): foto, «En el taller», cantidades rápidas 5 · 10 · 20 y confirmación en dos toques
+  («Anotar» → «Sí, sumar N al taller»).
+- **Stock**: tarjetas con «Libres para vender» en grande, «En el taller», «Apartadas para pedidos» y «Avisar cuando
+  queden»; lo agotado o bajo va primero (`production-logic.ts: stockStatus, sortByUrgency`). «Ver movimientos y
+  corregir» abre el historial en palabras simples y, para administración, «Corregir el conteo» (hay más / hay menos /
+  devolución) y el aviso y responsable. Se quitó el formulario «Registrar movimiento»: la producción solo se anota en
+  Producción. `movementLabels` en lenguaje simple; se borró `manualMovementOptions` (sin uso).
+- **Productos**: precios solo para leer; «Cambiar precio» / «Poner precio» abre el formulario. Costos internos y
+  descripción plegados; ocultar un tamaño o el producto es un enlace discreto (el producto pide confirmar).
+- **Reportes**: frase grande con lo vendido, tres números, «Lo más vendido» numerado y el resto plegado en «Ver más
+  detalles».
+
+**Pendiente**
+- Probar la vista del taller con la cuenta de Alex (rol `workshop`).
+- El saludo de Hoy dice «Nombre» porque la cuenta del admin tiene `full_name = 'Nombre Apellido'` en `staff_members`.
+- «Ya revisé Yape: está pagado» (del boceto) necesita una función nueva en la base para marcar el pago a mano; hoy
+  solo se marca pagado con la captura del chat.
+- La tarea «El pago no coincide» no sale en Hoy: ese dato vive en el motivo de la conversación, no en el pedido.
+- Limpiar los datos de prueba (PRUEBA…, PED-000001 de S/ 17,356 que infla el ticket promedio) con OK del usuario.

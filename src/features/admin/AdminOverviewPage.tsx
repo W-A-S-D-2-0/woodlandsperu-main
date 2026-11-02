@@ -1,184 +1,150 @@
+import { useState } from 'react'
 import { Link } from 'react-router'
-import type { AppointmentItem, ConversationListItem, DashboardResponse, ListResponse } from '../../../shared/api/panel-contracts'
+import type { AppointmentItem, ConversationListItem, DashboardResponse, ListResponse, OrderListItem } from '../../../shared/api/panel-contracts'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
-import { formatDateTime, formatMoney, orderStatusLabels, orderTone, plural, quoteStatusLabels, quoteTone } from './panel-logic'
+import { useStaffSession } from '../auth/auth-context'
+import { NavIcon } from './nav-icons'
+import { formatMoney, needsPayment, plural } from './panel-logic'
+import { firstName, greeting, todayLabel, todayTasks, type TodayTask } from './today-logic'
 import { useAdminQuery } from './use-admin-api'
-import { Badge, Card, PageHeader, primaryButton, QueryView, secondaryButton, Stat } from './ui'
+import { primaryButton, primaryButtonLarge, QueryView, secondaryButton, secondaryButtonLarge } from './ui'
 
-function Overview({ data }: { data: DashboardResponse }) {
+const taskTone = {
+  alert: { card: 'border-2 border-alerta/40', icon: 'bg-alerta-claro text-alerta', action: primaryButton },
+  warn: { card: 'border border-linea', icon: 'bg-aviso-claro text-aviso', action: secondaryButton },
+} as const
+
+/** Una tarea: toda la fila se toca y lleva a la pantalla donde se resuelve. */
+function TaskRow({ task }: { task: TodayTask }) {
+  const tone = taskTone[task.tone]
+  return (
+    <li>
+      <Link
+        to={task.to}
+        className={`grid gap-4 rounded-2xl bg-white p-5 transition-shadow hover:shadow-md focus-visible:shadow-md sm:grid-cols-[auto_1fr_auto] sm:items-center sm:gap-5 sm:p-6 ${tone.card}`}
+      >
+        <span className="flex items-center gap-4 sm:contents">
+          <span className={`flex size-14 shrink-0 items-center justify-center rounded-full ${tone.icon}`}>
+            <NavIcon slug={task.icon} className="size-7" />
+          </span>
+          <span className="grid gap-1">
+            {task.tone === 'alert' && <span className="text-sm font-bold text-alerta">Urgente</span>}
+            <span className="text-xl leading-snug font-bold text-carbon">{task.title}</span>
+            <span className="hidden text-base text-carbon-600 sm:block">{task.detail}</span>
+          </span>
+        </span>
+        <span className="text-base text-carbon-600 sm:hidden">{task.detail}</span>
+        <span className={`${tone.action} pointer-events-none whitespace-nowrap`}>{task.action}</span>
+      </Link>
+    </li>
+  )
+}
+
+function Today({ data }: { data: DashboardResponse }) {
+  const count = <T,>(state: { status: string; data?: ListResponse<T> }, keep: (item: T) => boolean = () => true) =>
+    state.status === 'ok' && state.data ? state.data.items.filter(keep).length : null
   const { state: waiting } = useAdminQuery<ListResponse<ConversationListItem>>('/conversations?status=needs_human')
-  const waitingCount = waiting.status === 'ok' ? waiting.data.items.length : null
   const { state: appointments } = useAdminQuery<ListResponse<AppointmentItem>>('/appointments?status=pending')
-  const appointmentCount = appointments.status === 'ok' ? appointments.data.items.length : null
-  const activeOrders = Object.entries(data.ordersByStatus).filter(([status]) => status !== 'delivered' && status !== 'cancelled')
+  const { state: orders } = useAdminQuery<ListResponse<OrderListItem>>('/orders')
+
+  const { tasks, calm } = todayTasks({
+    lowStock: data.lowStock.length,
+    quotesPending: data.quotesPending,
+    ordersToConfirm: data.ordersByStatus.pending_confirmation ?? 0,
+    ordersToCollect: count(orders, needsPayment),
+    conversationsWaiting: count(waiting),
+    appointmentsPending: count(appointments),
+  })
+  const inWorkshop = data.ordersByStatus.in_production ?? 0
 
   return (
-    <div className="mt-8 grid gap-8">
-      <div className="flex flex-wrap gap-3">
-        <Link to="/pedidos/nueva" className={primaryButton}>
-          + Nueva venta
-        </Link>
-        <Link to="/produccion" className={secondaryButton}>
-          Registrar producción
-        </Link>
-        <Link to="/cotizaciones" className={secondaryButton}>
-          Ver cotizaciones
-        </Link>
-      </div>
-      <section aria-labelledby="pendientes" className="grid gap-3">
-        <h2 id="pendientes" className="font-sans text-sm font-semibold tracking-[0.12em] text-madera-700 uppercase">
-          Por atender
+    <div className="mt-10 grid gap-12">
+      <section aria-labelledby="por-hacer" className="grid gap-4">
+        <h2 id="por-hacer" className="text-3xl">
+          Por hacer
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat
-            label="Cotizaciones por revisar"
-            value={data.quotesPending}
-            alert={data.quotesPending > 0}
-            to="/cotizaciones"
-            hint={data.quotesPending > 0 ? 'Esperan tu respuesta' : 'Todo al día'}
-          />
-          {/* Mientras carga se reserva el lugar: las tarjetas no saltan al llegar el dato. */}
-          <Stat
-            label="Conversaciones por revisar"
-            value={waitingCount ?? '—'}
-            alert={(waitingCount ?? 0) > 0}
-            to="/conversaciones?estado=esperan"
-            hint={
-              waitingCount === null
-                ? 'Cargando…'
-                : waitingCount > 0
-                  ? 'El asistente respondió; hay algo que ve el equipo'
-                  : 'El asistente atiende todo'
-            }
-          />
-          <Stat
-            label="Citas pendientes"
-            value={appointmentCount ?? '—'}
-            alert={(appointmentCount ?? 0) > 0}
-            to="/citas"
-            hint={appointmentCount === null ? 'Cargando…' : appointmentCount > 0 ? 'Clientes que quieren hablar contigo' : 'Sin citas por atender'}
-          />
-          <Stat
-            label="Productos con stock bajo"
-            value={data.lowStock.length}
-            alert={data.lowStock.length > 0}
-            to="/inventario"
-            hint={data.lowStock.length > 0 ? 'Conviene producir' : 'Stock en orden'}
-          />
-        </div>
+        {tasks.length === 0 ? (
+          <p className="rounded-2xl bg-exito-claro px-6 py-8 text-xl font-bold text-exito">Todo al día. No hay nada pendiente por ahora.</p>
+        ) : (
+          <ul className="grid gap-3">
+            {tasks.map((task) => (
+              <TaskRow key={task.id} task={task} />
+            ))}
+          </ul>
+        )}
       </section>
 
-      <section aria-labelledby="actividad" className="grid gap-3">
-        <h2 id="actividad" className="font-sans text-sm font-semibold tracking-[0.12em] text-madera-700 uppercase">
-          Actividad
+      {calm.length > 0 && (
+        <section aria-labelledby="en-orden" className="grid gap-4">
+          <h2 id="en-orden" className="text-3xl">
+            Todo en orden
+          </h2>
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {calm.map((label) => (
+              <li key={label} className="flex min-h-16 items-center gap-3 rounded-2xl bg-exito-claro px-5 text-lg font-semibold text-exito">
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="size-7 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="m8 12.5 2.7 2.7L16 9.8" />
+                </svg>
+                {label}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section aria-labelledby="mes" className="grid gap-4 sm:grid-cols-2">
+        <h2 id="mes" className="text-3xl sm:col-span-2">
+          Cómo va el mes
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Stat
-            label="Cotizaciones enviadas"
-            value={data.quotesSent}
-            to="/cotizaciones?status=sent"
-            hint="Esperando respuesta del cliente"
-          />
-          <Stat
-            label="Ventas confirmadas · 30 días"
-            value={formatMoney(data.confirmedSales30d.total)}
-            hint={plural(data.confirmedSales30d.count, 'pedido')}
-          />
+        <div className="grid content-start gap-1 rounded-2xl bg-nogal p-6 text-beige">
+          <p className="text-lg text-arena">Vendido en los últimos 30 días</p>
+          <p className="font-display text-5xl text-marfil">{formatMoney(data.confirmedSales30d.total)}</p>
+          <p className="text-lg">{plural(data.confirmedSales30d.count, 'pedido confirmado', 'pedidos confirmados')}</p>
+        </div>
+        <div className="grid content-between gap-4 rounded-2xl border border-linea bg-white p-6">
+          <div className="grid gap-1">
+            <p className="text-lg text-carbon-600">En el taller ahora</p>
+            <p className="font-display text-5xl text-nogal">{plural(inWorkshop, 'pedido')}</p>
+          </div>
+          <Link to="/reportes" className="text-lg font-bold text-madera-700 hover:underline">
+            Ver reportes completos →
+          </Link>
         </div>
       </section>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card title="Pedidos en curso">
-          {activeOrders.length === 0 ? (
-            <p className="text-sm text-carbon-600">No hay pedidos en curso.</p>
-          ) : (
-            <ul className="grid gap-2 text-sm">
-              {activeOrders.map(([status, total]) => (
-                <li key={status} className="flex items-center justify-between gap-4">
-                  <Link to={`/pedidos?status=${status}`} className="hover:underline">
-                    {orderStatusLabels[status as keyof typeof orderStatusLabels] ?? status}
-                  </Link>
-                  <strong>{total}</strong>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-
-        <Card title="Reposición necesaria">
-          {data.lowStock.length === 0 ? (
-            <p className="text-sm text-carbon-600">Ninguna variante está por debajo de su mínimo.</p>
-          ) : (
-            <ul className="grid gap-2 text-sm">
-              {data.lowStock.map((item) => (
-                <li key={item.variantId} className="flex items-center justify-between gap-4">
-                  <span>
-                    {item.product} · {item.variant} <span className="text-carbon-600">({item.sku})</span>
-                  </span>
-                  <Badge tone="warn">
-                    {item.available} / mín. {item.minStock}
-                  </Badge>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-
-        <Card title="Últimas cotizaciones">
-          {data.recentQuotes.length === 0 ? (
-            <p className="text-sm text-carbon-600">Aún no hay cotizaciones.</p>
-          ) : (
-            <ul className="grid gap-3 text-sm">
-              {data.recentQuotes.map((quote) => (
-                <li key={quote.id} className="flex items-center justify-between gap-3">
-                  <span className="min-w-0">
-                    <Link to={`/cotizaciones/${quote.id}`} className="block truncate font-medium text-nogal hover:underline">
-                      {quote.code} · {quote.customer}
-                    </Link>
-                    <span className="text-xs text-carbon-600">{formatDateTime(quote.createdAt)}</span>
-                  </span>
-                  <Badge tone={quoteTone(quote.status)}>{quoteStatusLabels[quote.status]}</Badge>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-
-        <Card title="Últimos pedidos">
-          {data.recentOrders.length === 0 ? (
-            <p className="text-sm text-carbon-600">Aún no hay pedidos.</p>
-          ) : (
-            <ul className="grid gap-3 text-sm">
-              {data.recentOrders.map((order) => (
-                <li key={order.id} className="flex items-center justify-between gap-3">
-                  <span className="min-w-0">
-                    <Link to={`/pedidos/${order.id}`} className="block truncate font-medium text-nogal hover:underline">
-                      {order.code} · {order.customer}
-                    </Link>
-                    <span className="text-xs text-carbon-600">
-                      {formatMoney(order.total)} · {formatDateTime(order.createdAt)}
-                    </span>
-                  </span>
-                  <Badge tone={orderTone(order.status)}>{orderStatusLabels[order.status]}</Badge>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      </div>
     </div>
   )
 }
 
 export function AdminOverviewPage() {
-  useDocumentTitle('Resumen · Panel')
+  useDocumentTitle('Hoy · Panel')
+  const { staff } = useStaffSession()
   const { state, reload } = useAdminQuery<DashboardResponse>('/dashboard')
+  // La fecha se fija al abrir la pantalla: el saludo no cambia mientras se trabaja.
+  const [now] = useState(() => new Date())
+  const name = firstName(staff.fullName)
 
   return (
-    <div className="mx-auto max-w-6xl">
-      <PageHeader title="Resumen" intro="Estado comercial de Woodland: lo que espera una acción del equipo." />
+    <div className="mx-auto max-w-5xl">
+      <header className="flex flex-wrap items-end justify-between gap-6">
+        <div className="grid gap-2">
+          <h1 className="text-4xl sm:text-5xl">
+            {greeting(now)}
+            {name && `, ${name}`}
+          </h1>
+          <p className="text-xl text-carbon-600">{todayLabel(now)}</p>
+        </div>
+        <div className="grid w-full gap-3 sm:flex sm:w-auto">
+          <Link to="/pedidos/nueva" className={primaryButtonLarge}>
+            <span aria-hidden="true">+</span> Nueva venta
+          </Link>
+          <Link to="/produccion" className={secondaryButtonLarge}>
+            Registrar producción
+          </Link>
+        </div>
+      </header>
       <QueryView state={state} onRetry={reload}>
-        {(data) => <Overview data={data} />}
+        {(data) => <Today data={data} />}
       </QueryView>
     </div>
   )

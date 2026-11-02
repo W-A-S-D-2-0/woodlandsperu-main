@@ -130,15 +130,16 @@ export function LowStockAlarm({ inventoryPath }: { inventoryPath: string }) {
         type="button"
         onClick={toggleSound}
         aria-pressed={soundOn}
-        className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full border border-nogal/30 px-3 text-xs font-medium text-nogal transition-colors hover:border-nogal hover:bg-nogal/5"
+        aria-label={`Alarma de stock ${soundOn ? 'con sonido' : 'en silencio'}`}
+        className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center gap-2 rounded-full border-2 border-nogal/30 px-3 text-base font-semibold text-nogal transition-colors hover:border-nogal hover:bg-nogal/5 sm:px-4"
       >
         <BellIcon />
-        Alarma {soundOn ? 'con sonido' : 'en silencio'}
+        <span aria-hidden="true" className="hidden sm:inline">Alarma {soundOn ? 'con sonido' : 'en silencio'}</span>
       </button>
 
       {low.length > 0 && dismissed !== lowIds && (
-        <div role="alert" className="fixed top-3 right-3 left-3 z-50 mx-auto flex max-w-3xl flex-wrap items-center gap-3 rounded-xl border border-madera-700 bg-marfil px-4 py-3 text-sm text-carbon shadow-xl lg:left-[16rem]">
-          <span className="text-madera-700">
+        <div role="alert" className="fixed top-3 right-3 left-3 z-50 mx-auto flex max-w-3xl flex-wrap items-center gap-3 rounded-xl border border-alerta/50 bg-marfil px-5 py-4 text-base text-carbon shadow-xl lg:left-[18rem]">
+          <span className="text-alerta">
             <BellIcon />
           </span>
           <div className="min-w-0 flex-1">
@@ -150,16 +151,16 @@ export function LowStockAlarm({ inventoryPath }: { inventoryPath: string }) {
                 .join(' · ')}
               {low.length > 4 && ` · y ${low.length - 4} más`}
             </p>
-            {blocked && soundOn && <p className="mt-1 text-xs text-madera-700">El navegador bloqueó el sonido. Toca «Activar sonido» para que suene la alarma.</p>}
+            {blocked && soundOn && <p className="mt-1 text-sm text-alerta">El navegador bloqueó el sonido. Toca «Activar sonido» para que suene la alarma.</p>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={() => void ring(low)} className="min-h-10 rounded-full bg-nogal px-4 text-xs font-semibold text-marfil transition-colors hover:bg-nogal-800">
+            <button type="button" onClick={() => void ring(low)} className="min-h-12 rounded-full bg-nogal px-5 text-base font-bold text-marfil transition-colors hover:bg-nogal-800">
               {blocked ? 'Activar sonido' : 'Repetir alarma'}
             </button>
-            <Link to={inventoryPath} className="inline-flex min-h-10 items-center rounded-full border border-nogal/30 px-4 text-xs font-medium text-nogal hover:border-nogal">
+            <Link to={inventoryPath} className="inline-flex min-h-12 items-center rounded-full border-2 border-nogal/30 px-5 text-base font-bold text-nogal hover:border-nogal">
               Ver
             </Link>
-            <button type="button" onClick={() => setDismissed(lowIds)} aria-label="Ocultar aviso" className="inline-flex size-10 items-center justify-center rounded-full text-lg text-carbon-600 hover:bg-beige">
+            <button type="button" onClick={() => setDismissed(lowIds)} aria-label="Ocultar aviso" className="inline-flex size-12 items-center justify-center rounded-full text-2xl text-carbon-600 hover:bg-beige">
               ×
             </button>
           </div>

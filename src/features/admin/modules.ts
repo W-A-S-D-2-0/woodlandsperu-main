@@ -26,7 +26,7 @@ export const adminModules: readonly AdminModule[] = [
   {
     slug: 'inventario',
     roles: ['admin', 'workshop'],
-    label: 'Inventario',
+    label: 'Stock',
     phase: 'Fase 3',
     description: 'Stock interno por variante con movimientos atómicos. Nunca visible para el público.',
     planned: ['Stock físico, reservado y disponible', 'Entradas por producción y ajustes', 'Historial de movimientos', 'Mínimos y alertas de reposición'],
@@ -92,6 +92,65 @@ export const adminModules: readonly AdminModule[] = [
 /** Módulos que el rol puede ver. */
 export function modulesFor(role: StaffRole): AdminModule[] {
   return adminModules.filter((m) => m.roles.includes(role))
+}
+
+/**
+ * Secciones del menú: agrupan los módulos para que el menú tenga pocas opciones.
+ * "hoy" es el inicio de administración (ruta raíz); el resto se abre en su primer módulo visible.
+ */
+export interface AdminSectionDef {
+  slug: string
+  label: string
+  /** Etiqueta corta para la barra inferior del celular. */
+  shortLabel: string
+  modules: readonly string[]
+}
+
+export const adminSections: readonly AdminSectionDef[] = [
+  { slug: 'hoy', label: 'Hoy', shortLabel: 'Hoy', modules: [] },
+  { slug: 'taller', label: 'Taller y stock', shortLabel: 'Taller', modules: ['produccion', 'inventario'] },
+  { slug: 'ventas', label: 'Ventas', shortLabel: 'Ventas', modules: ['pedidos', 'cotizaciones'] },
+  { slug: 'clientes', label: 'Clientes y chats', shortLabel: 'Clientes', modules: ['clientes', 'conversaciones', 'citas'] },
+  { slug: 'mas', label: 'Productos y reportes', shortLabel: 'Más', modules: ['productos', 'reportes'] },
+]
+
+export interface AdminSection {
+  slug: string
+  label: string
+  shortLabel: string
+  /** Ruta a la que lleva el menú. */
+  to: string
+  /** Módulos visibles para el rol, en orden (las pestañas de la sección). */
+  modules: AdminModule[]
+}
+
+/** Orden del menú: administración empieza por Hoy y Ventas; el taller, por su trabajo. */
+const sectionOrder: Record<StaffRole, readonly string[]> = {
+  admin: ['hoy', 'ventas', 'clientes', 'taller', 'mas'],
+  workshop: ['taller', 'ventas'],
+}
+
+/** Secciones que ve el rol. Una sección con un solo módulo toma el nombre del módulo (el taller ve "Pedidos", no "Ventas"). */
+export function sectionsFor(role: StaffRole): AdminSection[] {
+  const visible = modulesFor(role)
+  return sectionOrder[role].flatMap((slug) => {
+    const def = adminSections.find((s) => s.slug === slug)
+    if (!def) return []
+    if (def.slug === 'hoy') return [{ slug: def.slug, label: def.label, shortLabel: def.shortLabel, to: '/', modules: [] }]
+    const modules = def.modules.flatMap((m) => visible.filter((v) => v.slug === m))
+    const [head] = modules
+    if (!head) return []
+    const single = modules.length === 1 ? head.label : null
+    return [{ slug: def.slug, label: single ?? def.label, shortLabel: single ?? def.shortLabel, to: `/${head.slug}`, modules }]
+  })
+}
+
+/** Sección de una ruta del panel (relativa a /panel): "/pedidos/nueva" → ventas; "/" → hoy. */
+export function sectionForPath(pathname: string, role: StaffRole): AdminSection | undefined {
+  const first = pathname.split('/').filter(Boolean)[0] ?? ''
+  const sections = sectionsFor(role)
+  if (first === '') return sections.find((s) => s.slug === 'hoy')
+  return sections.find((s) => s.modules.some((m) => m.slug === first))
 }
 
 export function findAdminModule(slug: string | undefined): AdminModule | undefined {

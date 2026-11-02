@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { contactLabel, conversationTone, preview, timeAgo } from './conversation-logic'
+import { contactLabel, conversationTone, preview, timeAgo, conversationNextStep } from './conversation-logic'
 
 const now = new Date('2026-10-17T12:00:00Z')
 
@@ -32,5 +32,13 @@ describe('conversaciones', () => {
     expect(timeAgo('2026-10-17T11:30:00Z', now)).toBe('hace 30 min')
     expect(timeAgo('2026-10-17T09:00:00Z', now)).toBe('hace 3 h')
     expect(timeAgo('2026-10-15T12:00:00Z', now)).toBe('hace 2 d')
+  })
+})
+
+describe('conversationNextStep', () => {
+  it('pide revisar solo lo que el asistente marcó', () => {
+    expect(conversationNextStep('needs_human').title).toBe('Revisar lo que dejó marcado')
+    expect(conversationNextStep('open').title).toBe('No hay nada que hacer')
+    expect(conversationNextStep('closed').title).toBe('Conversación cerrada')
   })
 })

@@ -58,17 +58,42 @@ const paths: Record<string, ReactNode> = {
       <path d="M4 16V9M10 16V4M16 16v-5" />
     </>
   ),
+  // Secciones del menú.
+  hoy: (
+    <>
+      <path d="M3 9.5 10 4l7 5.5" />
+      <path d="M5 8.5V16h10V8.5M8.5 16v-4h3v4" />
+    </>
+  ),
+  ventas: (
+    <>
+      <path d="M5 7h10l-.8 10H5.8z" />
+      <path d="M7.5 7a2.5 2.5 0 0 1 5 0" />
+    </>
+  ),
+  taller: (
+    <>
+      <path d="M3 6.5 10 3l7 3.5v7L10 17l-7-3.5z" />
+      <path d="M3 6.5 10 10l7-3.5M10 10v7" />
+    </>
+  ),
+  mas: (
+    <>
+      <path d="M4 16V9M10 16V4M16 16v-5" />
+      <path d="M2.5 16.5h15" />
+    </>
+  ),
 }
 
-export function NavIcon({ slug }: { slug: string }) {
+export function NavIcon({ slug, className = 'size-6' }: { slug: string; className?: string }) {
   return (
     <svg
       aria-hidden="true"
       viewBox="0 0 20 20"
-      className="size-5 shrink-0"
+      className={`${className} shrink-0`}
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.5"
+      strokeWidth="1.7"
       strokeLinecap="round"
       strokeLinejoin="round"
     >

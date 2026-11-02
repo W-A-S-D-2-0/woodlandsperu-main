@@ -1,150 +1,189 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import type { ListResponse, QuoteDetail, QuoteDetailItem, QuoteListItem } from '../../../../shared/api/panel-contracts'
-import { quoteStatuses } from '../../../../shared/api/panel-schemas'
 import { useDocumentTitle } from '../../../hooks/useDocumentTitle'
 import {
   channelLabels,
   formatDate,
   formatDateTime,
   formatMoney,
+  matchesQuoteFilter,
   parseDecimal,
+  parseQuoteFilter,
   pendingPriceCount,
-  plural,
   quoteActions,
+  quoteFilters,
+  quoteNextStep,
   quoteStatusLabels,
+  quoteSteps,
   quoteTone,
+  whatsappLink,
+  type QuoteFilter,
 } from '../panel-logic'
 import { useAdminAction, useAdminQuery } from '../use-admin-api'
 import {
   BackLink,
   Badge,
   Card,
-  DataTable,
-  EmptyState,
   dangerButton,
+  EmptyState,
   Field,
   inputClass,
+  NextStep,
   Notice,
   PageHeader,
-  primaryButton,
+  primaryButtonLarge,
   QueryView,
   secondaryButton,
+  StepLine,
 } from '../ui'
+
+const missingLabel = (n: number) => (n === 1 ? 'Falta 1 precio' : `Faltan ${n} precios`)
+
+const customerName = (quote: Pick<QuoteListItem, 'customer'>) => quote.customer?.companyName ?? quote.customer?.fullName ?? null
+
+function QuoteCard({ quote }: { quote: QuoteListItem }) {
+  return (
+    <li>
+      <Link
+        to={`/cotizaciones/${quote.id}`}
+        className="grid gap-3 rounded-2xl border border-linea bg-white p-5 transition-shadow hover:border-madera/60 hover:shadow-md focus-visible:shadow-md sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:gap-6 sm:px-6"
+      >
+        <span className="grid min-w-0 gap-0.5">
+          <span className="truncate text-xl font-bold text-carbon">{customerName(quote) ?? quote.code}</span>
+          <span className="text-base text-carbon-600">
+            {quote.code} · {formatDateTime(quote.createdAt)}
+          </span>
+        </span>
+        <span className="flex flex-wrap gap-2 sm:justify-end">
+          <Badge tone={quoteTone(quote.status)}>{quoteStatusLabels[quote.status]}</Badge>
+          {quote.pendingPrices > 0 && <Badge tone="warn">{missingLabel(quote.pendingPrices)}</Badge>}
+        </span>
+        <span className="text-xl font-bold text-carbon sm:min-w-32 sm:text-right">
+          {quote.pendingPrices > 0 ? <span className="text-lg font-semibold text-carbon-600">Por definir</span> : formatMoney(quote.total)}
+        </span>
+      </Link>
+    </li>
+  )
+}
+
+function QuoteList({ items, filter }: { items: QuoteListItem[]; filter: QuoteFilter }) {
+  const [, setParams] = useSearchParams()
+  const [search, setSearch] = useState('')
+  const active = quoteFilters.find((f) => f.id === filter) ?? quoteFilters[0]
+  const term = search.trim().toLowerCase()
+  const visible = items.filter(
+    (q) => matchesQuoteFilter(q.status, active?.id ?? 'todas') && (!term || `${q.code} ${customerName(q) ?? ''}`.toLowerCase().includes(term)),
+  )
+
+  return (
+    <div className="grid gap-5">
+      <div role="group" aria-label="Ver cotizaciones" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+        {quoteFilters.map((f) => {
+          const on = f.id === active?.id
+          const count = items.filter((q) => matchesQuoteFilter(q.status, f.id)).length
+          return (
+            <button
+              key={f.id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => setParams(f.id === 'todas' ? {} : { ver: f.id })}
+              className={`inline-flex min-h-12 shrink-0 items-center gap-2 rounded-full border-2 px-5 text-base font-bold transition-colors ${
+                on ? 'border-nogal bg-nogal text-marfil' : 'border-linea bg-white text-nogal hover:border-nogal'
+              }`}
+            >
+              {f.label}
+              <span className={`min-w-7 rounded-full px-2 text-sm ${on ? 'bg-marfil text-nogal' : 'bg-beige text-nogal'}`}>{count}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <p className="max-w-xl text-lg text-carbon-600">{active?.hint}</p>
+        <label className="w-full sm:w-80">
+          <span className="sr-only">Buscar cotización</span>
+          <input type="search" className={inputClass} placeholder="Buscar por cliente o código" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </label>
+      </div>
+
+      {visible.length === 0 ? (
+        <EmptyState>{term ? 'Ninguna cotización coincide con la búsqueda.' : 'No hay cotizaciones aquí. ¡Todo al día!'}</EmptyState>
+      ) : (
+        <ul className="grid gap-3">
+          {visible.map((q) => (
+            <QuoteCard key={q.id} quote={q} />
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
 
 export function QuotesPage() {
   useDocumentTitle('Cotizaciones')
-  const [params, setParams] = useSearchParams()
-  const status = quoteStatuses.find((s) => s === params.get('status'))
-  const { state, reload } = useAdminQuery<ListResponse<QuoteListItem>>(status ? `/quotes?status=${status}` : '/quotes')
+  const [params] = useSearchParams()
+  const filter = parseQuoteFilter(params.get('ver'))
+  const { state, reload } = useAdminQuery<ListResponse<QuoteListItem>>('/quotes')
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-6">
-      <PageHeader
-        title="Cotizaciones"
-        intro="Solicitudes de clientes. Los importes los calcula el servidor; aquí se revisan, se fija el precio de lo personalizado y se envían."
-      />
-      <div className="max-w-xs">
-        <Field label="Estado">
-          <select
-            className={inputClass}
-            value={status ?? ''}
-            onChange={(e) => setParams(e.target.value ? { status: e.target.value } : {})}
-          >
-            <option value="">Todas</option>
-            {quoteStatuses.map((s) => (
-              <option key={s} value={s}>
-                {quoteStatusLabels[s]}
-              </option>
-            ))}
-          </select>
-        </Field>
-      </div>
+    <div className="mx-auto grid max-w-5xl gap-8">
+      <PageHeader title="Cotizaciones" />
       <QueryView state={state} onRetry={reload}>
-        {({ items: all }) => {
-          // Las archivadas (canceladas) solo se ven al filtrar por ese estado: así la lista queda limpia.
-          const items = status ? all : all.filter((q) => q.status !== 'cancelled')
-          return items.length === 0 ? (
-            <EmptyState>No hay cotizaciones con este filtro.</EmptyState>
-          ) : (
-            <DataTable caption="Cotizaciones" head={['Código', 'Cliente', 'Estado', 'Total', 'Recibida']}>
-              {items.map((q) => (
-                <tr key={q.id}>
-                  <td className="px-4 py-3">
-                    <Link to={`/cotizaciones/${q.id}`} className="whitespace-nowrap font-semibold text-nogal hover:underline">
-                      {q.code}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3">{q.customer?.companyName ?? q.customer?.fullName ?? '—'}</td>
-                  <td className="px-4 py-3">
-                    <Badge tone={quoteTone(q.status)}>
-                      {quoteStatusLabels[q.status]}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    {q.pendingPrices > 0 ? (
-                      <>
-                        <span className="text-carbon-600">Por definir</span>
-                        <span className="block text-xs text-carbon-600">{plural(q.pendingPrices, 'precio pendiente', 'precios pendientes')}</span>
-                      </>
-                    ) : (
-                      formatMoney(q.total)
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-carbon-600">{formatDateTime(q.createdAt)}</td>
-                </tr>
-              ))}
-            </DataTable>
-          )
-        }}
+        {({ items }) => <QuoteList items={items} filter={filter} />}
       </QueryView>
     </div>
   )
 }
 
-function ItemPriceRow({ item, editable, onSaved }: { item: QuoteDetailItem; editable: boolean; onSaved: () => void }) {
+/** Un producto cotizado. Si falta su precio, se marca en ámbar y se escribe ahí mismo. */
+function QuoteItem({ item, editable, onSaved }: { item: QuoteDetailItem; editable: boolean; onSaved: () => void }) {
   const { run, pending, error } = useAdminAction()
   const [price, setPrice] = useState(item.unitPrice?.toString() ?? '')
   const [formError, setFormError] = useState<string | null>(null)
+  const missing = item.unitPrice === null
 
   async function save(event: FormEvent) {
     event.preventDefault()
     const value = parseDecimal(price)
-    if (value === null || Number.isNaN(value)) return setFormError('Precio no válido (máximo 2 decimales).')
+    if (value === null || Number.isNaN(value)) return setFormError('Escribe un precio válido, por ejemplo 250 o 249.90.')
     setFormError(null)
     if (await run('PUT', `/quotes/items/${item.id}/price`, { unitPrice: value })) onSaved()
   }
 
   return (
-    <tr>
-      <td className="px-4 py-3">
-        <p className="font-medium">{item.description}</p>
-        {item.customDimensions && <p className="text-xs text-carbon-600">Medidas: {item.customDimensions}</p>}
-        {item.customization && <p className="text-xs text-carbon-600">Personalización: {item.customization}</p>}
-        {(formError ?? error) && <p className="mt-1 text-xs text-madera-700">{formError ?? error}</p>}
-      </td>
-      <td className="px-4 py-3">{item.quantity}</td>
-      <td className="px-4 py-3">
-        {editable ? (
-          <form onSubmit={(e) => void save(e)} className="flex items-center gap-2" noValidate>
+    <li className={`grid gap-3 rounded-2xl p-4 ${missing && editable ? 'border-2 border-madera/50 bg-aviso-claro' : 'border border-linea'}`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <p className="text-xl font-bold">
+          {item.quantity} × {item.description}
+        </p>
+        <p className="text-lg font-bold">{missing ? <span className="text-aviso">Falta precio</span> : formatMoney(item.lineTotal)}</p>
+      </div>
+      {item.customDimensions && <p className="text-base text-carbon-600">Medidas: {item.customDimensions}</p>}
+      {item.customization && (
+        <p className="justify-self-start rounded-xl bg-beige px-3 py-1.5 text-base font-semibold text-nogal">Grabado: {item.customization}</p>
+      )}
+      {editable ? (
+        <form onSubmit={(e) => void save(e)} className="flex flex-wrap items-end gap-3" noValidate>
+          <label className="grid gap-1 text-base font-semibold">
+            Precio por unidad (S/)
             <input
-              aria-label={`Precio unitario de ${item.description}`}
-              className={`${inputClass} w-28`}
+              className={`${inputClass} w-40`}
               inputMode="decimal"
               value={price}
-              placeholder="S/"
+              placeholder="0.00"
               onChange={(e) => setPrice(e.target.value)}
             />
-            <button type="submit" className={secondaryButton} disabled={pending}>
-              Fijar
-            </button>
-          </form>
-        ) : (
-          formatMoney(item.unitPrice)
-        )}
-      </td>
-      <td className="px-4 py-3">{formatMoney(item.lineTotal)}</td>
-    </tr>
+          </label>
+          <button type="submit" className={secondaryButton} disabled={pending}>
+            {pending ? 'Guardando…' : missing ? 'Guardar precio' : 'Cambiar precio'}
+          </button>
+        </form>
+      ) : (
+        <p className="text-base text-carbon-600">{formatMoney(item.unitPrice)} cada una</p>
+      )}
+      {(formError ?? error) && <p className="text-base font-semibold text-alerta">{formError ?? error}</p>}
+    </li>
   )
 }
 
@@ -154,12 +193,11 @@ function SendQuoteForm({ quote, onDone }: { quote: QuoteDetail; onDone: () => vo
   const [validUntil, setValidUntil] = useState('')
   const [note, setNote] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
-  const missing = pendingPriceCount(quote.items)
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     const value = parseDecimal(discount)
-    if (Number.isNaN(value)) return setFormError('Descuento no válido.')
+    if (Number.isNaN(value)) return setFormError('El descuento no es válido.')
     setFormError(null)
     const result = await run('POST', `/quotes/${quote.id}/send`, {
       discountTotal: value ?? 0,
@@ -170,30 +208,29 @@ function SendQuoteForm({ quote, onDone }: { quote: QuoteDetail; onDone: () => vo
   }
 
   return (
-    <Card title="Enviar al cliente">
-      {missing > 0 && <Notice kind="info">Antes de enviar, define {missing === 1 ? 'el precio que falta' : `los ${missing} precios que faltan`} en la tabla de productos.</Notice>}
-      <form onSubmit={(e) => void submit(e)} className="mt-3 grid gap-4 sm:grid-cols-2" noValidate>
-        <Field label="Descuento (S/)" hint="Opcional. No puede superar el subtotal.">
-          <input className={inputClass} inputMode="decimal" value={discount} onChange={(e) => setDiscount(e.target.value)} />
+    <form onSubmit={(e) => void submit(e)} className="grid w-full gap-4 sm:grid-cols-2" noValidate>
+      <Field label="Descuento (S/)" hint="Opcional.">
+        <input className={inputClass} inputMode="decimal" value={discount} onChange={(e) => setDiscount(e.target.value)} />
+      </Field>
+      <Field label="Válida hasta" hint="Si lo dejas vacío, vale el plazo de siempre.">
+        <input className={inputClass} type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
+      </Field>
+      <div className="sm:col-span-2">
+        <Field label="Plazo de entrega estimado" hint="Por ejemplo: «10 a 15 días». Siempre es un estimado.">
+          <input className={inputClass} maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} />
         </Field>
-        <Field label="Válida hasta" hint="Vacío = vigencia configurada por la empresa.">
-          <input className={inputClass} type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
-        </Field>
+      </div>
+      {(formError ?? error) && (
         <div className="sm:col-span-2">
-          <Field label="Plazo estimado" hint="Siempre estimado y sujeto a confirmación.">
-            <input className={inputClass} maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} />
-          </Field>
+          <Notice>{formError ?? error}</Notice>
         </div>
-        <div className="grid gap-3 sm:col-span-2">
-          {(formError ?? error) && <Notice>{formError ?? error}</Notice>}
-          <div>
-            <button type="submit" className={primaryButton} disabled={pending || missing > 0}>
-              {pending ? 'Enviando…' : 'Marcar como enviada'}
-            </button>
-          </div>
-        </div>
-      </form>
-    </Card>
+      )}
+      <div className="sm:col-span-2">
+        <button type="submit" className={primaryButtonLarge} disabled={pending}>
+          {pending ? 'Guardando…' : 'Marcar como enviada'}
+        </button>
+      </div>
+    </form>
   )
 }
 
@@ -213,132 +250,218 @@ function ConvertForm({ quote }: { quote: QuoteDetail }) {
   }
 
   return (
-    <Card title="Convertir en pedido">
-      <form onSubmit={(e) => void submit(e)} className="grid gap-4">
-        <label className="flex min-h-11 items-center gap-3 text-sm">
-          <input type="checkbox" className="h-5 w-5 accent-nogal" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
-          El cliente confirmó el pedido (necesario para reservar el stock)
-        </label>
-        <Field label="Dirección de entrega">
-          <input className={inputClass} maxLength={500} value={address} onChange={(e) => setAddress(e.target.value)} />
-        </Field>
-        {error && <Notice>{error}</Notice>}
-        <div>
-          <button type="submit" className={primaryButton} disabled={pending}>
-            {pending ? 'Creando…' : 'Crear pedido'}
-          </button>
+    <form onSubmit={(e) => void submit(e)} className="grid w-full gap-4">
+      <label className="flex min-h-12 items-center gap-3 text-lg">
+        <input type="checkbox" className="size-6 accent-nogal" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
+        El cliente confirmó el pedido (así se apartan las tablas)
+      </label>
+      <Field label="Dirección de entrega">
+        <input className={inputClass} maxLength={500} value={address} onChange={(e) => setAddress(e.target.value)} />
+      </Field>
+      {error && <Notice>{error}</Notice>}
+      <div>
+        <button type="submit" className={primaryButtonLarge} disabled={pending}>
+          {pending ? 'Creando…' : 'Crear pedido'}
+        </button>
+      </div>
+    </form>
+  )
+}
+
+function AcceptButton({ quote, onDone }: { quote: QuoteDetail; onDone: () => void }) {
+  const { run, pending, error } = useAdminAction()
+  return (
+    <div className="grid gap-3">
+      <button type="button" className={primaryButtonLarge} disabled={pending} onClick={() => void run('POST', `/quotes/${quote.id}/accept`).then((r) => r && onDone())}>
+        {pending ? 'Guardando…' : 'El cliente aceptó'}
+      </button>
+      {error && <Notice>{error}</Notice>}
+    </div>
+  )
+}
+
+/** Pasos de la cotización con la acción del momento dentro del recuadro «Siguiente paso». */
+function QuoteProgress({ quote, reload }: { quote: QuoteDetail; reload: () => void }) {
+  const missing = pendingPriceCount(quote.items)
+  const actions = quoteActions(quote.status)
+  const next = quoteNextStep(quote.status, missing)
+  const closed = quote.status === 'rejected' || quote.status === 'expired' || quote.status === 'cancelled'
+  const showSendForm = actions.includes('price_and_send') && missing === 0
+  const showConvert = actions.includes('convert')
+
+  return (
+    <section aria-label="Avance de la cotización" className="grid gap-6 rounded-2xl border border-linea bg-white p-5 sm:p-7">
+      {!closed && <StepLine steps={quoteSteps(quote.status, missing)} />}
+      <NextStep label={closed || quote.status === 'converted' ? 'Estado' : 'Siguiente paso'} title={next.title} help={next.help}>
+        {actions.includes('price_and_send') && missing > 0 && (
+          <a href="#productos" className={primaryButtonLarge}>
+            Ir a los precios ↓
+          </a>
+        )}
+        {actions.includes('accept') && <AcceptButton quote={quote} onDone={reload} />}
+        {quote.convertedOrderId && (
+          <Link to={`/pedidos/${quote.convertedOrderId}`} className={primaryButtonLarge}>
+            Ver el pedido
+          </Link>
+        )}
+        {(showSendForm || showConvert) && (
+          <div className="w-full border-t border-linea pt-5">
+            {showSendForm ? <SendQuoteForm quote={quote} onDone={reload} /> : <ConvertForm quote={quote} />}
+          </div>
+        )}
+      </NextStep>
+    </section>
+  )
+}
+
+function QuoteCustomer({ quote }: { quote: QuoteDetail }) {
+  const customer = quote.customer
+  const wa = whatsappLink(customer?.phone)
+  return (
+    <Card title="Cliente">
+      {customer ? (
+        <div className="grid gap-2 text-lg">
+          <Link to={`/clientes/${customer.id}`} className="text-xl font-bold text-nogal hover:underline">
+            {customer.companyName ?? customer.fullName}
+          </Link>
+          {customer.companyName && <p className="text-carbon-600">Contacto: {customer.fullName}</p>}
+          {customer.phone && <p className="text-carbon-600">Celular: {customer.phone}</p>}
+          {customer.email && <p className="break-all text-carbon-600">{customer.email}</p>}
+          {wa && (
+            <a href={wa} target="_blank" rel="noreferrer" className={`${secondaryButton} mt-2`}>
+              Escribir por WhatsApp
+            </a>
+          )}
         </div>
-      </form>
+      ) : (
+        <p className="text-lg text-carbon-600">Sin datos del cliente.</p>
+      )}
+      {quote.customerMessage && (
+        <figure className="mt-4 grid gap-1 rounded-xl bg-beige/60 p-4">
+          <figcaption className="text-base font-semibold text-carbon-600">Lo que escribió el cliente</figcaption>
+          <blockquote className="text-lg">“{quote.customerMessage}”</blockquote>
+        </figure>
+      )}
     </Card>
   )
 }
 
+/** Archivar va aparte y abajo, con confirmación. */
 function ArchiveQuote({ quote, onDone }: { quote: QuoteDetail; onDone: () => void }) {
   const { run, pending, error } = useAdminAction()
   const [asking, setAsking] = useState(false)
 
   return (
-    <Card title="Archivar cotización">
-      <p className="text-sm text-carbon-600">
-        Para solicitudes de prueba o que el cliente descartó. Sale de la lista (se ve filtrando por “Cancelada”); no se borra ni se puede reabrir.
-      </p>
-      {error && <div className="mt-3"><Notice>{error}</Notice></div>}
-      <div className="mt-3 flex flex-wrap gap-3">
+    <section aria-labelledby="archivar" className="grid gap-4 rounded-2xl border-2 border-dashed border-alerta/30 p-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 id="archivar" className="font-sans text-xl font-bold text-alerta">
+            ¿Es una prueba o el cliente la descartó?
+          </h2>
+          <p className="text-lg text-carbon-600">Archivarla la quita de la lista. No se borra, pero ya no se puede reabrir.</p>
+        </div>
         {asking ? (
-          <>
+          <div className="flex flex-wrap gap-3">
             <button type="button" className={dangerButton} disabled={pending} onClick={() => void run('POST', `/quotes/${quote.id}/cancel`).then((r) => r && onDone())}>
-              {pending ? 'Archivando…' : `Sí, archivar ${quote.code}`}
+              {pending ? 'Archivando…' : 'Sí, archivar'}
             </button>
             <button type="button" className={secondaryButton} disabled={pending} onClick={() => setAsking(false)}>
               No
             </button>
-          </>
+          </div>
         ) : (
-          <button type="button" className={secondaryButton} onClick={() => setAsking(true)}>
-            Archivar
+          <button type="button" className={dangerButton} onClick={() => setAsking(true)}>
+            Archivar cotización
           </button>
         )}
       </div>
-    </Card>
+      {error && <Notice>{error}</Notice>}
+    </section>
   )
 }
 
 function QuoteView({ quote, reload }: { quote: QuoteDetail; reload: () => void }) {
   const actions = quoteActions(quote.status)
-  const accept = useAdminAction()
   const editable = actions.includes('price_and_send')
   const missing = pendingPriceCount(quote.items)
 
   return (
-    <div className="mt-6 grid gap-6">
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card title="Cliente" className="lg:col-span-2">
-          {quote.customer ? (
-            <p className="text-sm">
-              <Link to={`/clientes/${quote.customer.id}`} className="font-semibold text-nogal hover:underline">
-                {quote.customer.companyName ?? quote.customer.fullName}
-              </Link>
-              {quote.customer.companyName && <span> · {quote.customer.fullName}</span>}
-              <br />
-              <span className="text-carbon-600">{[quote.customer.email, quote.customer.phone].filter(Boolean).join(' · ')}</span>
-            </p>
-          ) : (
-            <p className="text-sm text-carbon-600">Sin datos de cliente.</p>
-          )}
-          {quote.customerMessage && <p className="mt-3 rounded-lg bg-beige/50 p-3 text-sm">“{quote.customerMessage}”</p>}
-        </Card>
-        <Card title="Estado">
-          <p className="flex flex-wrap items-center gap-2">
-            <Badge tone={quoteTone(quote.status)}>{quoteStatusLabels[quote.status]}</Badge>
-            <span className="text-xs text-carbon-600">{channelLabels[quote.channel] ?? quote.channel}</span>
+    <div className="mt-2 grid gap-6">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="grid gap-1">
+          <h1 className="text-4xl">{customerName(quote) ?? quote.code}</h1>
+          <p className="text-lg text-carbon-600">
+            Cotización {quote.code} · {channelLabels[quote.channel] ?? quote.channel} · {formatDateTime(quote.createdAt)}
           </p>
-          {quote.reviewReason && <p className="mt-3 text-xs text-carbon-600">Revisión: {quote.reviewReason}</p>}
-          <p className="mt-3 text-xs text-carbon-600">
-            Vigencia: {formatDate(quote.validUntil)}
-            {quote.deliveryEstimateNote && <> · {quote.deliveryEstimateNote}</>}
-          </p>
-          {quote.convertedOrderId && (
-            <Link to={`/pedidos/${quote.convertedOrderId}`} className="mt-3 inline-block text-sm font-medium text-madera-700 hover:underline">
-              Ver pedido →
-            </Link>
-          )}
+        </div>
+        <div className="grid justify-items-start gap-1 sm:justify-items-end">
+          <Badge tone={quoteTone(quote.status)}>{quoteStatusLabels[quote.status]}</Badge>
+          <p className="font-display text-4xl text-nogal">{missing > 0 ? 'Por definir' : formatMoney(quote.total)}</p>
+        </div>
+      </header>
+
+      <QuoteProgress quote={quote} reload={reload} />
+
+      <div className="grid items-start gap-6 lg:grid-cols-[3fr_2fr]">
+        <Card title="Qué pidió" id="productos" className="scroll-mt-6">
+          <ul className="grid gap-3">
+            {quote.items.map((item) => (
+              <QuoteItem key={`${item.id}-${item.unitPrice}`} item={item} editable={editable} onSaved={reload} />
+            ))}
+          </ul>
+          <dl className="mt-5 grid gap-1 border-t border-linea pt-4 text-lg">
+            {missing > 0 ? (
+              <div className="flex justify-between text-carbon-600">
+                <dt>Total</dt>
+                <dd>Por definir ({missingLabel(missing).toLowerCase()})</dd>
+              </div>
+            ) : (
+              <>
+                {quote.discountTotal > 0 && (
+                  <>
+                    <div className="flex justify-between text-carbon-600">
+                      <dt>Subtotal</dt>
+                      <dd>{formatMoney(quote.subtotal)}</dd>
+                    </div>
+                    <div className="flex justify-between text-carbon-600">
+                      <dt>Descuento</dt>
+                      <dd>− {formatMoney(quote.discountTotal)}</dd>
+                    </div>
+                  </>
+                )}
+                <div className="flex justify-between text-xl font-bold">
+                  <dt>Total</dt>
+                  <dd>{formatMoney(quote.total)}</dd>
+                </div>
+              </>
+            )}
+          </dl>
         </Card>
+        <div className="grid gap-6">
+          <QuoteCustomer quote={quote} />
+          <Card title="Detalles">
+            <dl className="grid gap-2 text-lg">
+              <div>
+                <dt className="inline font-semibold">Válida hasta: </dt>
+                <dd className="inline text-carbon-600">{quote.validUntil ? formatDate(quote.validUntil) : 'aún sin enviar'}</dd>
+              </div>
+              {quote.deliveryEstimateNote && (
+                <div>
+                  <dt className="inline font-semibold">Plazo estimado: </dt>
+                  <dd className="inline text-carbon-600">{quote.deliveryEstimateNote}</dd>
+                </div>
+              )}
+              {quote.reviewReason && (
+                <div>
+                  <dt className="inline font-semibold">Por qué pasó a revisión: </dt>
+                  <dd className="inline text-carbon-600">{quote.reviewReason}</dd>
+                </div>
+              )}
+            </dl>
+          </Card>
+        </div>
       </div>
 
-      <DataTable caption="Productos cotizados" head={['Producto', 'Cant.', 'Precio unitario', 'Total']}>
-        {quote.items.map((item) => (
-          <ItemPriceRow key={`${item.id}-${item.unitPrice}`} item={item} editable={editable} onSaved={reload} />
-        ))}
-      </DataTable>
-      {missing > 0 ? (
-        <p className="text-right text-sm text-carbon-600">
-          Total por definir: {plural(missing, 'precio pendiente', 'precios pendientes')}
-          {quote.subtotal > 0 && <> · Subtotal parcial {formatMoney(quote.subtotal)}</>}
-        </p>
-      ) : (
-        <p className="text-right text-sm">
-          Subtotal {formatMoney(quote.subtotal)}
-          {quote.discountTotal > 0 && <> · Descuento {formatMoney(quote.discountTotal)}</>} ·{' '}
-          <strong className="text-base">Total {formatMoney(quote.total)}</strong>
-        </p>
-      )}
-
-      {editable && <SendQuoteForm quote={quote} onDone={reload} />}
-      {actions.includes('accept') && (
-        <Card title="Respuesta del cliente">
-          <p className="text-sm text-carbon-600">Cuando el cliente acepte la propuesta, regístralo aquí.</p>
-          {accept.error && <div className="mt-3"><Notice>{accept.error}</Notice></div>}
-          <button
-            type="button"
-            className={`${primaryButton} mt-3`}
-            disabled={accept.pending}
-            onClick={() => void accept.run('POST', `/quotes/${quote.id}/accept`).then((r) => r && reload())}
-          >
-            {accept.pending ? 'Registrando…' : 'El cliente aceptó'}
-          </button>
-        </Card>
-      )}
-      {actions.includes('convert') && <ConvertForm quote={quote} />}
       {actions.includes('archive') && <ArchiveQuote quote={quote} onDone={reload} />}
     </div>
   )
@@ -350,15 +473,10 @@ export function QuoteDetailPage() {
   useDocumentTitle(state.status === 'ok' ? state.data.code : 'Cotización')
 
   return (
-    <div className="mx-auto max-w-6xl">
-      <BackLink to="/cotizaciones">Cotizaciones</BackLink>
+    <div className="mx-auto max-w-5xl">
+      <BackLink to="/cotizaciones">Volver a cotizaciones</BackLink>
       <QueryView state={state} onRetry={reload}>
-        {(quote) => (
-          <>
-            <PageHeader title={quote.code} intro={`Recibida el ${formatDateTime(quote.createdAt)}`} />
-            <QuoteView quote={quote} reload={reload} />
-          </>
-        )}
+        {(quote) => <QuoteView quote={quote} reload={reload} />}
       </QueryView>
     </div>
   )

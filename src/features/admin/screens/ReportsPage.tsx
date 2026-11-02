@@ -17,7 +17,7 @@ import {
   type ReportSheet,
 } from '../report-logic'
 import { useAdminAction, useAdminQuery } from '../use-admin-api'
-import { Card, DataTable, Field, inputClass, Notice, PageHeader, primaryButton, QueryView, secondaryButton, Stat } from '../ui'
+import { Card, Field, inputClass, Notice, PageHeader, primaryButton, QueryView, secondaryButton, Stat } from '../ui'
 
 const channelOrder: SalesChannel[] = ['web', 'web_chat', 'whatsapp', 'admin']
 
@@ -33,9 +33,9 @@ function downloadCsv(name: string, csv: string) {
 
 function CountList({ entries, empty }: { entries: [string, number][]; empty: string }) {
   const visible = entries.filter(([, count]) => count > 0)
-  if (visible.length === 0) return <p className="text-sm text-carbon-600">{empty}</p>
+  if (visible.length === 0) return <p className="text-lg text-carbon-600">{empty}</p>
   return (
-    <ul className="grid gap-2 text-sm">
+    <ul className="grid gap-2 text-lg">
       {visible.map(([label, count]) => (
         <li key={label} className="flex items-center justify-between gap-4">
           <span>{label}</span>
@@ -47,17 +47,17 @@ function CountList({ entries, empty }: { entries: [string, number][]; empty: str
 }
 
 function StockList({ rows, empty }: { rows: ReportStockRow[]; empty: string }) {
-  if (rows.length === 0) return <p className="text-sm text-carbon-600">{empty}</p>
+  if (rows.length === 0) return <p className="text-lg text-carbon-600">{empty}</p>
   return (
-    <ul className="grid gap-2 text-sm">
+    <ul className="grid gap-2 text-lg">
       {rows.map((row) => (
         <li key={row.sku} className="flex items-center justify-between gap-4">
           <span className="min-w-0">
-            {row.product} · {row.variant} <span className="text-xs text-carbon-600">({row.sku})</span>
+            {row.product} {row.variant}
           </span>
           <strong className="shrink-0 tabular-nums">
             {row.available}
-            {row.minStock !== null && <span className="font-normal text-carbon-600"> / mín. {row.minStock}</span>}
+            {row.minStock !== null && <span className="font-normal text-carbon-600"> (aviso en {row.minStock})</span>}
           </strong>
         </li>
       ))}
@@ -78,8 +78,8 @@ function ExportCard({ report }: { report: ReportPayload }) {
   }
 
   return (
-    <Card title="Exportar a Google Sheets">
-      <p className="max-w-3xl text-sm text-carbon-600">
+    <Card title="Llevar a Excel o Google Sheets">
+      <p className="max-w-3xl text-lg text-carbon-600">
         {report.canExport ? (
           <>
             «Enviar a Google Sheets» vacía y reescribe las hojas Resumen, Cotizaciones y Pedidos de la hoja de cálculo de Woodland con este
@@ -132,75 +132,66 @@ function Report({ report }: { report: ReportPayload }) {
         <Notice>El rango tiene demasiados registros y las cifras pueden quedar cortas. Elige un rango más corto.</Notice>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Stat
-          label="Consultas"
-          value={inquiries.conversations}
-          hint={`Chat web ${inquiries.byChannel.web_chat} · WhatsApp ${inquiries.byChannel.whatsapp}`}
-          to="/conversaciones?estado=todas"
-        />
-        <Stat label="Con seguimiento del equipo" value={inquiries.handedOff} hint="Consultas que el asistente dejó para revisión" />
-        <Stat
-          label="Cotizaciones"
-          value={quotes.total}
-          hint={`${plural(quotes.converted, 'convertida', 'convertidas')} en pedido · ${formatPercent(quotes.conversionRate)}`}
-          to="/cotizaciones"
-        />
-        <Stat label="Pedidos" value={orders.total} hint={plural(sales.count, 'venta confirmada', 'ventas confirmadas')} to="/pedidos" />
-        <Stat label="Monto vendido" value={formatMoney(sales.total)} hint="Pedidos confirmados o más avanzados" />
-        <Stat label="Ticket promedio" value={formatMoney(sales.averageTicket)} hint="Monto vendido entre ventas confirmadas" />
+      <section aria-label="Resumen" className="grid gap-2 rounded-2xl bg-nogal p-6 text-beige sm:p-8">
+        <p className="text-xl text-arena">En estos días vendiste</p>
+        <p className="font-display text-4xl break-words text-marfil sm:text-6xl">{formatMoney(sales.total)}</p>
+        <p className="text-xl">
+          en {plural(sales.count, 'pedido confirmado', 'pedidos confirmados')}
+          {sales.averageTicket !== null && <> · cada venta fue de {formatMoney(sales.averageTicket)} en promedio</>}.
+        </p>
+      </section>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Stat label="Personas que escribieron" value={inquiries.conversations} hint={`${inquiries.handedOff} necesitaron al equipo`} to="/conversaciones?estado=todas" />
+        <Stat label="Cotizaciones" value={quotes.total} hint={`${plural(quotes.converted, 'se volvió pedido', 'se volvieron pedido')} (${formatPercent(quotes.conversionRate)})`} to="/cotizaciones?ver=todas" />
+        <Stat label="Pedidos" value={orders.total} hint={plural(sales.count, 'confirmado', 'confirmados')} to="/pedidos" />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card title="Cotizaciones por estado">
-          <CountList
-            entries={quoteStatuses.map((s) => [quoteStatusLabels[s], quotes.byStatus[s] ?? 0])}
-            empty="Sin cotizaciones en este rango."
-          />
-        </Card>
-        <Card title="Pedidos por estado">
-          <CountList entries={orderStatuses.map((s) => [orderStatusLabels[s], orders.byStatus[s] ?? 0])} empty="Sin pedidos en este rango." />
-        </Card>
-        <Card title="Cotizaciones por canal">
-          <CountList
-            entries={channelOrder.map((c) => [channelLabels[c] ?? c, quotes.byChannel[c] ?? 0])}
-            empty="Sin cotizaciones en este rango."
-          />
-        </Card>
-        <Card title="Pedidos por canal">
-          <CountList entries={channelOrder.map((c) => [channelLabels[c] ?? c, orders.byChannel[c] ?? 0])} empty="Sin pedidos en este rango." />
-        </Card>
-        <Card title="Bajo mínimo">
-          <StockList
-            rows={report.lowStock}
-            empty="Ninguna variante está en su mínimo. Configura el stock mínimo de cada variante en Inventario para recibir alertas."
-          />
-        </Card>
-        <Card title="Sin stock">
-          <StockList rows={report.outOfStock} empty="Todas las variantes tienen unidades disponibles." />
-        </Card>
-      </div>
-
-      {report.topProducts.length === 0 ? (
-        <Card title="Lo más vendido">
-          <p className="text-sm text-carbon-600">Aún no hay ventas confirmadas en este rango.</p>
-        </Card>
-      ) : (
-        <section className="grid gap-3" aria-labelledby="mas-vendido">
-          <h2 id="mas-vendido" className="font-sans text-sm font-semibold tracking-[0.12em] text-madera-700 uppercase">
-            Lo más vendido
-          </h2>
-          <DataTable caption="Lo más vendido" head={['Producto', 'Unidades', 'Monto']}>
-            {report.topProducts.map((p) => (
-              <tr key={p.description}>
-                <td className="px-4 py-3">{p.description}</td>
-                <td className="px-4 py-3 tabular-nums">{p.quantity}</td>
-                <td className="px-4 py-3 tabular-nums">{formatMoney(p.total)}</td>
-              </tr>
+      <section aria-labelledby="mas-vendido" className="grid gap-4 rounded-2xl border border-linea bg-white p-6">
+        <h2 id="mas-vendido" className="text-3xl">
+          Lo más vendido
+        </h2>
+        {report.topProducts.length === 0 ? (
+          <p className="text-lg text-carbon-600">Aún no hay ventas confirmadas en estos días.</p>
+        ) : (
+          <ol className="grid gap-2">
+            {report.topProducts.map((p, i) => (
+              <li key={p.description} className="grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 rounded-xl bg-marfil px-4 py-3">
+                <span className="font-display text-2xl text-madera-700">{i + 1}</span>
+                <span className="grid">
+                  <span className="text-lg font-bold">{p.description}</span>
+                  <span className="text-base text-carbon-600">{plural(p.quantity, 'tabla')}</span>
+                </span>
+                <span className="text-lg font-bold">{formatMoney(p.total)}</span>
+              </li>
             ))}
-          </DataTable>
-        </section>
-      )}
+          </ol>
+        )}
+      </section>
+
+      <details className="rounded-2xl border border-linea bg-white p-6">
+        <summary className="cursor-pointer text-xl font-bold text-nogal">Ver más detalles (por estado, por canal y stock)</summary>
+        <div className="mt-6 grid gap-6 lg:grid-cols-2">
+          <Card title="Cotizaciones por estado">
+            <CountList entries={quoteStatuses.map((s) => [quoteStatusLabels[s], quotes.byStatus[s] ?? 0])} empty="Sin cotizaciones en estos días." />
+          </Card>
+          <Card title="Pedidos por estado">
+            <CountList entries={orderStatuses.map((s) => [orderStatusLabels[s], orders.byStatus[s] ?? 0])} empty="Sin pedidos en estos días." />
+          </Card>
+          <Card title="Cotizaciones por canal">
+            <CountList entries={channelOrder.map((c) => [channelLabels[c] ?? c, quotes.byChannel[c] ?? 0])} empty="Sin cotizaciones en estos días." />
+          </Card>
+          <Card title="Pedidos por canal">
+            <CountList entries={channelOrder.map((c) => [channelLabels[c] ?? c, orders.byChannel[c] ?? 0])} empty="Sin pedidos en estos días." />
+          </Card>
+          <Card title="Bajo el mínimo (hoy)">
+            <StockList rows={report.lowStock} empty="Ninguna tabla está en su mínimo." />
+          </Card>
+          <Card title="Sin stock (hoy)">
+            <StockList rows={report.outOfStock} empty="Todas las tablas tienen unidades libres." />
+          </Card>
+        </div>
+      </details>
 
       <ExportCard report={report} />
     </div>
@@ -220,8 +211,8 @@ function RangePicker({ range, onChange }: { range: DateRange; onChange: (range: 
               type="button"
               aria-pressed={active}
               onClick={() => onChange(value)}
-              className={`min-h-11 rounded-full border px-4 text-sm font-medium transition-colors ${
-                active ? 'border-nogal bg-nogal text-marfil' : 'border-nogal/30 text-nogal hover:bg-nogal/5'
+              className={`min-h-12 rounded-full border-2 px-5 text-base font-bold transition-colors ${
+                active ? 'border-nogal bg-nogal text-marfil' : 'border-linea bg-white text-nogal hover:border-nogal'
               }`}
             >
               {preset.label}
@@ -252,7 +243,7 @@ function RangePicker({ range, onChange }: { range: DateRange; onChange: (range: 
             />
           </Field>
         </div>
-        <p className="pb-3 text-sm text-carbon-600">
+        <p className="pb-3 text-lg font-semibold text-carbon">
           {formatDate(range.from)} – {formatDate(range.to)}
         </p>
       </div>
@@ -270,7 +261,7 @@ export function ReportsPage() {
     <div className="mx-auto grid max-w-6xl gap-8">
       <PageHeader
         title="Reportes"
-        intro="Indicadores comerciales por rango de fechas (días de Lima) y exportación a Google Sheets. Inventario muestra el estado actual."
+        intro="Elige los días que quieres ver."
       />
       <RangePicker range={range} onChange={(next) => setParams({ desde: next.from, hasta: next.to }, { replace: true })} />
       <QueryView state={state} onRetry={reload}>

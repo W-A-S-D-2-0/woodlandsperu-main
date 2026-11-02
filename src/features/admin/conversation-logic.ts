@@ -31,12 +31,26 @@ export function conversationTone(status: ConversationStatus): StatusTone {
 }
 
 /** Filtros de la bandeja, en el orden en que se muestran. `null` = todas. */
-export const conversationFilters: { key: string; status: ConversationStatus | null; label: string }[] = [
-  { key: 'esperan', status: 'needs_human', label: 'Por revisar' },
-  { key: 'asistente', status: 'open', label: 'Atendidas por el asistente' },
-  { key: 'cerradas', status: 'closed', label: 'Cerradas' },
-  { key: 'todas', status: null, label: 'Todas' },
+export const conversationFilters: { key: string; status: ConversationStatus | null; label: string; hint: string }[] = [
+  { key: 'esperan', status: 'needs_human', label: 'Por revisar', hint: 'El asistente dejó algo marcado para el equipo.' },
+  { key: 'asistente', status: 'open', label: 'Atendidas por el asistente', hint: 'El asistente las atendió solo; no hace falta hacer nada.' },
+  { key: 'cerradas', status: 'closed', label: 'Cerradas', hint: 'Conversaciones que ya no hace falta seguir.' },
+  { key: 'todas', status: null, label: 'Todas', hint: 'Todas las conversaciones, de la más reciente a la más antigua.' },
 ]
+
+/** Qué toca hacer con la conversación, en palabras simples. */
+export function conversationNextStep(status: ConversationStatus): { title: string; help: string } {
+  switch (status) {
+    case 'needs_human':
+      return { title: 'Revisar lo que dejó marcado', help: 'Lee el motivo y la conversación. Si hace falta, escríbele al cliente; luego márcala como revisada.' }
+    case 'with_human':
+      return { title: 'Ya la revisó el equipo', help: 'El asistente sigue atendiendo si el cliente vuelve a escribir.' }
+    case 'open':
+      return { title: 'No hay nada que hacer', help: 'El asistente la está atendiendo solo.' }
+    case 'closed':
+      return { title: 'Conversación cerrada', help: 'Se guarda solo como registro.' }
+  }
+}
 
 export function contactLabel(item: { contactName: string | null; contactPhone: string | null }): string {
   return item.contactName ?? item.contactPhone ?? 'Visitante de la web'
