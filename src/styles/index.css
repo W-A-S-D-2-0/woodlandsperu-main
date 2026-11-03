@@ -221,6 +221,15 @@
   animation: marquee 48s linear infinite;
 }
 
+/* Alianzas: cada fila de logos va a su ritmo; la segunda corre en sentido contrario. */
+.marquee-slow {
+  animation-duration: 40s;
+}
+
+.marquee-reverse {
+  animation-direction: reverse;
+}
+
 .marquee-host:hover .marquee {
   animation-play-state: paused;
 }
@@ -232,8 +241,7 @@
 }
 
 /* ---------------------------------------------------------------------------
- * Alianzas: la mesa (marfil con vetas finas, para que el encabezado oscuro se distinga) y las tablas de teca
- * que se posan sobre ella. Cada tabla trae su inclinación en --tilt; al pasar el cursor se endereza y se levanta.
+ * Alianzas: la mesa (marfil con vetas finas, para que el encabezado oscuro se distinga) por donde pasan los logos.
  * ------------------------------------------------------------------------- */
 .mesa {
   background-color: var(--color-marfil);
@@ -241,50 +249,6 @@
     repeating-linear-gradient(90deg, color-mix(in srgb, var(--color-madera) 5%, transparent) 0 1px, transparent 1px 15px),
     radial-gradient(52rem 30rem at 90% 0%, color-mix(in srgb, var(--color-arena) 45%, transparent), transparent 65%),
     linear-gradient(180deg, var(--color-marfil), var(--color-beige));
-}
-
-.tabla {
-  background-image:
-    repeating-linear-gradient(93deg, color-mix(in srgb, var(--color-nogal) 14%, transparent) 0 1px, transparent 1px 9px),
-    repeating-linear-gradient(88deg, color-mix(in srgb, var(--color-brasa) 10%, transparent) 0 3px, transparent 3px 23px),
-    linear-gradient(160deg, color-mix(in srgb, var(--color-madera) 30%, var(--color-madera-700)), color-mix(in srgb, var(--color-madera-700) 75%, var(--color-nogal)));
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--color-ambar) 45%, transparent),
-    0 22px 26px -18px color-mix(in srgb, var(--color-nogal) 70%, transparent);
-  --tilt-eff: calc(var(--tilt, 0deg) * var(--tilt-k, 1));
-  transform: rotate(var(--tilt-eff));
-  transition:
-    transform 0.5s var(--ease-suave),
-    box-shadow 0.5s var(--ease-suave);
-}
-
-/* En pantallas chicas la inclinación se reduce a la mitad: el texto torcido cansa al leer. */
-@media (max-width: 639px) {
-  .tabla {
-    --tilt-k: 0.5;
-  }
-}
-
-.tabla:hover {
-  transform: translateY(-8px) rotate(0deg) scale(1.02);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--color-ambar) 55%, transparent),
-    0 32px 34px -20px color-mix(in srgb, var(--color-nogal) 80%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--color-brasa) 60%, transparent);
-}
-
-/* La tabla «cae» sobre la mesa cuando su tarjeta se revela; sin fill-mode final para no bloquear el :hover. */
-[data-reveal='visible'] > .tabla,
-[data-reveal=''] > .tabla {
-  animation: tabla-cae 0.9s var(--ease-suave) backwards;
-  animation-delay: calc(var(--reveal-index, 0) * 90ms);
-}
-
-@keyframes tabla-cae {
-  from {
-    opacity: 0;
-    transform: translateY(-30px) rotate(calc(var(--tilt-eff, 0deg) + 6deg));
-  }
 }
 
 /* ---------------------------------------------------------------------------
