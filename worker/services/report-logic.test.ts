@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ReportResponse } from '../../../shared/api/panel-contracts'
+import type { ReportResponse } from '../../shared/api/panel-contracts'
 import { formatPercent, limaToday, presetRange, rangeFromParams, reportFileName, reportSheetRows, toCsv } from './report-logic'
 
 // 17 oct 2026, 02:00 en UTC = 16 oct, 21:00 en Lima.

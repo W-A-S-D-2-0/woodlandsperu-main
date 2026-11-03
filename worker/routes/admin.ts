@@ -30,7 +30,7 @@ import {
 import { requireRole, requireStaff, type StaffAuthFactory } from '../auth/staff-auth'
 import { PanelDataError, type PanelData, type PanelDataFactory } from '../data/panel-data'
 import { GoogleSheetsError, readGoogleSheetsConfig, spreadsheetUrl, writeSheets } from '../integrations/google-sheets'
-import { reportSheetRows, reportSheets } from '../../src/features/admin/report-logic'
+import { reportSheetRows, reportSheets } from '../services/report-logic'
 import { buildReport, reportBounds } from '../services/reports'
 import type { AppBindings } from '../types'
 import { imageResponse } from './chat'

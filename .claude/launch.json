@@ -26,6 +26,19 @@
         "--strictPort"
       ],
       "port": 5175
+    },
+    {
+      "name": "panel-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "../woodlandperu-panel",
+        "run",
+        "dev",
+        "--",
+        "--strictPort"
+      ],
+      "port": 5174
     }
   ]
 }

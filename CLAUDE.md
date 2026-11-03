@@ -5,6 +5,7 @@ Lee `README.md` y `docs/architecture/README.md` antes de cambios grandes.
 **Si retomas el trabajo en una sesión nueva, empieza por `docs/CONTINUAR.md`** (estado, decisiones y próximos pasos).
 
 - Stack: React + Vite + TypeScript + Tailwind 4 + React Router 8 (SPA) y Hono en Cloudflare Workers (`worker/`). Datos en Supabase desde la Fase 2.
+- El panel de administración está en otro repositorio (W-A-S-D-2-0/woodlandperu-panel). Aquí quedan la web, la API (incluida `/api/admin/*`) y la base. Si cambian los contratos de `shared/`, se copian también al panel.
 - Trabajo por fases; no adelantar integraciones (pagos, IA, WhatsApp, Sheets) sin autorización. No desplegar.
 - No inventar datos de la empresa (productos, precios, fotos, cifras, plazos, certificaciones). Textos en `src/content/`.
 - Sin pantallas simuladas: lo no implementado usa `PendingModule`.

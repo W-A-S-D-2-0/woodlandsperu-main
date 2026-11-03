@@ -1,5 +1,5 @@
-import type { ReportResponse } from '../../../shared/api/panel-contracts'
-import { channelLabels, orderStatusLabels, paymentStatusLabels, quoteStatusLabels } from './panel-logic'
+import type { ReportResponse } from '../../shared/api/panel-contracts'
+import { channelLabels, orderStatusLabels, paymentStatusLabels, quoteStatusLabels } from './status-labels'
 
 /** Rangos y exportación de reportes. Sin React: se prueban solos. Los importes vienen del servidor. */
 

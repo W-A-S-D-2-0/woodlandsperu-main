@@ -12,11 +12,8 @@ export default defineConfig({
     client: {
       build: {
         rollupOptions: {
-          // Dos aplicaciones independientes: la web pública y el sistema interno (/panel).
-          input: {
-            main: fileURLToPath(new URL('./index.html', import.meta.url)),
-            panel: fileURLToPath(new URL('./panel/index.html', import.meta.url)),
-          },
+          // Solo la web pública: el panel vive en su propio repositorio (woodlandperu-panel).
+          input: { main: fileURLToPath(new URL('./index.html', import.meta.url)) },
         },
       },
     },

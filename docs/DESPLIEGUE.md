@@ -1,15 +1,14 @@
 # Despliegue en producción (preparado; nada se ha desplegado)
 
-Tres piezas independientes, todas desde este mismo repositorio:
+Tres piezas independientes; la API y la landing salen de este repositorio y el panel, del suyo:
 
 | Pieza | Dónde | Qué es | Comando de build / salida |
 | --- | --- | --- | --- |
 | **API** | Cloudflare Workers (`woodland-peru-api`) | Hono: catálogo, cotizaciones, chat con IA, WhatsApp, API del panel | `npm run deploy:api` (usa `wrangler.api.jsonc`) |
 | **Landing** | Proyecto de Vercel 1 | Web pública, solo estática | `npm run build:landing` → `dist-landing` |
-| **Panel** | Proyecto de Vercel 2 | Sistema interno, solo estático, en la raíz de su dominio | `npm run build:panel` → `dist-panel` |
+| **Panel** | Proyecto de Vercel `woodland-peru-panel` | Sistema interno, solo estático, en la raíz de su dominio | Repositorio [woodlandperu-panel](https://github.com/W-A-S-D-2-0/woodlandperu-panel): `npm run build` → `dist` |
 
-La landing **no enlaza al panel** y los bundles están separados (se comprobó que la landing no contiene código del
-panel ni al revés). Ambos proyectos reenvían `/api/*` al Worker con una reescritura de `vercel.json`, así que el
+La landing **no enlaza al panel** y no contiene su código. Ambos proyectos reenvían `/api/*` al Worker con una reescritura de `vercel.json`, así que el
 navegador solo habla con su propio dominio (no hay CORS).
 
 `npm run dev` y `npm run build` siguen funcionando como antes (todo junto, para desarrollo local).
@@ -52,10 +51,11 @@ En `vercel.json` cambia `REEMPLAZAR` por la dirección real del Worker
 - Build Command: `npm run build:landing` · Output Directory: `dist-landing` · Install Command: `npm install`.
 - Variables de entorno: ninguna necesaria.
 
-### 4. Panel (proyecto de Vercel 2)
+### 4. Panel (proyecto de Vercel `woodland-peru-panel`)
 
-- Importar **el mismo** repositorio como un segundo proyecto. Framework: **Other**.
-- Build Command: `npm run build:panel` · Output Directory: `dist-panel`.
+- Conectado al repositorio [woodlandperu-panel](https://github.com/W-A-S-D-2-0/woodlandperu-panel) (rama `main`, público: el plan Hobby de Vercel no
+  conecta repositorios privados de una organización). Framework: **Other**.
+- Build Command: `npm run build` · Output Directory: `dist` · Install Command: `npm install`.
 - Variables de entorno (públicas, quedan dentro del bundle; solo la clave *publicable*, nunca la secreta):
   - `VITE_SUPABASE_URL`
   - `VITE_SUPABASE_PUBLISHABLE_KEY`
@@ -75,7 +75,7 @@ En Authentication › URL Configuration, agrega las direcciones finales de la la
   Worker directamente puede falsear ese encabezado. La defensa real es la base (RLS, límites de las funciones SQL).
 - **Seguridad del panel**: la protección real es la sesión de Supabase + el rol que verifican el Worker y RLS en cada
   operación. Opcional: poner Vercel Password Protection o similar delante del dominio del panel.
-- **Dos proyectos, un repositorio**: cada push a `main` los reconstruye a ambos.
-- **Vista previa local de cada build**: `npm run build:panel && npx vite preview --config vite.panel.config.ts`
-  (idem con `vite.landing.config.ts`). Sin la API detrás, las pantallas que llaman a `/api` mostrarán error.
+- **Cada repositorio, su proyecto**: un push a `master` de este repositorio reconstruye la landing; un push a `main` de
+  woodlandperu-panel, el panel. Si cambian los contratos de `shared/`, hay que copiarlos al panel.
+- **Vista previa local del build**: `npm run build:landing && npx vite preview --config vite.landing.config.ts`. Sin la API detrás, las pantallas que llaman a `/api` mostrarán error.
 - **El Worker «todo en uno»** (`wrangler.jsonc`, `npm run deploy`) sigue disponible, pero no es el camino de producción.

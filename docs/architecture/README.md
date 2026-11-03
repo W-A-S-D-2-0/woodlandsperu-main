@@ -2,13 +2,13 @@
 
 ## Vista general
 
-Un solo proyecto y un solo despliegue en Cloudflare Workers (plan gratuito):
+La web pública y la API viven en este repositorio; el panel de administración, en su propio repositorio
+([woodlandperu-panel](https://github.com/W-A-S-D-2-0/woodlandperu-panel)), con su propio despliegue en Vercel que reenvía `/api` a este Worker.
 
 ```
 Navegador ──► Cloudflare Workers
                ├─ Static Assets ──► web pública (index.html)
                │    · not_found_handling = single-page-application
-               ├─ Worker ──► /panel/*  sistema interno (panel/index.html, noindex)
                └─ Worker (Hono) ──► /api/*  (run_worker_first)
                     ├─ Supabase PostgreSQL + Auth (Fase 2)
                     ├─ Proveedor de IA (Fase 4)
@@ -18,14 +18,8 @@ Navegador ──► Cloudflare Workers
 ```
 
 - La web pública (`/`, `/catalogo`, …) la sirve el sistema de assets sin invocar el Worker.
-- El **sistema interno** es otra aplicación (`panel/index.html` → `src/panel/`), separada de la
-  landing: la web pública no tiene rutas, enlaces ni código del panel. Toda navegación bajo `/panel`
-  pasa por el Worker (`worker/panel.ts`), que entrega el HTML del panel con `X-Robots-Tag: noindex`
-  y `Cache-Control: no-store`.
-- Para que nadie fuera del equipo vea siquiera el login, en producción se recomienda **Cloudflare
-  Access** (Zero Trust, gratis hasta 50 usuarios) como aplicación sobre `<dominio>/panel*`, con la
-  lista de correos del personal. Es configuración en Cloudflare, sin cambios de código. Si se prefiere
-  un subdominio (`panel.<dominio>`), basta con apuntarlo al mismo Worker y redirigir su raíz a `/panel`.
+- El **panel de administración** es otro repositorio y otra aplicación: la web pública no tiene rutas, enlaces ni
+  código del panel. El panel solo consume `/api/admin/*` de este Worker; los permisos los deciden el Worker y la RLS.
 - El frontend **solo** habla con `/api`. Nunca llama a Supabase con privilegios, a Mercado Pago, a
   WhatsApp ni al proveedor de IA con credenciales privadas.
 

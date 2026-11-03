@@ -4,7 +4,7 @@
  *
  * - La SPA (React) se sirve como assets estáticos.
  * - Todo lo que esté bajo /api/* lo atiende primero el Worker (Hono).
- * - /panel/* es el sistema interno: el Worker sirve su propio HTML (no la landing).
+ * - El panel de administración vive en su propio repositorio (woodlandperu-panel).
  * - Los secretos NO van aquí: en local van en .dev.vars y en Cloudflare con `wrangler secret put`.
  */
 {
@@ -15,8 +15,8 @@
 	"assets": {
 		"binding": "ASSETS",
 		"not_found_handling": "single-page-application",
-		// /api: API (Hono). /panel: sistema interno, otra app con su propio HTML (ver worker/panel.ts).
-		"run_worker_first": ["/api/*", "/panel", "/panel/*"]
+		// /api: API (Hono).
+		"run_worker_first": ["/api/*"]
 	},
 	"observability": {
 		"enabled": true

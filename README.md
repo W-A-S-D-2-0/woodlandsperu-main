@@ -56,9 +56,10 @@ El `package-lock.json` conserva las URLs canónicas de `registry.npmjs.org`.
 
 ## Rutas
 
-La web pública y el sistema interno son **dos aplicaciones separadas** en el mismo proyecto, cada una
-con su HTML y su código (`index.html` → `src/main.tsx`; `panel/index.html` → `src/panel/main.tsx`).
-La landing no contiene rutas, enlaces ni código del sistema.
+Este repositorio tiene la web pública (`index.html` → `src/main.tsx`), la API (`worker/`) y la base de datos
+(`supabase/`). El **panel de administración** vive en su propio repositorio:
+[woodlandperu-panel](https://github.com/W-A-S-D-2-0/woodlandperu-panel) (proyecto de Vercel `woodland-peru-panel`). La landing no contiene rutas,
+enlaces ni código del panel.
 
 **Web pública**
 
@@ -69,13 +70,7 @@ La landing no contiene rutas, enlaces ni código del sistema.
 | `/corporativo` | Pedidos corporativos y cotizador | Pendiente · Fase 3 |
 | `/nosotros` | Historia de la empresa | Pendiente · Fase 7 |
 
-**Sistema interno** (`/panel`, no indexable; ver docs/architecture/README.md)
-
-| Ruta | Contenido | Estado |
-| --- | --- | --- |
-| `/panel/ingresar` | Ingreso del personal (correo y contraseña) | Implementada (requiere Supabase) |
-| `/panel` | Resumen | Protegida: sesión + personal activo |
-| `/panel/:modulo` | productos, inventario, cotizaciones, pedidos, clientes, conversaciones, reportes | Protegida · pantallas en construcción |
+**Panel de administración**: ver el README de [woodlandperu-panel](https://github.com/W-A-S-D-2-0/woodlandperu-panel). Su API (`/api/admin/*`) sigue aquí.
 
 **API**
 
