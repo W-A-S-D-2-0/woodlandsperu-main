@@ -10,7 +10,6 @@ import { ClosingChapter } from './chapters/ClosingChapter'
 import { GrainChapter } from './chapters/GrainChapter'
 import { HeroChapter } from './chapters/HeroChapter'
 import { ProcessChapter } from './chapters/ProcessChapter'
-import { SeedChapter } from './chapters/SeedChapter'
 
 const eyebrowClass = 'text-xs font-semibold tracking-[0.22em] uppercase'
 
@@ -56,8 +55,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Capítulo 2 · la semilla (contenido fijo) y capítulo 3 · la veta (cortina). */}
-      <SeedChapter />
+      {/* La veta (cortina). La historia de la empresa vive en /nosotros. */}
       <GrainChapter />
 
       {/* Capítulo 4 · personalizar: grabado vivo (personas) y logo (empresas), en pestañas. */}

@@ -76,7 +76,7 @@ Ver `docs/design/landing-brief.md`. Con los capítulos nuevos: `hero` y `heroDet
 
 | Archivo | Dónde se usa | Qué muestra |
 | --- | --- | --- |
-| `plantacion-teca.jpg` (1280×1040) | Capítulo 2 · La semilla, de fondo con velo oscuro | Trabajador con desbrozadora en la plantación de teca |
+| `plantacion-teca.jpg` (1280×1040) | Nosotros · la plantación | Trabajador con desbrozadora en la plantación de teca |
 | `artesano-fresando.jpg` (960×1280) | Capítulo 3 · base de la cortina | Artesano fresando el canal de una tabla |
 | `tablas-taller.jpg` (1280×720) | Capítulo 3 · lo que se descubre | Tablas terminadas apiladas en el taller |
 

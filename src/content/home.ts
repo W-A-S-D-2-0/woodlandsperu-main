@@ -139,7 +139,7 @@ export const homeContent = {
     ],
     cta: { label: 'Conoce nuestra historia', to: '/nosotros' },
   },
-  /** Capítulo 2: la plantación. La foto de fondo es `landingImages.plantation`. */
+  /** La plantación (página Nosotros). */
   seed: {
     lines: [
       'Sembramos lo que vendemos.', // DeLcCLJR-PU, Ddnb14mEWhZ

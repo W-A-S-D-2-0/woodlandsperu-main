@@ -525,13 +525,6 @@
   will-change: transform;
 }
 
-/* Anillos de crecimiento: cada anillo aparece cuando el progreso lo alcanza. */
-.ring {
-  opacity: clamp(0, calc(var(--p) * 11 + 5 - var(--i)), 1);
-  transform-origin: center;
-  transform: scale(calc(0.9 + clamp(0, calc(var(--p) * 11 + 5 - var(--i)), 1) * 0.1));
-}
-
 /* Cortina que descubre la segunda fotografía de izquierda a derecha (--r: avance de la cortina). */
 .wipe-frame {
   --r: clamp(0, calc(var(--p) * 1.25), 1);
@@ -640,7 +633,6 @@
 
   .depth,
   .step-in,
-  .ring,
   .fill-line,
   .pan-track {
     transform: none;
