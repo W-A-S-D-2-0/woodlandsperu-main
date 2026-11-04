@@ -10,6 +10,7 @@ import type { PublicDataFactory } from './data/public-data'
 import { createSupabaseChatData } from './data/supabase-chat'
 import { createSupabasePanelData } from './data/supabase-panel'
 import { createSupabasePublicData } from './data/supabase-public'
+import { createSupabaseStaffProfile, type StaffProfileFactory } from './data/staff-profile'
 import { adminRoutes } from './routes/admin'
 import { defaultReceiptReader, type ReceiptReaderFactory } from './integrations/receipt-reader'
 import { chatRoutes } from './routes/chat'
@@ -32,6 +33,8 @@ export interface AppOptions {
   assistantModel?: AssistantModelFactory
   /** Lector de capturas de pago (IA). Por defecto, el de Gemini con la clave del Worker. */
   receiptReader?: ReceiptReaderFactory
+  /** Cambios del propio perfil del personal (nombre). Por defecto, Supabase con la clave de servicio. */
+  staffProfile?: StaffProfileFactory
   /** fetch para llamadas salientes (WhatsApp). Las pruebas inyectan uno falso. */
   fetchImpl?: typeof fetch
 }
@@ -47,6 +50,7 @@ export function createApp({
   chatData = createSupabaseChatData,
   assistantModel = createAssistantModel,
   receiptReader = defaultReceiptReader,
+  staffProfile = createSupabaseStaffProfile,
   fetchImpl,
 }: AppOptions = {}) {
   const app = new Hono<AppBindings>().basePath('/api')
@@ -63,7 +67,7 @@ export function createApp({
   app.route('/', publicRoutes(publicData))
   app.route('/', chatRoutes(chatData, publicData, assistantModel, receiptReader))
   app.route('/', whatsappRoutes(chatData, publicData, assistantModel, fetchImpl))
-  app.route('/admin', adminRoutes(staffAuth, panelData, { fetchImpl }))
+  app.route('/admin', adminRoutes(staffAuth, panelData, { fetchImpl, staffProfile }))
 
   app.notFound((c) =>
     c.json<ApiErrorBody>(

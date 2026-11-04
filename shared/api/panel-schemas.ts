@@ -104,6 +104,11 @@ export const orderPatch = z
 
 export const customerNoteBody = z.object({ body: z.string().trim().min(1).max(2000) })
 
+/** PATCH /api/admin/me: la persona cambia su propio nombre (el rol no se toca desde aquí). */
+export const myProfileBody = z
+  .object({ fullName: z.string().trim().min(2, 'Escribe tu nombre.').max(120, 'El nombre es muy largo.') })
+  .strict()
+
 /** Cliente de una venta directa: uno existente (id) o los datos para crearlo o reutilizarlo. */
 const directOrderCustomer = z.union([z.object({ id: z.uuid() }).strict(), customerSchema])
 

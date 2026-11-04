@@ -3,6 +3,7 @@ import type { ApiErrorBody, StaffIdentity, StaffMeResponse } from '../../shared/
 import { createApp } from '../app'
 import type { StaffAuthFactory, StaffAuthProvider } from '../auth/staff-auth'
 import { readSupabaseConfig } from '../auth/supabase-auth'
+import type { StaffProfileFactory } from '../data/staff-profile'
 
 const VALID_TOKEN = 'token.valido.admin'
 const WORKSHOP_TOKEN = 'token.valido.taller'
@@ -98,5 +99,59 @@ describe('readSupabaseConfig', () => {
     expect(readSupabaseConfig({ SUPABASE_URL: 'https://x.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'k' })?.url).toBe(
       'https://x.supabase.co',
     )
+  })
+})
+
+describe('PATCH /api/admin/me', () => {
+  const configured: StaffAuthFactory = () => fakeProvider
+
+  function patch(body: unknown, token: string | undefined, store: StaffProfileFactory) {
+    const app = createApp({ staffAuth: configured, staffProfile: store })
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (token) headers.Authorization = `Bearer ${token}`
+    return app.request('/api/admin/me', { method: 'PATCH', headers, body: JSON.stringify(body) }, env)
+  }
+
+  function recordingStore() {
+    const calls: [string, string][] = []
+    const factory: StaffProfileFactory = () => ({
+      async updateFullName(userId, fullName) {
+        calls.push([userId, fullName])
+      },
+    })
+    return { calls, factory }
+  }
+
+  it('cambia solo el nombre de quien tiene la sesión, también desde el taller', async () => {
+    const { calls, factory } = recordingStore()
+    const res = await patch({ fullName: '  Brigitte Giraud  ' }, VALID_TOKEN, factory)
+    expect(res.status).toBe(200)
+    expect((await res.json()) as StaffMeResponse).toEqual({ userId: 'u-admin', role: 'admin', fullName: 'Brigitte Giraud' })
+    expect((await patch({ fullName: 'Alex Cárdenas' }, WORKSHOP_TOKEN, factory)).status).toBe(200)
+    expect(calls).toEqual([
+      ['u-admin', 'Brigitte Giraud'],
+      ['u-taller', 'Alex Cárdenas'],
+    ])
+  })
+
+  it('no deja cambiar el rol ni otro usuario desde el cuerpo', async () => {
+    const { calls, factory } = recordingStore()
+    expect((await patch({ fullName: 'Ana', role: 'admin' }, WORKSHOP_TOKEN, factory)).status).toBe(422)
+    expect((await patch({ fullName: 'Ana', userId: 'u-admin' }, WORKSHOP_TOKEN, factory)).status).toBe(422)
+    expect(calls).toEqual([])
+  })
+
+  it('valida el nombre y exige sesión', async () => {
+    const { calls, factory } = recordingStore()
+    expect((await patch({ fullName: ' ' }, VALID_TOKEN, factory)).status).toBe(422)
+    expect((await patch({ fullName: 'x'.repeat(121) }, VALID_TOKEN, factory)).status).toBe(422)
+    expect((await patch({ fullName: 'Ana Quispe' }, undefined, factory)).status).toBe(401)
+    expect((await patch({ fullName: 'Ana Quispe' }, OUTSIDER_TOKEN, factory)).status).toBe(403)
+    expect(calls).toEqual([])
+  })
+
+  it('responde 503 si no hay clave de servicio', async () => {
+    const res = await patch({ fullName: 'Ana Quispe' }, VALID_TOKEN, () => null)
+    expect(res.status).toBe(503)
   })
 })

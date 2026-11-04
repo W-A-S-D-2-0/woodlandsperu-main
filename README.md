@@ -78,6 +78,7 @@ enlaces ni código del panel.
 | --- | --- | --- |
 | `GET /api/health` | Estado del Worker | Implementada |
 | `GET /api/admin/me` | Identidad y rol del personal autenticado | Implementada (401 / 403 / 503) |
+| `PATCH /api/admin/me` | La persona cambia su propio nombre (`{ fullName }`); el rol no se toca. Usa `SUPABASE_SECRET_KEY` solo sobre su fila | Implementada (401 / 403 / 422 / 503) |
 | `/api/*` (otras) | Error JSON estándar 404 | Implementada |
 
 ## Variables de entorno

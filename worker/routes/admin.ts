@@ -17,6 +17,7 @@ import {
   idParam,
   inventoryMovementBody,
   inventorySettingsBody,
+  myProfileBody,
   orderListQuery,
   orderPatch,
   orderStatusBody,
@@ -29,6 +30,7 @@ import {
 } from '../../shared/api/panel-schemas'
 import { requireRole, requireStaff, type StaffAuthFactory } from '../auth/staff-auth'
 import { PanelDataError, type PanelData, type PanelDataFactory } from '../data/panel-data'
+import type { StaffProfileFactory } from '../data/staff-profile'
 import { GoogleSheetsError, readGoogleSheetsConfig, spreadsheetUrl, writeSheets } from '../integrations/google-sheets'
 import { reportSheetRows, reportSheets } from '../services/report-logic'
 import { buildReport, reportBounds } from '../services/reports'
@@ -46,7 +48,11 @@ const MOVEMENTS_LIMIT = 50
  * - Taller: consulta inventario y pedidos y registra producción (`production_in`).
  * Los permisos se aplican aquí y, además, en la base (RLS y chequeos de rol de las funciones).
  */
-export function adminRoutes(staffAuth: StaffAuthFactory, panelData: PanelDataFactory, options: { fetchImpl?: typeof fetch } = {}) {
+export function adminRoutes(
+  staffAuth: StaffAuthFactory,
+  panelData: PanelDataFactory,
+  options: { fetchImpl?: typeof fetch; staffProfile?: StaffProfileFactory } = {},
+) {
   const admin = requireRole('admin')
   const anyStaff = requireRole('admin', 'workshop')
 
@@ -92,6 +98,16 @@ export function adminRoutes(staffAuth: StaffAuthFactory, panelData: PanelDataFac
   return new Hono<AppBindings>()
     .use('*', requireStaff(staffAuth))
     .get('/me', (c) => c.json<StaffMeResponse>(c.get('staff')))
+    // Cada persona cambia solo su propio nombre: el id sale de la sesión verificada, nunca del cuerpo.
+    .patch('/me', async (c) => {
+      const body = await parseBody(c, myProfileBody)
+      if ('response' in body) return body.response
+      const store = options.staffProfile?.(c.env)
+      if (!store) return fail(c, 503, 'data_not_configured', 'El servicio no está disponible por ahora.')
+      const staff = c.get('staff')
+      await store.updateFullName(staff.userId, body.data.fullName)
+      return c.json<StaffMeResponse>({ ...staff, fullName: body.data.fullName })
+    })
 
     // Resumen
     .get('/dashboard', admin, handle(async (c, d) => c.json(await d.getDashboard())))
