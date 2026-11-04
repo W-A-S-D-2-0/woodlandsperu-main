@@ -12,7 +12,7 @@ Regla: no se inventan datos. Lo que no se pudo verificar queda sin descripción 
 | Redondos | «Pollo, pavo, cerdo y productos preparados»; logo (blanco, 144 px: es pequeño) | redondos.com.pe |
 | Tisur | «Terminal Internacional del Sur, puerto de Matarani»; logo blanco | tisur.com.pe |
 | Alexim | «Logística internacional de carga»; logo blanco; foto de su tabla grabada | alexim.com (logo) |
-| Promune | Solo el nombre | No se encontró nada fiable: confirmar con Woodland qué es y pedir su logo |
+| Promune | «Salud animal y prevención»; logo a color | promune.pe (logo del encabezado y descripción del sitio) |
 
 ## Restaurantes y parrilleros
 
@@ -28,7 +28,7 @@ Ya no se muestran fotos de tablas en esta sección (decisión del usuario, 2026-
 ## Pendiente (para Woodland)
 
 - ~~Confirmar que cada aliado acepta que se muestre su logo~~ — confirmado por el equipo (2026-10-22): se cuenta con los permisos.
-- Instagram de los restaurantes; logo y descripción de Promune; logos a color de Tisur, Redondos y Alexim.
+- Instagram de los restaurantes; logos a color de Tisur, Redondos y Alexim.
 - Fotos reales de la alianza (evento, entrega de tablas) para reemplazar los espacios solo con nombre.
 
 ## El asistente también las conoce

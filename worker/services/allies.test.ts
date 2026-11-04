@@ -14,7 +14,7 @@ describe('alliesReply', () => {
   it('reconoce a un aliado por su nombre aunque no lleve tildes ni apóstrofo', () => {
     expect(alliesReply('quien es giacomo bocchio')).toMatch(/Giacomo Bocchio \(chef\)/)
     expect(alliesReply('que es otorongos grill')).toMatch(/Otorongo’s Grill/)
-    expect(alliesReply('quien es Promune?')).toMatch(/^Promune es parte de las alianzas/)
+    expect(alliesReply('quien es Promune?')).toMatch(/^Promune \(salud animal y prevención\) es parte de las alianzas/)
   })
 
   it('no inventa nada sobre el aliado: solo repite su rubro de la web', () => {

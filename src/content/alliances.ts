@@ -46,7 +46,12 @@ export const alliancesContent = {
           logo: { src: '/images/alianzas/redondos.png', tone: 'dark', alt: 'Logo de Redondos' },
           url: 'https://www.redondos.com.pe',
         },
-        { name: 'Promune' },
+        {
+          name: 'Promune',
+          role: 'Salud animal y prevención',
+          logo: { src: '/images/alianzas/promune.png', tone: 'light', alt: 'Logo de Promune' },
+          url: 'https://www.promune.pe',
+        },
         {
           name: 'Tisur',
           role: 'Terminal Internacional del Sur, puerto de Matarani',
