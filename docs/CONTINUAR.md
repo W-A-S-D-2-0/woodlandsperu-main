@@ -1,6 +1,6 @@
 # Cómo continuar el proyecto (traspaso entre sesiones)
 
-Última actualización: 2026-11-02 (rediseño del panel interno; ver 12). Antes: 2026-10-17 (rediseño visual de la web; ver 3b),
+Última actualización: 2026-11-04 (proyecto dividido y registro del panel cerrado; ver 13). Antes: 2026-11-02 (rediseño del panel; ver 12) y 2026-10-17 (rediseño visual de la web; ver 3b),
 después del commit `5508633` (rama `main`, publicada en https://github.com/Pedrivizz/woodlandsperu).
 
 ## 1. Contexto en 30 segundos
@@ -343,3 +343,31 @@ migraciones ni cambios en el Worker. Verificado en laptop y celular (375 px) con
   solo se marca pagado con la captura del chat.
 - La tarea «El pago no coincide» no sale en Hoy: ese dato vive en el motivo de la conversación, no en el pedido.
 - Limpiar los datos de prueba (PRUEBA…, PED-000001 de S/ 17,356 que infla el ticket promedio) con OK del usuario.
+
+## 13. Proyecto dividido en dos repositorios y registro del panel cerrado (2026-11-04)
+
+**División (2026-11-03).** El panel salió a su propio repositorio,
+[woodlandperu-panel](https://github.com/W-A-S-D-2-0/woodlandperu-panel) (Vercel, proyecto `woodland-peru-panel`).
+Aquí quedan la web pública, la API (Worker) y la base. El Worker ahora solo atiende `/api`; los reportes que arma la API
+viven en `worker/services/report-logic.ts`. El panel copia los contratos en su `shared/`: **si cambian aquí, copiarlos
+allá en el mismo cambio** (al 2026-11-04 los 6 archivos coinciden).
+- En local se levantan los dos: la web con su API en `http://localhost:5173` (`npm run dev` aquí) y el panel en
+  `http://localhost:5174` (`npm run dev` en woodlandperu-panel, que reenvía `/api` al 5173). Conviene clonarlos uno al
+  lado del otro: `.claude/launch.json` tiene `panel-dev`, que espera `../woodlandperu-panel`.
+- Las secciones 4 y 12 de este documento hablan de `/panel` en el 5173: eso ya no existe.
+
+**Registro cerrado.** La migración `20261026130000_cuentas_sin_cupo.sql` hacía que **cualquier cuenta nueva entrara
+como administración** y el panel tenía «Crear cuenta»: con el registro de Supabase activo, cualquiera podía ver clientes,
+pagos y pedidos. Se corrigió:
+- `20261104100000_cuentas_solo_invitadas.sql`: solo entra quien tiene su correo en `staff_invites`, con ese rol; el
+  resto se crea sin acceso. Prueba en `supabase/tests/staff-invites.test.ts` (falla sin la migración).
+- woodlandperu-panel: se quitó «Crear cuenta» del inicio de sesión (y `signUp`). Queda «¿Aún no tienes cuenta? Pídela
+  a administración de Woodland.».
+- Cómo dar acceso: README → «Cuentas del equipo».
+
+**Pendiente (requiere al usuario):**
+1. Desactivar en Supabase Authentication → Sign In / Providers «Allow new users to sign up».
+2. Aplicar `20261104100000_cuentas_solo_invitadas.sql` a la base remota (SQL Editor + registrar la versión, ver sección 3).
+3. Revisar quién entró mientras estuvo abierto y desactivar lo que no sea del equipo:
+   `select s.user_id, u.email, s.full_name, s.role, s.is_active, s.created_at from public.staff_members s join auth.users u on u.id = s.user_id order by s.created_at;`
+4. Cargar en `staff_invites` los correos de Alex y Brigitte para cuentas futuras.

@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { ids, seedFixtures } from './support/fixtures'
 import { anon, as, createTestDb, service, user } from './support/test-db'
 
-/** Crear cuenta: quien se registra entra al panel; la lista de invitaciones solo define otro rol. Datos ficticios. */
+/** Crear cuenta: solo entra al panel quien tiene su correo en la lista de invitaciones, con ese rol. Datos ficticios. */
 
 let db: PGlite
 
@@ -26,14 +26,19 @@ describe('cuentas nuevas y lista de acceso', () => {
     expect(await staffOf(id)).toEqual([{ role: 'admin', full_name: 'Ana Quispe', is_active: true }])
   })
 
-  it('cualquier cuenta nueva entra como administración; con invitación, con el rol de la invitación', async () => {
-    const ana = '00000000-0000-4000-8000-0000000000a2'
+  it('una cuenta sin invitación se crea pero no entra al panel', async () => {
+    const extraño = '00000000-0000-4000-8000-0000000000a2'
+    await newUser(extraño, 'cualquiera@example.com', JSON.stringify({ full_name: 'Alguien de afuera' }))
+    expect(await staffOf(extraño)).toEqual([])
+    const cuenta = await db.query('select 1 from auth.users where id = $1', [extraño])
+    expect(cuenta.rows).toHaveLength(1)
+  })
+
+  it('con invitación entra con el rol de la invitación', async () => {
     const taller = '00000000-0000-4000-8000-0000000000a3'
     await db.exec(`insert into public.staff_invites (email, role) values ('taller@example.com', 'workshop')`)
-    await newUser(ana, 'ana@example.com', JSON.stringify({ full_name: 'Ana Quispe' }))
     await newUser(taller, 'taller@example.com')
-    expect(await staffOf(ana)).toEqual([{ role: 'admin', full_name: 'Ana Quispe', is_active: true }])
-    expect((await staffOf(taller))[0]?.role).toBe('workshop')
+    expect(await staffOf(taller)).toEqual([{ role: 'workshop', full_name: 'taller@example.com', is_active: true }])
   })
 
   it('la lista de acceso no se lee ni se edita desde la web', async () => {

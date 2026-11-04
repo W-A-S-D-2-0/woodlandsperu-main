@@ -116,14 +116,30 @@ npx supabase db push          # aplica las migraciones pendientes
 
 Con Docker en marcha también se puede levantar Supabase completo en local: `npx supabase start`.
 
-En el panel de Supabase: desactivar el registro público (Authentication → Sign In / Providers) y crear
-las cuentas del personal manualmente. Luego, desde el editor SQL, asignar el rol:
+### Cuentas del equipo (solo por invitación)
+
+El panel no tiene «Crear cuenta». Una cuenta de Supabase Auth solo entra al panel si su correo está en
+`staff_invites` (migración `20261104100000_cuentas_solo_invitadas.sql`); cualquier otra se crea sin acceso.
+
+En el panel de Supabase, desactivar el registro público (Authentication → Sign In / Providers → «Allow new users
+to sign up»). Para dar acceso a una persona:
+
+```sql
+-- 1. Autorizar el correo (role: 'admin' = administración, 'workshop' = taller)
+insert into public.staff_invites (email, role, full_name) values ('correo@empresa.pe', 'admin', 'Nombre Apellido');
+```
+
+2. Crear la cuenta en Authentication → Users (Add user, con Auto Confirm) o invitarla por correo. Al crearse,
+   queda como personal activo con ese rol.
+
+Si la cuenta ya existía antes de la invitación, agregarla directo:
 
 ```sql
 insert into public.staff_members (user_id, role, full_name)
 select id, 'admin', 'Nombre Apellido' from auth.users where email = 'correo@empresa.pe';
--- role: 'admin' (administración) o 'workshop' (taller)
 ```
+
+Para quitar el acceso: `update public.staff_members set is_active = false where user_id = '<id>';`
 
 ## Estructura
 
