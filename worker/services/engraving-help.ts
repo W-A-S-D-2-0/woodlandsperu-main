@@ -1,6 +1,7 @@
 import type { CatalogResponse } from '../../shared/api/contracts'
 import { defaultEngravingPosition, engravingFonts, engravingLimits, engravingPositions, type EngravingFont, type EngravingPosition } from '../../src/content/engraving'
 import { brigitte } from '../../src/content/site'
+import { defaultEngravingStyle, styleFromSummary, type EngravingStyle } from '../../src/features/engraving/engraving-logic'
 import { buildPreviewMarker, buildWhatsappMarker, parseMarkerLine, positionLabel, previewQuery } from '../../src/features/engraving/preview-marker'
 import type { HistoryMessage } from './assistant'
 import { looksLikeName, parseCustomerData } from './customer-data'
@@ -53,6 +54,7 @@ interface Known {
   line2: string
   position: EngravingPosition | null
   font: EngravingFont
+  style: EngravingStyle
 }
 
 const stripQuotes = (text: string) => text.replace(/^["«“'\s]+|["»”'\s]+$/g, '').trim()
@@ -69,6 +71,7 @@ function fromSummary(body: string): Known | null {
     line2: (lines[1] ?? '').slice(0, engravingLimits.line2),
     position: engravingPositions.find((p) => p.label === positionName)?.value ?? null,
     font: engravingFonts.find((f) => f.label === fontName)?.value ?? 'classic',
+    style: styleFromSummary(body),
   }
 }
 
@@ -85,19 +88,19 @@ function knownEngraving(history: readonly HistoryMessage[], current: string): Kn
       if (summary) return summary
       // «Quiero personalizar la Ya Vuelta con el nombre «Marta»»: el texto ya viene dicho entre comillas.
       const said = m.body.match(/["“«]([^"”»]{1,24})["”»]/)?.[1]?.trim()
-      if (said && STRONG.test(normalize(m.body))) return { line1: said, line2: '', position: null, font: 'classic' as EngravingFont }
+      if (said && STRONG.test(normalize(m.body))) return { line1: said, line2: '', position: null, font: 'classic' as EngravingFont, style: defaultEngravingStyle }
       const asked = history[i - 1]
       if (asked?.role === 'assistant' && (asked.body.includes(ENGRAVE_QUESTION) || asked.body.includes(ASK_TEXT))) {
         const answer = stripQuotes(m.body)
         const n = normalize(answer)
         if (answer.length > 0 && answer.length <= engravingLimits.line1 && !/^(no|ninguno|sin grabado)$/.test(n) && !POSITION_ASK.test(n) && !DOUBT.test(n)) {
-          return { line1: answer, line2: '', position: null, font: 'classic' as EngravingFont }
+          return { line1: answer, line2: '', position: null, font: 'classic' as EngravingFont, style: defaultEngravingStyle }
         }
       }
     }
     return null
   })()
-  if (quoted) return { ...(fromHistory ?? { line2: '', position: null, font: 'classic' as EngravingFont }), line1: quoted }
+  if (quoted) return { ...(fromHistory ?? { line2: '', position: null, font: 'classic' as EngravingFont, style: defaultEngravingStyle }), line1: quoted }
   return fromHistory
 }
 
@@ -198,7 +201,7 @@ export function engravingHelpReply(history: readonly HistoryMessage[], catalog: 
   const text1 = known.line1
   const model = modelFrom(history, catalog)
   const name = customerName(history)
-  const common = { line1: text1, line2: known.line2, font: known.font, model }
+  const common = { line1: text1, line2: known.line2, font: known.font, model, style: known.style }
   const whatsapp = (suggested: readonly EngravingPosition[], from: EngravingPosition = position) =>
     buildWhatsappMarker(whatsappMessage({ name, model, text: text1, current: from, suggested }), previewQuery({ ...common, positions: [from, ...suggested].slice(0, 5) }))
 

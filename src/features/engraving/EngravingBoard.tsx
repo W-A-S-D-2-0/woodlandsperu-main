@@ -1,17 +1,10 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { boardShapeFor, type BoardShape } from '../../content/board-shapes'
-import type { EngravingFont, EngravingPosition } from '../../content/engraving'
+import type { EngravingAlign, EngravingFont, EngravingPosition } from '../../content/engraving'
 import { landingImages } from '../../content/home'
-import { engravingFontSize } from './engraving-logic'
+import { defaultEngravingStyle, effectiveAlign, engravingFontSize, type EngravingStyle } from './engraving-logic'
+import { EngravingMotif, motifLabel } from './EngravingMotif'
 import { positionLabel } from './preview-marker'
-
-export const positionClass: Record<EngravingPosition, string> = {
-  'bottom-right': 'right-[8%] bottom-[10%] items-end text-right',
-  'bottom-left': 'bottom-[10%] left-[8%] items-start text-left',
-  'top-left': 'top-[10%] left-[8%] items-start text-left',
-  'top-right': 'top-[10%] right-[8%] items-end text-right',
-  center: 'inset-0 items-center justify-center text-center',
-}
 
 export const fontClass: Record<EngravingFont, string> = {
   classic: 'font-display font-medium',
@@ -19,35 +12,48 @@ export const fontClass: Record<EngravingFont, string> = {
   modern: 'font-sans font-semibold tracking-[0.12em] uppercase',
 }
 
-export const alignClass: Record<EngravingPosition, string> = {
-  'bottom-right': 'items-end text-right',
-  'bottom-left': 'items-start text-left',
-  'top-left': 'items-start text-left',
-  'top-right': 'items-end text-right',
-  center: 'inset-0 items-center justify-center text-center',
+/** El bloque de texto: centrado en la tabla o arrimado a su esquina (la esquina la fija textPlacement). */
+export const blockClass = (position: EngravingPosition) => (position === 'center' ? 'inset-0 justify-center' : '')
+
+/** Cómo se alinean entre sí las líneas y el dibujo. */
+export const alignClass: Record<EngravingAlign, string> = {
+  left: 'items-start text-left',
+  center: 'items-center text-center',
+  right: 'items-end text-right',
 }
 
-/** Dónde queda el texto según la silueta: la separación al borde horizontal es `inset`; la vertical crece con lo alargada que es la tabla. */
-export function textPlacement(position: EngravingPosition, shape: Pick<BoardShape, 'ratio' | 'inset'>): CSSProperties {
+/** En las esquinas el texto va bien pegado al borde (pedido de la dueña); la redonda conserva su margen para no salirse del círculo. */
+const CORNER_TIGHTEN = 0.65
+
+/** Dónde queda el texto según la silueta: la separación al borde sale de `inset`; la vertical crece con lo alargada que es la tabla. */
+export function textPlacement(position: EngravingPosition, shape: Pick<BoardShape, 'ratio' | 'inset' | 'kind'>): CSSProperties {
   if (position === 'center') return {}
-  const horizontal = shape.inset
-  const vertical = Math.min(26, Math.round(shape.inset * Math.max(shape.ratio, 1) * 10) / 10)
+  const tighten = shape.kind === 'round' ? 1 : CORNER_TIGHTEN
+  const horizontal = Math.round(shape.inset * tighten * 10) / 10
+  const vertical = Math.min(26, Math.round(shape.inset * Math.max(shape.ratio, 1) * tighten * 10) / 10)
   return {
     [position.startsWith('top') ? 'top' : 'bottom']: `${vertical}%`,
     [position.endsWith('left') ? 'left' : 'right']: `${horizontal}%`,
   }
 }
 
-function EngravedText({ line1, line2, font, position, shape }: { line1: string; line2: string; font: EngravingFont; position: EngravingPosition; shape: BoardShape }) {
+/** Alto del dibujo: un poco más que la línea más grande, para que se lea sin tapar el texto. */
+export const motifHeight = (largestLine: number) => `${Math.round(largestLine * 1.6 * 100) / 100}cqw`
+
+function EngravedText({ line1, line2, font, position, shape, style }: { line1: string; line2: string; font: EngravingFont; position: EngravingPosition; shape: BoardShape; style: EngravingStyle }) {
   // En madera oscura (Ñañito) el grabado se ve claro; en la clara, oscuro.
-  const text = `block leading-tight whitespace-nowrap ${shape.dark ? 'text-marfil' : 'text-carbon/90 mix-blend-multiply'} ${fontClass[font]}`
+  const tone = shape.dark ? 'text-marfil' : 'text-carbon/90 mix-blend-multiply'
+  const text = `block leading-tight whitespace-nowrap ${tone} ${fontClass[font]}`
+  const size1 = engravingFontSize(line1, font, 'line1', shape.room, style.sizes, !!line2)
+  const size2 = engravingFontSize(line2, font, 'line2', shape.room, style.sizes, true)
   return (
-    <div className={`absolute flex flex-col gap-[0.35em] ${alignClass[position]}`} style={textPlacement(position, shape)}>
-      <span className={text} style={{ fontSize: `${engravingFontSize(line1, font, 'line1', shape.room)}cqw` }}>
+    <div className={`absolute flex flex-col gap-[0.35em] ${blockClass(position)} ${alignClass[effectiveAlign(style, position)]}`} style={textPlacement(position, shape)}>
+      <EngravingMotif motif={style.motif} className={tone} style={{ height: motifHeight(Math.max(size1, line2 ? size2 : 0)) }} />
+      <span className={text} style={{ fontSize: `${size1}cqw` }}>
         {line1}
       </span>
       {line2 && (
-        <span className={text} style={{ fontSize: `${engravingFontSize(line2, font, 'line2', shape.room)}cqw` }}>
+        <span className={text} style={{ fontSize: `${size2}cqw` }}>
           {line2}
         </span>
       )}
@@ -136,12 +142,28 @@ export function textShape(shape: BoardShape): BoardShape {
  * La tabla con el texto ya grabado en una posición, con la silueta del modelo (redonda, con mango, alargada…).
  * Imagen fija: la usan el chat y la página que se comparte con ventas. Sin modelo conocido se dibuja la tabla genérica.
  */
-export function EngravingBoard({ line1, line2 = '', font, position, model, className = '' }: { line1: string; line2?: string; font: EngravingFont; position: EngravingPosition; model?: string; className?: string }) {
+export function EngravingBoard({
+  line1,
+  line2 = '',
+  font,
+  position,
+  model,
+  style = defaultEngravingStyle,
+  className = '',
+}: {
+  line1: string
+  line2?: string
+  font: EngravingFont
+  position: EngravingPosition
+  model?: string
+  style?: EngravingStyle
+  className?: string
+}) {
   const shape = boardShapeFor(model)
-  const label = `Vista previa${model ? ` en la tabla ${model}` : ''}: ${line1}${line2 ? `, ${line2}` : ''} en ${positionLabel(position).toLowerCase()}`
+  const label = `Vista previa${model ? ` en la tabla ${model}` : ''}: ${line1}${line2 ? `, ${line2}` : ''}${style.motif !== 'none' ? `, con ${motifLabel(style.motif)}` : ''} en ${positionLabel(position).toLowerCase()}`
   return (
     <BoardSilhouette shape={shape} label={label} className={className}>
-      <EngravedText line1={line1} line2={line2} font={font} position={position} shape={textShape(shape)} />
+      <EngravedText line1={line1} line2={line2} font={font} position={position} shape={textShape(shape)} style={style} />
     </BoardSilhouette>
   )
 }

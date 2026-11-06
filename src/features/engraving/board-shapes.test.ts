@@ -49,6 +49,18 @@ describe('silueta de cada tabla', () => {
     }
   })
 
+  it('en las esquinas el texto va más pegado al borde que el margen de la tabla (salvo la redonda)', () => {
+    for (const name of models) {
+      const shape = boardShapeFor(name)
+      const place = textPlacement('top-right', shape) as Record<string, string>
+      const right = Number.parseFloat(place.right!)
+      if (shape.kind === 'round') expect(right, name).toBe(shape.inset)
+      else expect(right, name).toBeLessThan(shape.inset)
+      // La Moshaco tiene un canal al 6 % del borde: el texto queda por dentro.
+      if (shape.groove) expect(right, name).toBeGreaterThan(6)
+    }
+  })
+
   it('el texto más largo cabe en la tabla más chica (el tamaño baja, no se corta)', () => {
     const long = 'Familia Rodríguez Pérez'
     for (const name of models) {

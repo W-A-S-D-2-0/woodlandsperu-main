@@ -37,7 +37,7 @@ export function EngravingSharePage() {
       <ul className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {view.positions.map((position) => (
           <li key={position} className="grid gap-2">
-            <EngravingBoard line1={view.line1} line2={view.line2} font={view.font} position={position} model={view.model} />
+            <EngravingBoard line1={view.line1} line2={view.line2} font={view.font} position={position} model={view.model} style={view.style} />
             <p className="text-sm font-semibold text-nogal">{positionLabel(position)}</p>
           </li>
         ))}

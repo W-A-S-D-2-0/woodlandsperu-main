@@ -128,7 +128,7 @@ function PreviewCarousel({ marker, onAsk }: { marker: PreviewMarker; onAsk?: (me
     const position = marker.positions[0]!
     return (
       <figure className="animate-chip-in overflow-hidden rounded-xl border border-linea bg-marfil p-2">
-        <EngravingBoard line1={marker.line1} line2={marker.line2} font={marker.font} position={position} model={marker.model} />
+        <EngravingBoard line1={marker.line1} line2={marker.line2} font={marker.font} position={position} model={marker.model} style={marker.style} />
         <figcaption className="flex items-center gap-1.5 px-1 pt-2 text-xs font-semibold text-nogal">
           <span aria-hidden="true" className="size-1.5 rounded-full bg-madera" />
           Tu tabla{marker.model ? ` ${marker.model}` : ''} · {positionLabel(position)}
@@ -146,7 +146,7 @@ function PreviewCarousel({ marker, onAsk }: { marker: PreviewMarker; onAsk?: (me
     >
       {marker.positions.map((position) => (
         <article key={position} className="flex w-[14rem] shrink-0 snap-start flex-col gap-2 overflow-hidden rounded-xl border border-linea bg-marfil p-2 select-none">
-          <EngravingBoard line1={marker.line1} line2={marker.line2} font={marker.font} position={position} model={marker.model} />
+          <EngravingBoard line1={marker.line1} line2={marker.line2} font={marker.font} position={position} model={marker.model} style={marker.style} />
           <p className="px-1 text-xs font-semibold text-nogal">{positionLabel(position)}</p>
           {onAsk && (
             <button type="button" className="rounded-full bg-nogal px-3 py-1.5 text-xs font-semibold text-marfil transition-colors hover:bg-madera-700" onClick={() => onAsk(`Prefiero la posición ${positionLabel(position)}`)}>

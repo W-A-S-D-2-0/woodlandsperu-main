@@ -5,9 +5,20 @@ import { buildPreviewMarker, buildWhatsappMarker, parseMarkerLine, parseSharePar
 describe('marcas de vista previa y WhatsApp', () => {
   it('lo que arma el servidor lo lee el chat', () => {
     const line = buildPreviewMarker({ line1: 'Ana', line2: 'y Luis', font: 'italic', positions: ['center', 'top-right'], model: 'Ya Vuelta' })
-    expect(parseMarkerLine(line)).toEqual({ kind: 'preview', line1: 'Ana', line2: 'y Luis', font: 'italic', positions: ['center', 'top-right'], model: 'Ya Vuelta' })
+    expect(parseMarkerLine(line)).toEqual({ kind: 'preview', line1: 'Ana', line2: 'y Luis', font: 'italic', positions: ['center', 'top-right'], model: 'Ya Vuelta', style: { sizes: 'top', align: null, motif: 'none' } })
     const wa = buildWhatsappMarker('Hola Brigitte, soy Ana.', 't=Ana')
     expect(parseMarkerLine(wa)).toEqual({ kind: 'whatsapp', message: 'Hola Brigitte, soy Ana.', query: 't=Ana' })
+  })
+
+  it('la marca lleva el estilo (tamaños, alineación y dibujo); las marcas sin estilo siguen funcionando', () => {
+    const style = { sizes: 'bottom', align: 'center', motif: 'chef-hat' } as const
+    const line = buildPreviewMarker({ line1: 'La parrilla', line2: 'De Andrea', font: 'classic', positions: ['top-right'], style })
+    expect(line).toBe('[[vista|La parrilla|De Andrea|classic|top-right||bottom,center,chef-hat]]')
+    expect(parseMarkerLine(line)).toMatchObject({ kind: 'preview', style })
+    // Sin cambios de estilo la marca queda como antes.
+    expect(buildPreviewMarker({ line1: 'Ana', font: 'classic', positions: ['center'], style: { sizes: 'top', align: null, motif: 'none' } })).toBe('[[vista|Ana||classic|center|]]')
+    expect(parseMarkerLine('[[vista|Ana||classic|center|]]')).toMatchObject({ style: { sizes: 'top', align: null, motif: 'none' } })
+    expect(parseMarkerLine('[[vista|Ana||classic|center||raro,x,y]]')).toMatchObject({ style: { sizes: 'top', align: null, motif: 'none' } })
   })
 
   it('el texto del cliente no puede romper la marca', () => {
@@ -38,6 +49,8 @@ describe('marcas de vista previa y WhatsApp', () => {
   it('la página que se comparte valida lo que trae la dirección', () => {
     const query = previewQuery({ line1: 'Ana', line2: 'Luis', font: 'modern', positions: ['center', 'bottom-left'], model: 'Moshaco' })
     expect(parseShareParams(`?${query}`)).toMatchObject({ line1: 'Ana', line2: 'Luis', font: 'modern', positions: ['center', 'bottom-left'], model: 'Moshaco' })
+    const styled = previewQuery({ line1: 'Ana', line2: 'Luis', font: 'classic', positions: ['top-right'], style: { sizes: 'same', align: 'left', motif: 'knives' } })
+    expect(parseShareParams(`?${styled}`)?.style).toEqual({ sizes: 'same', align: 'left', motif: 'knives' })
     expect(parseShareParams('?t=Ana&p=nada')).toBeNull()
     expect(parseShareParams('?p=center')).toBeNull()
     expect(parseShareParams('?t=Ana&p=center&f=otra')?.font).toBe('classic')

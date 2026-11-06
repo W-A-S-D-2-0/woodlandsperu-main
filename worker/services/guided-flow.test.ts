@@ -244,7 +244,19 @@ describe('pedido paso a paso sin IA', () => {
     const next = await chat(first, WITH_NAME)
     expect(next.out.text).not.toContain('[[vista')
     const done = await chat(first, WITH_NAME, YAPE)
-    expect(done.out.call?.args).toMatchObject({ items: [{ variantId: V1, quantity: 2, customization: 'Ana / 2026 · centro' }] })
+    expect(done.out.call?.args).toMatchObject({ items: [{ variantId: V1, quantity: 2, customization: 'Ana / 2026 · centro · letra cursiva' }] })
+  })
+
+  it('el estilo diseñado en «Para ti» (tamaños, alineación, dibujo) llega a la vista de Teca y al pedido', async () => {
+    const first =
+      'Quiero 1 unidad de Super Grill · XL. Grabado: "La parrilla" / "De Andrea" · Posición: Esquina superior derecha · Letra: Clásica · Tamaño: Abajo más grande · Alineación: Centro · Dibujo: Gorro de chef'
+    const { out } = await chat(first)
+    expect(out.text).toContain('con letra clásica y gorro de cocinero.')
+    expect(out.text).toContain('[[vista|La parrilla|De Andrea|classic|top-right|Super Grill|bottom,center,chef-hat]]')
+    const done = await chat(first, WITH_NAME, YAPE)
+    expect(done.out.call?.args).toMatchObject({
+      items: [{ customization: 'La parrilla / De Andrea · esquina superior derecha · letra clásica · abajo más grande · centrado · dibujo: gorro de chef' }],
+    })
   })
 
   it('la tarjeta del pedido manda modelo, cantidad y «sin grabado» en un solo mensaje: pasa directo a pedir los datos', async () => {

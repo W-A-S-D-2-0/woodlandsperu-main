@@ -30,6 +30,47 @@ export const engravingFonts: readonly { value: EngravingFont; label: string }[] 
   { value: 'modern', label: 'Moderna' },
 ]
 
+/**
+ * Pedidos de la dueña (notas de voz del 5 de noviembre de 2026, docs/context/comentarios-cliente-2026-11-05.md):
+ * con dos líneas, elegir cuál va más grande; alinear el texto; y sumar un dibujo pequeño (cuchillos, utensilios,
+ * gorro de cocinero). Los dibujos son una propuesta de diseño: el equipo confirma el grabado antes de producir.
+ */
+export type EngravingSizes = 'top' | 'bottom' | 'same'
+export type EngravingAlign = 'left' | 'center' | 'right'
+export type EngravingMotif = 'none' | 'knives' | 'utensils' | 'chef-hat'
+
+export const engravingSizes: readonly { value: EngravingSizes; label: string }[] = [
+  { value: 'top', label: 'Arriba más grande' },
+  { value: 'bottom', label: 'Abajo más grande' },
+  { value: 'same', label: 'Iguales' },
+]
+
+export const engravingAligns: readonly { value: EngravingAlign; label: string }[] = [
+  { value: 'left', label: 'Izquierda' },
+  { value: 'center', label: 'Centro' },
+  { value: 'right', label: 'Derecha' },
+]
+
+export const engravingMotifs: readonly { value: EngravingMotif; label: string }[] = [
+  { value: 'none', label: 'Sin dibujo' },
+  { value: 'knives', label: 'Cuchillos' },
+  { value: 'utensils', label: 'Utensilios' },
+  { value: 'chef-hat', label: 'Gorro de chef' },
+]
+
+/** El dibujo dicho en una frase (vista previa accesible y mensajes de Teca). */
+export const motifDescriptions: Record<Exclude<EngravingMotif, 'none'>, string> = {
+  knives: 'cuchillo y cuchilla cruzados',
+  utensils: 'tenedor y espátula cruzados',
+  'chef-hat': 'gorro de cocinero',
+}
+
+/** La alineación que corresponde a cada posición si la persona no elige otra: a la derecha en las esquinas derechas, etc. */
+export function naturalAlign(position: EngravingPosition): EngravingAlign {
+  if (position === 'center') return 'center'
+  return position.endsWith('left') ? 'left' : 'right'
+}
+
 export const engravingLimits = { line1: 24, line2: 32 } as const
 
 export const engravingContent = {

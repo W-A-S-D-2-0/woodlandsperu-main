@@ -1,11 +1,22 @@
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
-import { engravingContent, engravingFonts, engravingLimits, engravingPositions, type EngravingFont } from '../../content/engraving'
+import {
+  engravingAligns,
+  engravingContent,
+  engravingFonts,
+  engravingLimits,
+  engravingMotifs,
+  engravingPositions,
+  engravingSizes,
+  type EngravingFont,
+} from '../../content/engraving'
 import { boardScale, boardShapeForSize, boardSize } from '../../content/board-shapes'
 import { useCatalog } from '../catalog/use-catalog'
 import { openChat, SELECT_MODEL_EVENT, type SelectedModel } from '../chat/open-chat'
-import { alignClass, BoardSilhouette, fontClass, textPlacement, textShape } from './EngravingBoard'
+import { alignClass, blockClass, BoardSilhouette, fontClass, motifHeight, textPlacement, textShape } from './EngravingBoard'
+import { EngravingMotif, motifLabel } from './EngravingMotif'
 import {
   defaultEngraving,
+  effectiveAlign,
   engravingSummary,
   engravingFontSize,
   hasEngravingText,
@@ -154,8 +165,14 @@ export function EngravingChapter() {
   const writeShape = textShape(shape)
 
   const set = <K extends keyof EngravingValues>(key: K, value: EngravingValues[K]) => setValues((v) => ({ ...v, [key]: value }))
+  // Al mover el grabado de lugar, la alineación vuelve a la de esa posición (se puede cambiar después).
+  const setPosition = (position: EngravingValues['position']) => setValues((v) => ({ ...v, position, align: null }))
   const ready = hasEngravingText(values)
   const clean = burned
+  // Lo que se dibuja: lo ya grabado o, mientras no hay texto, las opciones elegidas.
+  const shown = clean ?? values
+  const size1 = clean ? engravingFontSize(clean.line1, clean.font, 'line1', writeShape.room, clean.sizes, !!clean.line2) : 0
+  const size2 = clean ? engravingFontSize(clean.line2, clean.font, 'line2', writeShape.room, clean.sizes, true) : 0
 
   function order() {
     if (!ready) return
@@ -196,8 +213,13 @@ export function EngravingChapter() {
             )}
           </Labeled>
 
-          <Choice legend="Dónde va el grabado" name="engrave-position" options={engravingPositions} value={values.position} onChange={(v) => set('position', v)} />
+          <Choice legend="Dónde va el grabado" name="engrave-position" options={engravingPositions} value={values.position} onChange={setPosition} />
           <Choice legend="Letra" name="engrave-font" options={engravingFonts} value={values.font} onChange={(v) => set('font', v)} />
+          {values.line2.trim() !== '' && (
+            <Choice legend="Tamaño de las líneas" name="engrave-sizes" options={engravingSizes} value={values.sizes} onChange={(v) => set('sizes', v)} />
+          )}
+          <Choice legend="Alinear el texto" name="engrave-align" options={engravingAligns} value={effectiveAlign(values, values.position)} onChange={(v) => set('align', v)} />
+          <Choice legend="Dibujo (opcional)" name="engrave-motif" options={engravingMotifs} value={values.motif} onChange={(v) => set('motif', v)} />
 
           {product && variant && quantity && (
             <p className="-mt-3 animate-chip-in rounded-xl border border-brasa/50 bg-nogal-800/60 px-4 py-2.5 text-sm text-marfil">
@@ -226,14 +248,20 @@ export function EngravingChapter() {
               shape={shape}
               scale={scale}
               className="animate-chip-in"
-              label={`Vista previa${product ? ` en la tabla ${product.name}${variant ? ` ${variant.name}` : ''}` : ''}: ${clean ? `${clean.line1}${clean.line2 ? `, ${clean.line2}` : ''}` : 'aún sin texto'}`}
+              label={`Vista previa${product ? ` en la tabla ${product.name}${variant ? ` ${variant.name}` : ''}` : ''}: ${clean ? `${clean.line1}${clean.line2 ? `, ${clean.line2}` : ''}${clean.motif !== 'none' ? `, con ${motifLabel(clean.motif)}` : ''}` : 'aún sin texto'}`}
             >
-              <div className={`absolute flex flex-col gap-[0.35em] ${alignClass[clean?.position ?? values.position]}`} style={textPlacement(clean?.position ?? values.position, writeShape)}>
+              <div className={`absolute flex flex-col gap-[0.35em] ${blockClass(shown.position)} ${alignClass[effectiveAlign(shown, shown.position)]}`} style={textPlacement(shown.position, writeShape)}>
                 {clean ? (
                   <>
-                    <EngravedLine text={clean.line1} font={clean.font} size={engravingFontSize(clean.line1, clean.font, 'line1', writeShape.room)} runKey={`1-${runKey}`} animate light={shape.dark} />
+                    <EngravingMotif
+                      key={`d-${runKey}`}
+                      motif={clean.motif}
+                      className={`burn burn-run ${shape.dark ? 'text-marfil' : 'text-carbon/90 mix-blend-multiply'}`}
+                      style={{ height: motifHeight(Math.max(size1, clean.line2 ? size2 : 0)) }}
+                    />
+                    <EngravedLine text={clean.line1} font={clean.font} size={size1} runKey={`1-${runKey}`} animate light={shape.dark} />
                     {clean.line2 && (
-                      <EngravedLine text={clean.line2} font={clean.font} size={engravingFontSize(clean.line2, clean.font, 'line2', writeShape.room)} runKey={`2-${runKey}`} animate light={shape.dark} />
+                      <EngravedLine text={clean.line2} font={clean.font} size={size2} runKey={`2-${runKey}`} animate light={shape.dark} />
                     )}
                   </>
                 ) : (

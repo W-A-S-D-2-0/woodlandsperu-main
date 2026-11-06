@@ -7,7 +7,8 @@ import type { HistoryMessage, ModelOutput } from './assistant'
 import { looksLikeName, parseCustomerData } from './customer-data'
 
 export { looksLikeName }
-import { engravingFonts, engravingPositions, type EngravingFont, type EngravingPosition } from '../../src/content/engraving'
+import { engravingFonts, engravingPositions, motifDescriptions, type EngravingFont, type EngravingPosition } from '../../src/content/engraving'
+import { styleDetails, styleFromSummary, type EngravingStyle } from '../../src/features/engraving/engraving-logic'
 import { buildPreviewMarker } from '../../src/features/engraving/preview-marker'
 import { chosenPosition, engravingPreviewText, looksLikeEngravingDoubt, positionPhrase } from './engraving-help'
 
@@ -71,12 +72,13 @@ interface Line extends Entry {
   /** Dónde va el grabado, si lo eligió en la vista previa («esquina inferior derecha»); si no, lo define el equipo. */
   position?: string
 }
-/** El grabado tal como el cliente lo diseñó en «Para ti»: texto, letra y posición. */
+/** El grabado tal como el cliente lo diseñó en «Para ti»: texto, letra, posición y estilo (tamaños, alineación, dibujo). */
 interface Design {
   line1: string
   line2: string
   font: EngravingFont
   position: EngravingPosition
+  style: EngravingStyle
 }
 
 interface Flow {
@@ -372,7 +374,9 @@ function withPrefill(entry: Entry, f: Flow): Line & { filter?: string } {
   // Diseñado en «Para ti»: ya eligió letra y posición, así que se muestra su tabla y no se le ofrecen otras posiciones.
   if (engraving && design) {
     f.designed = { ...design, model: entry.product.name }
-    const position = engravingPositions.find((p) => p.value === design.position)!.label.toLowerCase()
+    // El equipo recibe en el pedido todo lo que eligió: posición, letra y estilo.
+    const font = `letra ${engravingFonts.find((x) => x.value === design.font)!.label.toLowerCase()}`
+    const position = [engravingPositions.find((p) => p.value === design.position)!.label.toLowerCase(), font, ...styleDetails(design.style, !!design.line2)].join(' · ')
     return { ...entry, ...(qty ? { qty } : {}), engraving, position }
   }
   // Un grabado que ya viene dicho también muestra cómo queda la tabla, igual que si lo hubiera escrito en el chat.
@@ -402,7 +406,7 @@ function parseDesign(text: string): Design | null {
   const position = engravingPositions.find((p) => normalize(text).includes(`posicion: ${normalize(p.label)}`))?.value
   const font = engravingFonts.find((x) => normalize(text).includes(`letra: ${normalize(x.label)}`))?.value
   if (!lines[0] || !position || !font) return null
-  return { line1: lines[0], line2: lines[1] ?? '', font, position }
+  return { line1: lines[0], line2: lines[1] ?? '', font, position, style: styleFromSummary(text) }
 }
 
 /** El nombre que dio el cliente cuando Teca se lo preguntó en el saludo, si lo dio. */
@@ -536,7 +540,8 @@ ${FOOTER}`
 /** Cómo quedará la tabla que el cliente diseñó en «Para ti», con su imagen. */
 function designedText(d: NonNullable<Flow['designed']>): string {
   const font = engravingFonts.find((x) => x.value === d.font)!.label.toLowerCase()
-  return `Así quedará tu tabla: «${d.line1}»${d.line2 ? ` y «${d.line2}»` : ''} en ${positionPhrase(d.position)}, con letra ${font}.\n${buildPreviewMarker({ line1: d.line1, line2: d.line2, font: d.font, positions: [d.position], model: d.model })}`
+  const motif = d.style.motif !== 'none' ? ` y ${motifDescriptions[d.style.motif]}` : ''
+  return `Así quedará tu tabla: «${d.line1}»${d.line2 ? ` y «${d.line2}»` : ''} en ${positionPhrase(d.position)}, con letra ${font}${motif}.\n${buildPreviewMarker({ line1: d.line1, line2: d.line2, font: d.font, positions: [d.position], model: d.model, style: d.style })}`
 }
 
 /** El nombre aparece como palabra completa: «L» no debe coincidir con la «l» de «tablas». */
