@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import { Container } from '../ui/Container'
 import { Embers } from '../ui/Embers'
-import { GrowthRings } from '../ui/GrowthRings'
 
 interface PageIntroProps {
   eyebrow: string
@@ -9,11 +8,10 @@ interface PageIntroProps {
   children?: ReactNode
 }
 
-/** Encabezado estándar de las páginas públicas internas: superficie cálida, anillos y brasas, igual que la portada. */
+/** Encabezado estándar de las páginas públicas internas: superficie cálida y brasas, igual que la portada. */
 export function PageIntro({ eyebrow, title, children }: PageIntroProps) {
   return (
     <section className="surface-warm grain relative isolate overflow-hidden py-16 text-beige sm:py-24">
-      <GrowthRings className="spin-slow pointer-events-none absolute -top-40 -right-40 -z-10 h-[34rem] w-[34rem] max-w-none text-madera/60 sm:h-[44rem] sm:w-[44rem]" />
       <Embers />
       <Container className="relative">
         <p className="animate-rise text-xs font-semibold tracking-[0.22em] text-ambar uppercase">{eyebrow}</p>

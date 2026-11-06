@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeWhatsappNumber, whatsappUrl } from './whatsapp'
+import { normalizeWhatsappNumber, pageWhatsappMessage, whatsappUrl } from './whatsapp'
 
 describe('whatsapp', () => {
   it('normaliza el número a solo dígitos y rechaza los inválidos', () => {
@@ -14,5 +14,12 @@ describe('whatsapp', () => {
 
   it('sin número no hay enlace', () => {
     expect(whatsappUrl(null, 'Hola')).toBeNull()
+  })
+
+  it('el mensaje cambia según la página, con uno general para las demás', () => {
+    expect(pageWhatsappMessage('/')).toMatch(/^Hola Woodland, vengo de su página web/)
+    expect(pageWhatsappMessage('/alianzas')).toMatch(/alianzas/)
+    expect(pageWhatsappMessage('/alianzas/')).toBe(pageWhatsappMessage('/alianzas'))
+    expect(pageWhatsappMessage('/no-existe')).toBe(pageWhatsappMessage('/'))
   })
 })

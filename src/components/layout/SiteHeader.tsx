@@ -1,7 +1,6 @@
 import { useEffect, useId, useState } from 'react'
 import { NavLink, useLocation } from 'react-router'
 import { publicNav } from '../../content/site'
-import { openChat } from '../../features/chat/open-chat'
 import { useScrolled } from '../../hooks/useScrolled'
 import { Container } from '../ui/Container'
 import { Wordmark } from '../ui/Wordmark'
@@ -51,11 +50,6 @@ export function SiteHeader() {
                 </NavLink>
               </li>
             ))}
-            <li>
-              <button type="button" onClick={() => openChat()} className="ml-2 inline-flex min-h-10 items-center rounded-full bg-madera-700 px-5 text-sm font-semibold text-marfil transition-colors hover:bg-nogal">
-                Chatea con nosotros
-              </button>
-            </li>
           </ul>
         </nav>
 
@@ -108,21 +102,6 @@ export function SiteHeader() {
                   </NavLink>
                 </li>
               ))}
-              <li>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOpen(false)
-                    openChat()
-                  }}
-                  className="flex min-h-12 w-full items-center justify-between font-display text-xl text-madera-700 transition-colors hover:text-nogal"
-                >
-                  Chatea con nosotros
-                  <span aria-hidden="true" className="text-base text-madera">
-                    →
-                  </span>
-                </button>
-              </li>
             </ul>
           </Container>
         </div>

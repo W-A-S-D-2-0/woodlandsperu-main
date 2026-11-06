@@ -10,29 +10,9 @@ import { usePointerDepth, useScrollProgress } from '../../../hooks/useScrollProg
 /** Variables CSS de una capa: cuánto se mueve con el scroll (dy) y con el puntero (dx, pdy). */
 const layer = (vars: Record<string, string>) => vars as CSSProperties
 
-/** Anillos de crecimiento de la madera: la "firma" visual de la marca, de fondo y muy sutil. */
-function Rings({ className = '' }: { className?: string }) {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 400 400" className={className} fill="none" stroke="currentColor">
-      {Array.from({ length: 11 }, (_, i) => (
-        <ellipse
-          key={i}
-          cx="200"
-          cy="200"
-          rx={26 + i * 17}
-          ry={22 + i * 15}
-          strokeWidth="1"
-          strokeOpacity={0.9 - i * 0.07}
-          transform={`rotate(${i * 7} 200 200)`}
-        />
-      ))}
-    </svg>
-  )
-}
-
 /**
- * Capítulo 1 · Portada. Cuatro planos con profundidad: anillos de fondo, titular, foto principal y
- * foto de primer plano. Se mueven distinto con el scroll y con el puntero; el titular queda entre
+ * Capítulo 1 · Portada. Planos con profundidad: titular, foto principal y foto de
+ * primer plano. Se mueven distinto con el scroll y con el puntero; el titular queda entre
  * planos (la foto principal tapa solo el final de sus líneas cortas).
  */
 export function HeroChapter() {
@@ -43,11 +23,7 @@ export function HeroChapter() {
 
   return (
     <section ref={ref} className="chapter surface-warm grain relative overflow-hidden pt-8 pb-20 sm:pt-12 sm:pb-28 lg:pb-32">
-      {/* Plano 1 · fondo: anillos que se mueven más lento que todo lo demás. */}
-      <div className="depth pointer-events-none absolute -top-24 -right-40 text-madera/40" style={layer({ '--dy': '70px', '--dx': '-8px', '--pdy': '-6px' })}>
-        <Rings className="h-[46rem] w-[46rem] max-w-none" />
-      </div>
-      {/* Plano 4 · atmósfera: luz cálida al pie, sin tapar contenido. */}
+      {/* Atmósfera: luz cálida al pie, sin tapar contenido. */}
       <Embers />
 
       <Container className="relative grid items-center gap-14 lg:grid-cols-[1.1fr_0.9fr] lg:gap-0">

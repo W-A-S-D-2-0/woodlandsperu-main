@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router'
 import { CHAT_MESSAGE_MAX, type ChatMessage, type ChatResponse, type ChatStatus } from '../../../shared/api/chat'
 import { chatGreeting } from '../../content/chat-greeting'
 import { AuthedImage } from '../../components/ui/AuthedImage'
+import { WhatsappButton } from '../../components/ui/WhatsappButton'
 import { CHOICE_DEPOSIT, CHOICE_YAPE_PLIN, PAYMENT_CHOICE_LABEL, PROOF_BUTTON_LABEL } from '../../content/payment'
 import { useBackdropTone } from '../../hooks/useBackdropTone'
 import { ApiError, apiFetch } from '../../lib/api'
@@ -384,6 +385,11 @@ export function ChatWidget() {
               ×
             </button>
           </header>
+          {/* Quien prefiere hablar con una persona tiene el WhatsApp de Woodland a mano, sin salir del chat. */}
+          <div className="flex items-center justify-between gap-3 border-b border-linea bg-beige/60 px-4 py-2">
+            <p className="text-xs text-carbon-600">¿Prefieres hablar con una persona?</p>
+            <WhatsappButton className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full bg-selva px-3.5 text-xs font-semibold text-marfil transition-colors hover:bg-nogal" />
+          </div>
 
           <div className="relative flex min-h-0 flex-1 flex-col">
           <ol ref={listRef} className="grid flex-1 content-start gap-2.5 overflow-y-auto bg-[radial-gradient(circle_at_top,var(--color-beige)_0%,var(--color-marfil)_70%)] p-4" aria-live="polite" aria-label="Conversación" onScroll={onScroll}>
