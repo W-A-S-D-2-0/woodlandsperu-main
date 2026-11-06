@@ -161,8 +161,6 @@ export function splitFlowFooter(body: string): { text: string; inFlow: boolean }
 /** Una respuesta rápida: `label` es lo que se ve en el botón y `value` lo que se envía como mensaje. */
 export type Chip = string | { label: string; value: string; primary?: boolean }
 
-export const APPOINTMENT_CHIP_VALUE = '__agendar_cita__'
-export const APPOINTMENT_CHIP = { label: '📅 Agendar cita', value: APPOINTMENT_CHIP_VALUE, primary: true as boolean }
 const ORDER = 'Quiero hacer un pedido'
 const CORPORATE = 'Pedido para mi empresa'
 const ENGRAVING = '¿Cómo es el grabado?'
@@ -177,7 +175,7 @@ const TOPIC_DELIVERY = /\b(plazo|entrega|envio|delivery|demora|llega|provincia)/
 
 /**
  * Botones que se anticipan a lo que el cliente quiere, según cómo avanza la charla (como el autocompletado de un buscador).
- * Cuanto más muestra ganas de comprar, más arriba sube «Agendar cita»; si ya está decidido, es el botón principal.
+ * Si ya está decidido a comprar, «Quiero hacer un pedido» pasa a ser el botón principal.
  * Solo hace falta en conversaciones libres: el pedido paso a paso trae sus propios botones.
  */
 export function predictChips(messages: Pick<ChatMessage, 'role' | 'body'>[]): Chip[] {
@@ -192,7 +190,7 @@ export function predictChips(messages: Pick<ChatMessage, 'role' | 'body'>[]): Ch
     if (!ranked.some((c) => (typeof c === 'string' ? c : c.value) === value)) ranked.push(chip)
   }
 
-  if (ready) push(APPOINTMENT_CHIP)
+  if (ready) push({ label: ORDER, value: ORDER, primary: true })
   // Lo que se entiende mejor viendo se resuelve en la web: el botón lleva a esa parte de la página.
   if (TOPIC_ENGRAVING.test(lastSaid)) push(guideChip('grabado'))
   if (TOPIC_CORPORATE.test(lastSaid)) push(guideChip('empresa'))
@@ -207,13 +205,12 @@ export function predictChips(messages: Pick<ChatMessage, 'role' | 'body'>[]): Ch
   push(ENGRAVING)
   push(DELIVERY)
 
-  // Lo que ya se preguntó no se vuelve a ofrecer (salvo la cita y los botones que llevan a la web).
+  // Lo que ya se preguntó no se vuelve a ofrecer (salvo los botones que llevan a la web).
   const fresh = ranked.filter((c) => {
     const value = typeof c === 'string' ? c : c.value
-    return value === APPOINTMENT_CHIP_VALUE || value.startsWith('__ir:') || !said.includes(plain(value))
+    return value.startsWith('__ir:') || !said.includes(plain(value))
   })
-  const chips = fresh.slice(0, 4)
-  return chips.some((c) => typeof c !== 'string' && c.value === APPOINTMENT_CHIP_VALUE) ? chips : [...chips, { ...APPOINTMENT_CHIP, primary: false }]
+  return fresh.slice(0, 4)
 }
 
 /**
@@ -317,13 +314,6 @@ export async function chatImage(messageId: number, token: string, fetcher: typeo
   const response = await fetcher(`/api/chat/attachments/${messageId}`, { headers: { 'x-chat-token': token } })
   if (!response.ok) throw new Error('No se pudo cargar la imagen.')
   return response.blob()
-}
-
-/** Nombre y celular para agendar una cita: null si están bien, o qué falta. */
-export function validAppointmentContact(name: string, phone: string): string | null {
-  if (name.trim().length < 2) return 'Escribe tu nombre.'
-  if (!/^\+?[0-9]{6,15}$/.test(phone.replace(/[\s()-]/g, ''))) return 'Escribe un celular válido (solo números).'
-  return null
 }
 
 // --- Tarjeta del pedido ---------------------------------------------------------

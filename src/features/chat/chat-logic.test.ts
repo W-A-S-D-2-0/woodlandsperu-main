@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatMessage } from '../../../shared/api/chat'
 import { chatToken } from '../../../shared/api/chat'
-import { createChatToken, lastMessageId, loadChatToken, messageTime, formatSizes, parseBody, photoForModel, typedLength, mergeMessages, splitFlowFooter, startsNewConversation, statusNotice, trailingWarnings, transientMessages, isPlainText, parseRich, chatImage, flowChips, validAppointmentContact, parseProductRows, withoutProductRows, quantityOptions, orderCardMessage, predictChips, APPOINTMENT_CHIP_VALUE } from './chat-logic'
+import { createChatToken, lastMessageId, loadChatToken, messageTime, formatSizes, parseBody, photoForModel, typedLength, mergeMessages, splitFlowFooter, startsNewConversation, statusNotice, trailingWarnings, transientMessages, isPlainText, parseRich, chatImage, flowChips, parseProductRows, withoutProductRows, quantityOptions, orderCardMessage, predictChips } from './chat-logic'
 
 const msg = (id: number, body = 'x'): ChatMessage => ({ id, role: 'customer', body, createdAt: '2026-10-17T10:00:00Z' })
 
@@ -269,16 +269,6 @@ describe('flowChips', () => {
   })
 })
 
-describe("validAppointmentContact", () => {
-  it("pide nombre y un celular de solo números", () => {
-    expect(validAppointmentContact("Mario", "900 345 392")).toBeNull()
-    expect(validAppointmentContact("Mario", "+51 900345392")).toBeNull()
-    expect(validAppointmentContact("", "900345392")).toBe("Escribe tu nombre.")
-    expect(validAppointmentContact("Mario", "12")).toMatch(/celular/)
-    expect(validAppointmentContact("Mario", "abc")).toMatch(/celular/)
-  })
-})
-
 describe('tarjeta del pedido', () => {
   const body = 'Estos son nuestros modelos:\n\n1. Moshaco · XL · 65*46*4 — S/ 100.00\n2. Ya Vuelta · Mediana — precio por confirmar\n\n¿Cuál quieres? Responde con el número o el nombre.\nSi buscas otra medida o un diseño propio, escríbelo.\n(Pedido paso a paso · escribe «cancelar» para salir)'
 
@@ -319,18 +309,18 @@ describe('predictChips', () => {
   const said = (...texts: string[]) => texts.map((body) => ({ role: 'customer' as const, body }))
   const values = (chips: ReturnType<typeof predictChips>) => chips.map((c) => (typeof c === 'string' ? c : c.value))
 
-  it('al empezar ofrece los atajos de siempre y la cita al final', () => {
+  it('al empezar ofrece los atajos de siempre, sin «Agendar cita»', () => {
     const v = values(predictChips([]))
     expect(v[0]).toBe('__ir:catalogo__')
-    expect(v.at(-1)).toBe(APPOINTMENT_CHIP_VALUE)
+    expect(v).not.toContain('__agendar_cita__')
   })
 
-  it('si el cliente quiere comprar, la cita pasa a ser el botón principal', () => {
-    expect(predictChips(said('Me interesa una tabla'))[0]).toMatchObject({ value: APPOINTMENT_CHIP_VALUE, primary: true })
+  it('si el cliente quiere comprar, hacer el pedido pasa a ser el botón principal', () => {
+    expect(predictChips(said('Me interesa una tabla'))[0]).toMatchObject({ value: 'Quiero hacer un pedido', primary: true })
   })
 
-  it('con varias señales de interés seguidas también se anticipa la cita', () => {
-    expect(predictChips(said('cuanto cuesta', 'y el plazo de entrega'))[0]).toMatchObject({ value: APPOINTMENT_CHIP_VALUE, primary: true })
+  it('con varias señales de interés seguidas también se anticipa el pedido', () => {
+    expect(predictChips(said('cuanto cuesta', 'y el plazo de entrega'))[0]).toMatchObject({ value: 'Quiero hacer un pedido', primary: true })
   })
 
   it('un tema concreto sube su botón: empresa o grabado', () => {
@@ -338,11 +328,10 @@ describe('predictChips', () => {
     expect(values(predictChips(said('hola, mi logo')))[0]).toBe('__ir:grabado__')
   })
 
-  it('no repite lo que el cliente ya preguntó, salvo el catálogo y la cita', () => {
+  it('no repite lo que el cliente ya preguntó, salvo el catálogo', () => {
     const v = values(predictChips(said('quiero hacer un pedido')))
     expect(v).not.toContain('Quiero hacer un pedido')
     expect(v).toContain('__ir:catalogo__')
-    expect(v).toContain(APPOINTMENT_CHIP_VALUE)
   })
 
   it('lo que se ve mejor en la web trae un botón que lleva a esa parte de la página', () => {
@@ -352,6 +341,6 @@ describe('predictChips', () => {
   })
 
   it('sin tildes ni mayúsculas igual reconoce la intención de compra', () => {
-    expect(predictChips(said('QUISIERA COTIZACIÓN'))[0]).toMatchObject({ value: APPOINTMENT_CHIP_VALUE })
+    expect(predictChips(said('QUISIERA COTIZACIÓN'))[0]).toMatchObject({ value: 'Quiero hacer un pedido' })
   })
 })

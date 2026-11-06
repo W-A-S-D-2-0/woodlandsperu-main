@@ -7,8 +7,7 @@ import { WhatsappButton } from '../../components/ui/WhatsappButton'
 import { CHOICE_DEPOSIT, CHOICE_YAPE_PLIN, PAYMENT_CHOICE_LABEL, PROOF_BUTTON_LABEL } from '../../content/payment'
 import { useBackdropTone } from '../../hooks/useBackdropTone'
 import { ApiError, apiFetch } from '../../lib/api'
-import { APPOINTMENT_CHIP, APPOINTMENT_CHIP_VALUE, chatImage, createChatToken, flowChips, lastMessageId, mergeMessages, messageTime, parseBody, parseProductRows, predictChips, type ProductRow, startsNewConversation, statusNotice, trailingWarnings, transientMessages, withoutProductRows } from './chat-logic'
-import { AppointmentCard } from './AppointmentCard'
+import { chatImage, createChatToken, flowChips, lastMessageId, mergeMessages, messageTime, parseBody, parseProductRows, predictChips, type ProductRow, startsNewConversation, statusNotice, trailingWarnings, transientMessages, withoutProductRows } from './chat-logic'
 import { ChatBody } from './ChatBody'
 import { ChatChips } from './ChatChips'
 import { OrderCard } from './OrderCard'
@@ -77,8 +76,6 @@ export function ChatWidget() {
   // Mensaje de Teca que se está escribiendo ahora (solo el recién llegado, nunca los recuperados).
   const [typingId, setTypingId] = useState<number | null>(null)
   const [away, setAway] = useState(false)
-  // Tarjeta para agendar una cita con la administración.
-  const [scheduling, setScheduling] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -348,8 +345,7 @@ export function ChatWidget() {
         : last.role !== 'customer' && !inFlow
           ? predictChips(messages)
           : []
-  // «Agendar cita» siempre está a mano: quien prefiere hablar con la administración no depende del horario del equipo.
-  const rowChips = pending || uploading || scheduling || orderDraft ? [] : chips.some((c) => typeof c !== 'string' && c.value === APPOINTMENT_CHIP_VALUE) ? chips : [...chips, { ...APPOINTMENT_CHIP, primary: false }]
+  const rowChips = pending || uploading || orderDraft ? [] : chips
   const notice = statusNotice(status)
   // El servidor guarda el saludo en la conversación: no se muestra dos veces.
   const shown = [GREETING, ...messages.filter((m) => m.body !== GREETING.body)]
@@ -396,7 +392,7 @@ export function ChatWidget() {
             {shown.map((m) => (
               <li key={m.id} className={`${m.role !== 'customer' && parseBody(m.body).some((b) => b.kind !== 'text') ? 'w-full max-w-full' : 'max-w-[85%]'} rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${bubble[m.role] ?? bubble.system}`}>
                 {m.role === 'staff' && <span className="mb-0.5 block text-[0.7rem] font-semibold tracking-[0.08em] text-madera-700 uppercase">Equipo Woodland</span>}
-                {m.role === 'customer' ? m.body : <ChatBody body={parseProductRows(m.body) ? withoutProductRows(m.body) : m.body} typing={m.id === typingId} onAsk={(message) => void submit(undefined, message)} onSeeAll={catalogOnPage ? seeCatalog : undefined} onCancel={m.id === last?.id && !pending && !uploading ? () => void submit(undefined, 'cancelar') : undefined} onSchedule={() => setScheduling(true)} />}
+                {m.role === 'customer' ? m.body : <ChatBody body={parseProductRows(m.body) ? withoutProductRows(m.body) : m.body} typing={m.id === typingId} onAsk={(message) => void submit(undefined, message)} onSeeAll={catalogOnPage ? seeCatalog : undefined} onCancel={m.id === last?.id && !pending && !uploading ? () => void submit(undefined, 'cancelar') : undefined} />}
                 {m.id === last?.id && orderRows && <OrderCard rows={orderRows} onSubmit={(message) => void submit(undefined, message)} onEngrave={engraveIn} />}
                 {m.attachment && (
                   <div className="mt-2">
@@ -440,18 +436,6 @@ export function ChatWidget() {
               </>
             )}
           </ol>
-            {scheduling && (
-              <AppointmentCard
-                token={token}
-                onClose={() => setScheduling(false)}
-                onBooked={(res) => {
-                  setScheduling(false)
-                  setStatus(res.status)
-                  setMessages((current) => mergeMessages(current, res.messages))
-                  setTypingId(res.messages.filter((m) => m.role === 'assistant').at(-1)?.id ?? null)
-                }}
-              />
-            )}
             {away && (
               <button
                 type="button"
@@ -470,7 +454,6 @@ export function ChatWidget() {
           {rowChips.length > 0 && <ChatChips options={rowChips} onPick={(q) => {
             const dest = parseGuideValue(q)
             if (dest) goTo(dest)
-            else if (q === APPOINTMENT_CHIP_VALUE) setScheduling(true)
             else void submit(undefined, q)
           }} />}
 
