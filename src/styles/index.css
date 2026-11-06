@@ -312,8 +312,33 @@
 }
 
 /* ---------------------------------------------------------------------------
- * Detalles vivos: punto de la línea de tiempo que late y tarjetas que se elevan al pasar el cursor.
+ * Cierre y detalles vivos: anillos que respiran y giran muy despacio (solo en el cierre), punto de
+ * la línea de tiempo que late y tarjetas que se elevan al pasar el cursor.
  * ------------------------------------------------------------------------- */
+.ring-breathe {
+  animation: ring-glow 6s ease-in-out infinite alternate;
+  animation-delay: calc(var(--i, 0) * -0.55s);
+}
+
+@keyframes ring-glow {
+  from {
+    opacity: 0.45;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.spin-slow {
+  animation: spin-slow 160s linear infinite;
+}
+
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .dot-pulse {
   position: relative;
 }
@@ -667,6 +692,11 @@
   .ember,
   .dot-pulse::after {
     display: none;
+  }
+
+  .ring-breathe,
+  .spin-slow {
+    animation: none !important;
   }
 
   .lift:hover {
