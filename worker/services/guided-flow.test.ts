@@ -355,9 +355,9 @@ describe('saludo junto con el nombre', () => {
 
   it('Teca devuelve el saludo y usa el nombre', () => {
     const greeting = { role: 'assistant' as const, body: '¡Hola! Soy Teca. Para empezar, ¿cómo te llamas?' }
-    expect(greetingNameReply([greeting, { role: 'customer', body: 'Hola, me llamo Hugo.' }])).toBe('¡Hola, Hugo! Mucho gusto. ¿Qué te interesa: precios, plazos, grabado o hacer un pedido?')
-    expect(greetingNameReply([greeting, { role: 'customer', body: 'Ana' }])).toBe('Mucho gusto, Ana. ¿Qué te interesa: precios, plazos, grabado o hacer un pedido?')
-    expect(greetingNameReply([greeting, { role: 'customer', body: 'Hola' }])).toBe('¡Hola! Mucho gusto. Para empezar, ¿cómo te llamas?')
+    expect(greetingNameReply([greeting, { role: 'customer', body: 'Hola, me llamo Hugo.' }])).toBe('¡Hola, Hugo! Qué gusto conocerte. Cuéntame, ¿buscas una tabla para tu casa, para regalar o para tu negocio? Con gusto te ayudo con precios, plazos, grabado o tu pedido.')
+    expect(greetingNameReply([greeting, { role: 'customer', body: 'Ana' }])).toBe('¡Qué gusto conocerte, Ana! Cuéntame, ¿buscas una tabla para tu casa, para regalar o para tu negocio? Con gusto te ayudo con precios, plazos, grabado o tu pedido.')
+    expect(greetingNameReply([greeting, { role: 'customer', body: 'Hola' }])).toBe('¡Hola! Qué gusto saludarte. Para empezar, ¿cómo te llamas?')
     expect(greetingNameReply([greeting, { role: 'customer', body: 'Gracias' }])).toBeNull()
   })
 

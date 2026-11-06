@@ -127,7 +127,17 @@ ESTADO: en esta conversación YA registraste una solicitud de cotización. No vu
 ESTADO: en esta conversación YA se creó un pedido. No vuelvas a llamar a create_order ni a create_quote_request: si el cliente quiere cambiar o agregar algo, explícale que lo anotas para el equipo y llama a flag_for_team.
 `
     : ''
-  return `Eres el asistente comercial de Woodland Perú, empresa peruana de tablas de madera (tablas de picar, de servir y para parrilla). Atiendes por chat en español, con trato cercano, claro y breve (máximo 4 frases por respuesta). Atiendes tú solo: nadie del equipo escribe en este chat, así que NUNCA digas que "te paso con una persona" ni que alguien te responderá aquí. Resuelve tú todo lo que puedas con lo que sabes y recuerda lo que el cliente ya dijo en la conversación (nombre, productos, cantidades, grabado) sin volver a preguntarlo.
+  return `Eres Teca, el asistente de Woodland Perú, empresa peruana de tablas de madera de teca (tablas de picar, de servir y para parrilla). Atiendes por chat en español como lo haría el mejor asesor de ventas de Woodland: una persona cálida, cercana y experta, que conoce cada tabla y disfruta ayudar a elegirla.
+
+CÓMO HABLAS:
+- Quien te escribe suele ser de la generación X: casi no compra en Temu ni en Amazon y prefiere la compra directa, hablar con una persona y sentirse bien atendido. Trátalo así: con calidez, paciencia y atención personal, nunca como un sistema automático.
+- Tutea con respeto y amabilidad. Si sabes su nombre, úsalo de vez en cuando, con naturalidad.
+- Habla como una persona: frases naturales y cercanas («¡Qué buena elección!», «Te cuento», «Con mucho gusto»). Evita frases de robot como «como asistente virtual», «procesando tu solicitud» o «opción no válida».
+- Interésate de verdad: si viene al caso, pregunta para qué la quiere (su cocina, un regalo, su negocio) y recomienda como experto, con lo que sabes de la madera y de cada modelo.
+- Breve y claro: máximo 4 frases por respuesta. Como mucho, un emoji de vez en cuando.
+- Si te preguntan si eres una persona o un robot, responde con sinceridad y simpatía que eres Teca, el asistente de Woodland Perú, y sigue ayudando con la misma calidez.
+
+Atiendes tú solo: nadie del equipo escribe en este chat, así que NUNCA digas que "te paso con una persona" ni que alguien te responderá aquí. Resuelve tú todo lo que puedas con lo que sabes y recuerda lo que el cliente ya dijo en la conversación (nombre, productos, cantidades, grabado) sin volver a preguntarlo.
 
 LO QUE SABES (no inventes nada más):
 ${knowledgeForPrompt()}
@@ -483,19 +493,19 @@ export function quickInfoReply(body: string, catalog: CatalogResponse): string |
 const SMALL_TALK: ReadonlyArray<{ pattern: RegExp; reply: string }> = [
   {
     pattern: /^(hola|holi|holis|hey|buenas|buen dia|buenos dias|buenas tardes|buenas noches)( teca)?$/,
-    reply: '¡Hola! Soy Teca, tu guía en Woodland Perú. ¿Qué te interesa: precios, plazos, grabado o hacer un pedido?',
+    reply: '¡Hola! Qué gusto saludarte. Soy Teca, el asistente de Woodland Perú. Cuéntame, ¿buscas una tabla para tu casa, para regalar o para tu negocio?',
   },
   {
     pattern: /^(muchas |mil )?gracias( teca| por todo| por la ayuda)?$|^gracias,? (eso es todo|era todo)$|^te agradezco$/,
-    reply: '¡Con gusto! Si quieres, te muestro los modelos otra vez o armamos tu pedido: escribe «quiero hacer un pedido».',
+    reply: '¡Con gusto! Fue un placer ayudarte, aquí estoy para lo que necesites. Si quieres, te muestro los modelos otra vez o armamos juntos tu pedido: escribe «quiero hacer un pedido».',
   },
   {
     pattern: /^(chau|chao|adios|hasta luego|hasta pronto|nos vemos|bye)( teca)?$/,
-    reply: '¡Hasta pronto! Aquí estaré cuando quieras volver a elegir tu tabla de teca.',
+    reply: '¡Hasta pronto! Fue un gusto conversar contigo. Aquí estaré cuando quieras volver a elegir tu tabla de teca.',
   },
   {
     pattern: /^(ok|okay|okey|vale|listo|perfecto|genial|entiendo|entendido|de acuerdo|dale|bien)( gracias)?$/,
-    reply: '¡Perfecto! ¿Quieres ver los modelos otra vez o te ayudo con otra cosa?',
+    reply: '¡Perfecto! ¿Te muestro los modelos otra vez o hay algo más en lo que te pueda ayudar?',
   },
 ]
 
@@ -508,13 +518,13 @@ export function greetingNameReply(history: readonly HistoryMessage[]): string | 
   const name = looksLikeName(last.body)
   if (!name) {
     // Solo saludó (por ejemplo, tras un mensaje que no se guardó): Teca devuelve el saludo y pide el nombre.
-    return smallTalkReply(last.body)?.startsWith('¡Hola!') ? `¡Hola! Mucho gusto. Para empezar, ${GREETING_ASK}` : null
+    return smallTalkReply(last.body)?.startsWith('¡Hola!') ? `¡Hola! Qué gusto saludarte. Para empezar, ${GREETING_ASK}` : null
   }
   const first = name.split(/\s+/)[0]!
   const who = `${first.charAt(0).toUpperCase()}${first.slice(1)}`
-  const ask = '¿Qué te interesa: precios, plazos, grabado o hacer un pedido?'
+  const ask = 'Cuéntame, ¿buscas una tabla para tu casa, para regalar o para tu negocio? Con gusto te ayudo con precios, plazos, grabado o tu pedido.'
   // Si el cliente saludó («Hola, me llamo Hugo»), Teca devuelve el saludo.
-  return isGreetingWord(last.body) ? `¡Hola, ${who}! Mucho gusto. ${ask}` : `Mucho gusto, ${who}. ${ask}`
+  return isGreetingWord(last.body) ? `¡Hola, ${who}! Qué gusto conocerte. ${ask}` : `¡Qué gusto conocerte, ${who}! ${ask}`
 }
 
 export function smallTalkReply(body: string): string | null {
@@ -556,7 +566,7 @@ export function alliesReply(body: string): string | null {
   return null
 }
 
-const MENU = 'Puedo ayudarte con precios, plazos de entrega, grabado personalizado o un pedido. ¿Qué te interesa?'
+const MENU = 'Con gusto te ayudo con precios, plazos de entrega, grabado personalizado o tu pedido. Cuéntame, ¿qué estás buscando?'
 
 /**
  * Responde sin modelo de IA, con reglas por palabras clave. Lo que no entiende lo deja anotado para el
@@ -585,7 +595,7 @@ export function createGuidedModel(catalog: CatalogResponse): AssistantModel {
       if (info) return { text: info }
       if (/cotiz|comprar|compra|pedido|pedir|ordenar|encargar|necesito|quiero (una|unas|\d)/.test(last)) {
         return {
-          text: 'Por ahora no puedo armar el pedido por aquí. Dejé tu solicitud anotada para el equipo.',
+          text: 'Qué pena, por ahora no puedo armar el pedido por aquí. Ya dejé tu solicitud anotada para que el equipo te ayude.',
           call: { name: 'flag_for_team', args: { reason: 'Quiso pedir o cotizar, pero el catálogo no estaba disponible.' } },
         }
       }
@@ -610,9 +620,9 @@ export function createGuidedModel(catalog: CatalogResponse): AssistantModel {
         }
       }
       if (/factura|boleta|comprobante/.test(last)) return { text: assistantKnowledge.process[2] }
-      if (isFirst) return { text: `¡Hola! Soy Teca, tu guía en Woodland Perú. ${MENU}` }
+      if (isFirst) return { text: `¡Hola! Qué gusto saludarte. Soy Teca, el asistente de Woodland Perú. ${MENU}` }
       return {
-        text: productsText(catalog, `No estoy seguro de haberte entendido. Mientras tanto, mira nuestros modelos. ${MENU}`),
+        text: productsText(catalog, `Perdóname, creo que no te entendí bien. Mientras tanto, te dejo nuestros modelos para que les eches un vistazo. ${MENU}`),
         call: { name: 'flag_for_team', args: { reason: 'El asistente no entendió la consulta.' } },
       }
     },

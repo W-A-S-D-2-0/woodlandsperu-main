@@ -240,7 +240,7 @@ function apply(step: Step, raw: string, f: Flow, catalog: CatalogResponse): stri
         f.cur = null
         return null
       }
-      if (match.kind === 'none') return 'No encontré ese modelo.'
+      if (match.kind === 'none') return 'Mmm, no encontré ese modelo. ¿Me lo escribes de nuevo?'
       if (match.kind === 'filter') f.cur = { filter: match.product.id }
       else {
         // La tarjeta del pedido manda modelo, cantidad y grabado juntos: lo dicho no se vuelve a preguntar.
@@ -292,7 +292,7 @@ function apply(step: Step, raw: string, f: Flow, catalog: CatalogResponse): stri
     }
     case 'name': {
       const name = text.replace(/^(me llamo|mi nombre es|soy|nombre:?)\s+/i, '').trim()
-      if (name.length < 2 || /@|\d{5,}/.test(name) || !/\p{L}/u.test(name)) return 'Escribe tu nombre, por favor.'
+      if (name.length < 2 || /@|\d{5,}/.test(name) || !/\p{L}/u.test(name)) return '¿Me dices tu nombre, por favor?'
       f.name = name.slice(0, 160)
       return null
     }

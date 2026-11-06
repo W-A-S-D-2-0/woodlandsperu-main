@@ -778,7 +778,7 @@ describe('saludo de Teca: pide el nombre', () => {
     const app = createApp({ chatData: () => chat, publicData: () => publicData(), assistantModel: createAssistantModel })
     const body = (await (await sendGreeted(app, 'me llamo ana pérez')).json()) as ChatResponse
     expect(body.messages.map((m) => m.role)).toEqual(['customer', 'assistant'])
-    expect(body.messages[1]!.body).toMatch(/Mucho gusto, Ana\./)
+    expect(body.messages[1]!.body).toMatch(/Qué gusto conocerte, Ana!/)
   })
 
   it('el saludo se guarda una sola vez, aunque el cliente siga escribiendo', async () => {
@@ -853,7 +853,7 @@ describe('«Hola, me llamo Hugo» como primer mensaje', () => {
     const res = await app.request('/api/chat/messages', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token: TOKEN, message: 'Hola, me llamo Hugo.', greeted: true }) }, { APP_ENV: 'development' } as Env)
     const body = (await res.json()) as ChatResponse
     const reply = body.messages.at(-1)!.body
-    expect(reply).toBe('¡Hola, Hugo! Mucho gusto. ¿Qué te interesa: precios, plazos, grabado o hacer un pedido?')
+    expect(reply).toBe('¡Hola, Hugo! Qué gusto conocerte. Cuéntame, ¿buscas una tabla para tu casa, para regalar o para tu negocio? Con gusto te ayudo con precios, plazos, grabado o tu pedido.')
     expect(reply).not.toMatch(/Soy Teca/)
     expect(body.status).toBe('open')
     expect([...conversations.values()]).toHaveLength(1)

@@ -364,7 +364,7 @@ export function ChatWidget() {
               <h2 id={titleId} className="font-display text-lg leading-tight !text-marfil">
                 Teca
               </h2>
-              <p className="text-xs text-beige/85">Asistente automático de Woodland · respuestas orientativas</p>
+              <p className="text-xs text-beige/85">El asistente de Woodland Perú · te respondo al instante</p>
             </div>
             <button
               type="button"

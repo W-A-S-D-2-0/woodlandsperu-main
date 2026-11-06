@@ -6,7 +6,7 @@
 /** Frase fija con la que se reconoce, en el historial, que Teca ya preguntó el nombre. */
 export const GREETING_ASK = '¿cómo te llamas?'
 
-export const chatGreeting = `¡Hola! Soy Teca, tu guía en Woodland Perú. Te ayudo con precios, plazos, grabado y pedidos, y te respondo al instante. Para empezar, ${GREETING_ASK}`
+export const chatGreeting = `¡Hola! Qué gusto tenerte por aquí. Soy Teca, el asistente de Woodland Perú. Conozco cada una de nuestras tablas de teca y con mucho gusto te ayudo a elegir la tuya, a personalizarla con un grabado o a hacer tu pedido. Para empezar, ${GREETING_ASK}`
 
 /** Lo que dice Teca al cancelar un pedido. */
 export const CANCELLED_TEXT = 'Listo, cancelé el pedido. No dudes en volver a escribirnos.'
