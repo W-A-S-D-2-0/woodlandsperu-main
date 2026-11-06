@@ -384,7 +384,7 @@ export function ChatWidget() {
           {/* Quien prefiere hablar con una persona tiene el WhatsApp de Woodland a mano, sin salir del chat. */}
           <div className="flex items-center justify-between gap-3 border-b border-linea bg-beige/60 px-4 py-2">
             <p className="text-xs text-carbon-600">¿Prefieres hablar con una persona?</p>
-            <WhatsappButton className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full bg-selva px-3.5 text-xs font-semibold text-marfil transition-colors hover:bg-nogal" />
+            <WhatsappButton label="Quiero hablar con un asesor" className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full bg-selva px-3.5 text-xs font-semibold text-marfil transition-colors hover:bg-nogal" />
           </div>
 
           <div className="relative flex min-h-0 flex-1 flex-col">
