@@ -54,7 +54,7 @@ export const PROOF_BUTTON_LABEL = 'Subir captura de pago'
 export function paymentRequestText(code: string, amount: number): string | null {
   if (!paymentConfigured()) return null
   const holder = yapePlin.holder ? ` (${yapePlin.holder.trim()})` : ''
-  return `Paga ahora por Yape o Plin:\n\n• Monto: S/ ${amount.toFixed(2)}\n• Número: ${yapePlin.number!.trim()}${holder}\n• Mensaje del pago: ${code}\n\nLuego toca «${PROOF_BUTTON_LABEL}» (el clip) y sube la captura: te confirmo al instante.`
+  return `Paga ahora por Yape o Plin:\n\n• Monto: S/ ${amount.toFixed(2)}\n• Número: ${yapePlin.number!.trim()}${holder}\n• Mensaje del pago: ${code}\n\nToca «${PROOF_BUTTON_LABEL}» para subir la constancia de pago, te confirmo al instante tu pedido.`
 }
 
 /** Pregunta con la que Teca ofrece las formas de pago al registrar el pedido. El widget la reconoce y muestra los botones. */

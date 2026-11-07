@@ -1,6 +1,6 @@
 import type { CatalogProduct, CatalogVariant } from '../../../shared/api/contracts'
 import { startOrder } from '../chat/open-chat'
-import { formatPrice, tierLabel } from './catalog-format'
+import { formatPrice, tierLabel, toOrderModel } from './catalog-format'
 
 /** Variante del catálogo: precio publicado, escalas por volumen y un botón que sigue el pedido en el chat. */
 export function VariantRow({ product, variant }: { product: CatalogProduct; variant: CatalogVariant }) {
@@ -18,7 +18,7 @@ export function VariantRow({ product, variant }: { product: CatalogProduct; vari
         <button
           type="button"
           className="inline-flex min-h-11 items-center justify-center rounded-full border border-nogal/30 px-5 text-sm font-semibold text-nogal transition-colors hover:border-madera-700 hover:bg-madera/10"
-          onClick={() => startOrder({ product: product.name, variant: variant.name, dimensions: variant.dimensionsLabel ? `${variant.dimensionsLabel.replaceAll('*', ' × ')} cm` : null, price: formatPrice(variant.price) })}
+          onClick={() => startOrder([toOrderModel(product, variant)])}
         >
           Pedir por chat
         </button>

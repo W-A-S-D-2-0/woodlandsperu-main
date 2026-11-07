@@ -4,12 +4,19 @@ import { orderCardMessage, photoForModel, quantityOptions, type ProductRow } fro
 
 const QUANTITIES = quantityOptions(WEB_ORDER_MAX_UNITS)
 
+/** «Large · 65 × 46 × 4 cm — S/ 433.90»: lo que se lee en el select de medida. */
+const sizeLabel = (r: ProductRow) => [r.variant, r.dimensions].filter(Boolean).join(' · ') + ` — ${r.price}`
+
 /**
- * El pedido en una sola tarjeta dentro del chat: se elige el modelo, la cantidad y si se quiere grabado. Sin grabado, al continuar
+ * El pedido en una sola tarjeta dentro del chat: se elige el modelo, la cantidad y si se quiere grabado. Si todas las filas
+ * son medidas de una misma tabla (p. ej. Moshaco desde el catálogo), la tabla queda fija y la medida se elige en un select. Sin grabado, al continuar
  * se manda un solo mensaje y sigue el pedido. Con grabado, `onEngrave` lleva a «Para ti», donde se ve cómo queda la tabla.
  */
 export function OrderCard({ rows, onSubmit, onEngrave }: { rows: ProductRow[]; onSubmit: (message: string) => void; onEngrave: (row: ProductRow, quantity: number) => void }) {
-  const [chosen, setChosen] = useState<number | null>(rows.length === 1 ? rows[0]!.n : null)
+  // Todas las filas son medidas de la misma tabla: se muestra la tabla y un select «Medida».
+  const oneBoard = rows.every((r) => r.product === rows[0]!.product)
+  const boardPhoto = oneBoard ? photoForModel(rows[0]!.product) : null
+  const [chosen, setChosen] = useState<number | null>(rows.length === 1 || oneBoard ? rows[0]!.n : null)
   const [quantity, setQuantity] = useState(1)
   const [engrave, setEngrave] = useState(false)
   const row = rows.find((r) => r.n === chosen) ?? null
@@ -24,7 +31,30 @@ export function OrderCard({ rows, onSubmit, onEngrave }: { rows: ProductRow[]; o
 
   return (
     <form onSubmit={submit} className="mt-3 grid gap-3 rounded-2xl border border-linea bg-marfil p-3 whitespace-normal" aria-label="Tu pedido">
-      <fieldset className="grid gap-2">
+      {oneBoard ? (
+        <div className="grid gap-2">
+          <div className="flex items-center gap-3 rounded-xl border border-nogal bg-white p-1.5 pr-3 shadow-sm">
+            {boardPhoto && <img src={boardPhoto.src} alt="" loading="lazy" className="size-12 shrink-0 rounded-lg object-cover" />}
+            <span className="min-w-0 flex-1 font-medium text-nogal">{rows[0]!.product}</span>
+            {row && <span className="shrink-0 text-xs font-semibold whitespace-nowrap text-madera-700">{row.price}</span>}
+          </div>
+          <label className="grid gap-1 text-[0.7rem] font-semibold tracking-[0.08em] text-madera-700 uppercase">
+            Medida
+            <select
+              className="min-h-11 w-full rounded-xl border border-linea bg-white px-3 text-sm font-normal tracking-normal text-carbon normal-case focus-visible:border-madera"
+              value={chosen ?? ''}
+              onChange={(e) => setChosen(Number(e.target.value))}
+            >
+              {rows.map((r) => (
+                <option key={r.n} value={r.n}>
+                  {sizeLabel(r)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : (
+        <fieldset className="grid gap-2">
         <legend className="mb-1 text-[0.7rem] font-semibold tracking-[0.08em] text-madera-700 uppercase">Modelo</legend>
         {rows.map((r) => {
           const photo = photoForModel(r.product)
@@ -49,7 +79,8 @@ export function OrderCard({ rows, onSubmit, onEngrave }: { rows: ProductRow[]; o
             </label>
           )
         })}
-      </fieldset>
+        </fieldset>
+      )}
 
       <label className="grid gap-1 text-[0.7rem] font-semibold tracking-[0.08em] text-madera-700 uppercase">
         Cantidad

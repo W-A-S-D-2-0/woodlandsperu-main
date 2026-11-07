@@ -1,106 +1,69 @@
-import type { ReactNode } from 'react'
+import { ButtonLink } from '../../components/ui/ButtonLink'
 import { Container } from '../../components/ui/Container'
-import { Reveal } from '../../components/ui/Reveal'
 import { homeContent } from '../../content/home'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
-import { CatalogPanChapter } from '../catalog/CatalogPanChapter'
+import { StoreGridChapter } from '../catalog/StoreGridChapter'
 import { useCatalog } from '../catalog/use-catalog'
 import { PersonalizeChapter } from '../engraving/PersonalizeChapter'
 import { ClosingChapter } from './chapters/ClosingChapter'
-import { GrainChapter } from './chapters/GrainChapter'
+import { CorporateGalleryChapter } from './chapters/CorporateGalleryChapter'
 import { HeroChapter } from './chapters/HeroChapter'
 import { ProcessChapter } from './chapters/ProcessChapter'
 
-const eyebrowClass = 'text-xs font-semibold tracking-[0.22em] uppercase'
-
-function Eyebrow({ children, tone = 'dark' }: { children: ReactNode; tone?: 'dark' | 'light' }) {
-  return <p className={`${eyebrowClass} ${tone === 'dark' ? 'text-madera-700' : 'text-beige/80'}`}>{children}</p>
-}
-
-const commitmentIcons = [
-  // Infinito: garantía de por vida.
-  <path key="i" d="M7 12c0-2.2 1.6-3.5 3.3-3.5 3.2 0 4.2 7 7.4 7 1.7 0 3.3-1.3 3.3-3.5S19.4 8.5 17.7 8.5c-3.2 0-4.2 7-7.4 7C8.6 15.5 7 14.2 7 12Z" />,
-  // Flechas circulares: mantenimiento.
-  <path key="m" d="M19 8a7.5 7.5 0 0 0-13.3 1M5 16a7.5 7.5 0 0 0 13.3-1M19 4v4h-4M5 20v-4h4" />,
-  // Hoja: acabado natural.
-  <path key="h" d="M5 19c0-8 5-13 14-14 0 9-5 14-12 14H5Zm0 0 8-8" />,
-]
-
+/**
+ * Inicio centrado en los modelos (pedido del equipo, 2026-11-06): Moshaco, el más vendido, en la portada; luego el
+ * catálogo, los corporativos y personalizados y el grabado. Se mantienen el seguimiento del pedido, el compromiso en
+ * desplegables y el cierre. El propósito (El Origen) vive en /nosotros.
+ */
 export function HomePage() {
   useDocumentTitle()
   const catalog = useCatalog()
-  const hasCatalog = catalog.state.kind === 'ok' && catalog.state.data.products.length > 0
-  const { highlights, commitment } = homeContent
+  const products = catalog.state.kind === 'ok' ? catalog.state.data.products : []
+  const moshaco = products.find((product) => product.slug === 'moshaco')
+  const { commitment } = homeContent
 
   return (
     <>
-      {/* Capítulo 1 · portada con planos de profundidad. */}
-      <HeroChapter />
+      <HeroChapter product={moshaco} />
 
-      {/* Franja de atributos publicados por Woodland. */}
-      <section aria-label="Lo que nos distingue" className="marquee-host overflow-hidden bg-nogal py-5 text-beige">
-        <div className="marquee">
-          {[0, 1].map((copy) => (
-            <ul key={copy} aria-hidden={copy === 1 ? 'true' : undefined} className="flex shrink-0 items-center">
-              {highlights.map((item) => (
-                <li key={item} className="flex items-center gap-8 px-4 font-display text-lg whitespace-nowrap sm:text-xl">
-                  {item}
-                  <span aria-hidden="true" className="text-sm text-madera">
-                    ✦
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ))}
-        </div>
-      </section>
+      {products.length > 0 && <StoreGridChapter products={products} />}
 
-      {/* La veta (cortina). La historia de la empresa vive en /nosotros. */}
-      <GrainChapter />
+      <CorporateGalleryChapter />
 
-      {/* Capítulo 4 · personalizar: grabado vivo (personas) y logo (empresas), en pestañas. */}
+      {/* Grabado vivo (personas) y logo (empresas), en pestañas. */}
       <PersonalizeChapter />
 
-      {/* Catálogo real en recorrido lateral. */}
-      {hasCatalog && <CatalogPanChapter products={catalog.state.kind === 'ok' ? catalog.state.data.products : []} />}
-
-      {/* Capítulo 6 · proceso y seguimiento. */}
+      {/* Seguimiento del pedido. */}
       <ProcessChapter />
 
-      {/* Compromiso: garantía y mantenimiento publicados por Woodland. */}
-      <section className="grain bg-beige py-20 sm:py-28">
-        <Container>
-          <Reveal className="max-w-2xl">
-            <Eyebrow>{commitment.eyebrow}</Eyebrow>
-            <h2 className="mt-4 text-4xl sm:text-5xl">{commitment.title}</h2>
-            <p className="mt-6 text-lg leading-relaxed text-carbon-600">{commitment.body}</p>
-          </Reveal>
-          <ul className="mt-14 grid gap-10 sm:grid-cols-3 sm:gap-8">
-            {commitment.points.map((point, index) => (
-              <Reveal as="li" key={point.title} index={index} className="lift rounded-2xl border border-linea bg-marfil p-7">
-                <span className="grid h-14 w-14 place-items-center rounded-full bg-nogal text-ambar">
-                  <svg
-                    aria-hidden="true"
-                    viewBox="0 0 24 24"
-                    className="h-7 w-7"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    {commitmentIcons[index]}
-                  </svg>
-                </span>
-                <h3 className="mt-5 text-2xl">{point.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-carbon-600">{point.body}</p>
-              </Reveal>
+      {/* Compromiso: garantía y mantenimiento publicados por Woodland, en preguntas desplegables. */}
+      <section className="bg-marfil py-16 text-carbon sm:py-24" aria-labelledby="commitment-title">
+        <Container className="max-w-3xl">
+          <p className="text-center text-[11px] font-semibold tracking-[0.28em] text-carbon-600 uppercase">{commitment.eyebrow}</p>
+          <h2 id="commitment-title" className="mt-3 text-center text-3xl uppercase sm:text-4xl">
+            {commitment.title}
+          </h2>
+          <div className="mt-10 divide-y divide-linea border-y border-linea">
+            {commitment.points.map((point) => (
+              <details key={point.title} className="group py-5">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 text-sm font-semibold tracking-[0.12em] uppercase">
+                  {point.title}
+                  <span aria-hidden="true" className="text-xl transition-transform group-open:rotate-45">
+                    +
+                  </span>
+                </summary>
+                <p className="mt-3 leading-relaxed text-carbon-600">{point.body}</p>
+              </details>
             ))}
-          </ul>
+          </div>
+          <div className="mt-10 text-center">
+            <ButtonLink chat="Quiero hacer un pedido" arrow>
+              Hacer mi pedido
+            </ButtonLink>
+          </div>
         </Container>
       </section>
 
-      {/* Capítulo 8 · cierre. */}
       <ClosingChapter />
     </>
   )

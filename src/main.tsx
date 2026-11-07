@@ -1,5 +1,4 @@
-import '@fontsource-variable/fraunces'
-import '@fontsource-variable/fraunces/wght-italic.css'
+import '@fontsource/alice'
 import '@fontsource-variable/manrope'
 import './styles/index.css'
 

@@ -22,7 +22,7 @@ export const assistantKnowledge = {
     'Hace tablas de teca: para parrilla, cocina, presentación de alimentos (quesos, piqueos) y piezas personalizadas.',
     'Cada tabla se trabaja y termina a mano por maestros artesanos, con acabado natural y sin lacas químicas.',
     'Ofrece certificado de garantía de por vida y mantenimiento gratuito al año. Los detalles y las condiciones de la garantía los confirma el equipo.',
-    'Colecciones oficiales: Parrilla y Cocina (The Master Series: Moshaco, Ya Vuelta y Sacha Paleta) y Piqueo y Servir (The Social Series: Bosques Amazónicos, Huambrilla y Ñañito). Además, grabado personalizado. Los precios y medidas vigentes son los del catálogo de abajo.',
+    'Colecciones oficiales: Parrilla y Cocina (The Master Series: Moshaco, Ya Vuelta y Sacha Paleta), Piqueo y Servir (The Social Series: Bosques Amazónicos, Huambrilla y Ñañito) y Edición Limitada (Limited Edition: Pishcota y Nuiti). La más vendida es la Moshaco. Además, grabado personalizado. Los precios y medidas vigentes son los del catálogo de abajo.',
     'La mayoría de las tablas son planas; algunas llevan un canal (por ejemplo, para jugos de la carne).',
   ],
   customers: [

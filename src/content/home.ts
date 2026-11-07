@@ -96,12 +96,13 @@ export const landingImages: Record<ImageKey, LandingImage | null> = {
     width: 533,
     height: 800,
   },
-  /** Foto del catálogo oficial (Canva, 1599×1070): el propósito de reforestar. */
+  /** «El Origen / The Heritage» de The Woodland Experience (PDF de Woodland, 2026-11-06): plantación de teca en San Martín. */
   purpose: {
-    src: '/images/oficial/mujer-en-el-bosque.jpg',
-    alt: 'Mujer con sombrero y atuendo tradicional junto a un árbol, en el bosque amazónico',
-    width: 1400,
-    height: 937,
+    src: '/images/experience/origen.webp',
+    alt: 'Integrante de Woodland de pie entre los árboles de teca de la plantación en San Martín',
+    width: 636,
+    height: 928,
+    focus: '50% 40%',
   },
 }
 
@@ -186,16 +187,16 @@ export const homeContent = {
       { title: 'Resistente por naturaleza', body: 'La teca resiste hongos, humedad y calor, y repele el agua, las grasas y las manchas.' }, // catálogo oficial
     ],
   },
-  /** Propósito de la marca (catálogo oficial B2B y Canva). */
+  /** Propósito de la marca: «El Origen / The Heritage» de The Woodland Experience (PDF de Woodland, 2026-11-06). */
   purpose: {
-    eyebrow: 'Nuestro propósito',
-    title: 'Recuperemos nuestra selva amazónica.',
-    body: 'Con cada compra nos ayudas a seguir sembrando. Woodland gestiona su propia reforestadora en San Martín: conocemos cada tabla desde que es una semilla.',
+    eyebrow: 'El Origen · The Heritage',
+    title: 'Lujo con origen y propósito.',
+    body: 'Ayúdanos a seguir recuperando nuestra Selva Amazónica. De nuestro bosque a tu mesa.',
     facts: [
       '15 años de reforestación en San Martín, Amazonía peruana.',
-      'Trazabilidad absoluta, desde la semilla hasta la pieza final en tu mesa.',
-      'Teca con aceites naturales que la protegen del calor, la humedad y los microorganismos.',
-      'Respaldo de certificaciones de SERFOR y procesos food-friendly de estándar internacional.',
+      'Madera con origen y trazabilidad, desde el bosque hasta el producto final.',
+      'Diseño y excelencia artesanal en cada pieza.',
+      'Lujo sostenible, inspirado en el respeto por nuestra Amazonía.',
     ],
     note: 'Los nombres de nuestras tablas vienen de palabras de San Martín, en honor al legado cultural del Oriente Peruano.',
   },

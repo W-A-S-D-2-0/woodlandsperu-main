@@ -1,74 +1,69 @@
-import type { CSSProperties } from 'react'
-import { ButtonLink } from '../../../components/ui/ButtonLink'
-import { Container } from '../../../components/ui/Container'
-import { Embers } from '../../../components/ui/Embers'
-import { PhotoSlot } from '../../../components/ui/PhotoSlot'
-import { HeroMedia } from './HeroMedia'
-import { homeContent, landingImages } from '../../../content/home'
-import { usePointerDepth, useScrollProgress } from '../../../hooks/useScrollProgress'
+import type { CatalogProduct } from '../../../../shared/api/contracts'
+import { startOrder } from '../../../features/chat/open-chat'
+import { homeContent } from '../../../content/home'
+import { modelPhotos } from '../../../content/model-photos'
+import { toOrderModel } from '../../catalog/catalog-format'
 
-/** Variables CSS de una capa: cuánto se mueve con el scroll (dy) y con el puntero (dx, pdy). */
-const layer = (vars: Record<string, string>) => vars as CSSProperties
+/** Va a la cuadrícula del catálogo (la misma que usa Teca). */
+function goToCatalog() {
+  document.querySelector('[aria-labelledby="catalog-pan-title"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 
 /**
- * Capítulo 1 · Portada. Planos con profundidad: titular, foto principal y foto de
- * primer plano. Se mueven distinto con el scroll y con el puntero; el titular queda entre
- * planos (la foto principal tapa solo el final de sus líneas cortas).
+ * Portada · «Sostenibilidad hecha lujo» sobre la foto de Moshaco, la tabla más vendida de Woodland (catálogo
+ * «The Woodland Experience». Medidas y precios vienen del catálogo real (API); si aún no cargan, solo se
+ * muestra el texto y el botón al catálogo.
  */
-export function HeroChapter() {
+export function HeroChapter({ product }: { product?: CatalogProduct }) {
+  const photo = modelPhotos.moshaco!
   const { hero } = homeContent
-  const ref = useScrollProgress<HTMLElement>('leave')
-  usePointerDepth(ref)
   const [first = '', ...rest] = hero.title.split(' ')
 
   return (
-    <section ref={ref} className="chapter surface-warm grain relative overflow-hidden pt-8 pb-20 sm:pt-12 sm:pb-28 lg:pb-32">
-      {/* Atmósfera: luz cálida al pie, sin tapar contenido. */}
-      <Embers />
+    <section className="relative isolate flex min-h-[calc(100dvh-4rem)] items-end overflow-hidden bg-carbon text-marfil" aria-labelledby="hero-title">
+      <img
+        src={photo.src}
+        alt={photo.alt}
+        width={photo.width}
+        height={photo.height}
+        fetchPriority="high"
+        className="absolute inset-0 -z-20 h-full w-full animate-unzoom object-cover object-[40%_60%]"
+      />
+      {/* Sombra para que el texto se lea sobre la foto, sin tapar la tabla. */}
+      <div aria-hidden="true" className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgb(34_32_28/0.82)_0%,rgb(34_32_28/0.45)_45%,transparent_75%),linear-gradient(0deg,rgb(34_32_28/0.7)_0%,transparent_45%)]" />
 
-      <Container className="relative grid items-center gap-14 lg:grid-cols-[1.1fr_0.9fr] lg:gap-0">
-        {/* Plano 2 · titular. */}
-        <div className="relative z-10 lg:pr-4">
-          <div className="animate-rise">
-            <p className="text-xs font-semibold tracking-[0.22em] text-ambar uppercase">{hero.eyebrow}</p>
-          </div>
-          <h1 className="mt-5 animate-settle text-5xl leading-[0.98] font-medium tracking-tight [animation-delay:60ms] sm:text-6xl lg:text-7xl text-marfil">
-            <span className="block">{first}</span>
-            <span className="text-shimmer block">{rest.join(' ')}</span>
-          </h1>
-          <p className="mt-7 max-w-md animate-rise text-lg leading-relaxed text-beige/80 [animation-delay:180ms]">{hero.body}</p>
-          <div className="mt-9 flex animate-rise flex-col gap-3 [animation-delay:300ms] sm:flex-row">
-            <ButtonLink chat="Quiero hacer un pedido" variant="light" arrow>
-              Hacer mi pedido
-            </ButtonLink>
-            <ButtonLink chat={hero.primaryCta.chat} variant="ghost-light">
-              {hero.primaryCta.label}
-            </ButtonLink>
-          </div>
-        </div>
+      <div className="mx-auto w-full max-w-6xl px-5 pt-24 pb-14 sm:px-8 sm:pb-20">
+        <p className="animate-rise text-xs font-semibold tracking-[0.28em] text-ambar uppercase">{hero.eyebrow}</p>
+        <h1 id="hero-title" className="mt-4 animate-settle text-5xl leading-[0.98] text-marfil [animation-delay:60ms] sm:text-7xl">
+          <span className="block">{first}</span>
+          <span className="block text-ambar">{rest.join(' ')}</span>
+        </h1>
+        <p className="mt-5 max-w-lg animate-rise text-base leading-relaxed text-marfil/85 [animation-delay:140ms] sm:text-lg">{hero.body}</p>
 
-        <div className="relative mx-auto w-full max-w-md pb-20 lg:-ml-20 lg:max-w-none lg:pt-24 lg:pb-24 lg:pl-0">
-          {/* Plano 3 · sujeto: foto principal. */}
-          <div className="depth relative z-20 lg:max-w-[23rem] lg:ml-auto" style={layer({ '--dy': '-40px', '--dx': '14px', '--pdy': '10px' })}>
-            <HeroMedia fallback={landingImages.hero} />
-          </div>
-          {/* Plano 5 · primer plano: foto pequeña que cruza por delante y se mueve más rápido. */}
-          <div className="depth absolute bottom-0 left-0 z-30 w-[46%] animate-rise [animation-delay:650ms] lg:left-0" style={layer({ '--dy': '-120px', '--dx': '-26px', '--pdy': '18px' })}>
-            <PhotoSlot
-              label="kit de bienvenida en tabla de teca"
-              image={landingImages.heroDetail}
-              className="aspect-square shadow-[0_24px_40px_-20px_rgb(34_34_31/0.5)] ring-8 ring-nogal-800"
-            />
-          </div>
-          <p
-            className="depth absolute top-6 right-0 z-40 animate-rise rounded-full bg-marfil/95 px-4 py-2 text-xs font-semibold text-nogal shadow-sm [animation-delay:800ms] sm:-right-2 lg:top-28"
-            style={layer({ '--dy': '-70px', '--dx': '20px' })}
+        {/* Moshaco, la más vendida: la tabla de la foto. */}
+        <p className="mt-8 animate-rise text-xs font-semibold tracking-[0.22em] text-marfil/80 uppercase [animation-delay:200ms]">
+          En la foto · el más vendido: <span className="font-display text-base tracking-normal text-marfil normal-case">Moshaco, Seductor Don Juan</span>
+        </p>
+
+        <div className="mt-8 flex animate-rise flex-col gap-3 [animation-delay:320ms] sm:flex-row">
+          {product && (
+            <button
+              type="button"
+              onClick={() => startOrder(product.variants.map((variant) => toOrderModel(product, variant)))}
+              className="inline-flex min-h-12 items-center justify-center bg-marfil px-7 text-xs font-semibold tracking-[0.18em] text-carbon uppercase transition-colors hover:bg-beige"
+            >
+              Pedir mi Moshaco
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={goToCatalog}
+            className="inline-flex min-h-12 items-center justify-center border border-marfil/60 px-7 text-xs font-semibold tracking-[0.18em] text-marfil uppercase transition-colors hover:bg-marfil hover:text-carbon"
           >
-            <span aria-hidden="true" className="mr-2 inline-block h-1.5 w-1.5 -translate-y-px rounded-full bg-madera" />
-            {hero.badge}
-          </p>
+            Ver todos los modelos
+          </button>
         </div>
-      </Container>
+      </div>
     </section>
   )
 }

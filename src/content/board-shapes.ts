@@ -34,10 +34,14 @@ const shapes: Record<string, BoardShape> = {
   'sacha paleta': { kind: 'paddle', ratio: 52 / 30, room: 76, inset: 9 },
   // 40 × 16 cm, acostada: el extremo derecho redondeado con un agujero redondo (como en su foto).
   'bosques amazonicos': { kind: 'hole', ratio: 40 / 16, room: 80, inset: 8 },
-  // 53 × 20 cm con el mango incluido: la tabla a la izquierda y el mango a la derecha (como en su foto).
-  huambrilla: { kind: 'handle', ratio: 53 / 20, room: 80, inset: 7 },
+  // 52 × 20 cm con el mango incluido: la tabla a la izquierda y el mango a la derecha (como en su foto).
+  huambrilla: { kind: 'handle', ratio: 52 / 20, room: 80, inset: 7 },
   // 30 × 18 cm, de madera marrón oscura y con un hueco rectangular arriba para tomarla (como en su foto).
   nanito: { kind: 'rect', ratio: 30 / 18, room: 72, inset: 10, slot: true, dark: true },
+  // 60 × 26 cm, con un asa calada en cada extremo (Edición Limitada).
+  pishcota: { kind: 'rect', ratio: 60 / 26, room: 74, inset: 11, slot: true },
+  // 60 × 26 cm, rectangular (Edición Limitada).
+  nuiti: { kind: 'rect', ratio: 60 / 26, room: 80, inset: 8 },
 }
 
 const plain = (value: string) => value.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()

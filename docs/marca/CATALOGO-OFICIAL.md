@@ -72,3 +72,13 @@ Las dos fuentes traen fotos de ambiente; el nombre del modelo va **después** de
 
 La mejor resolución disponible: foto del bosque con mujer 1599×1070 (Canva), foto del bar 1312×1199 (PDF); el resto son de ~500–800 px, bajas
 para pantallas grandes. Conviene pedir los originales a Woodland para la web.
+
+## Actualización «The Woodland Experience» (PDF entregado el 2026-11-06)
+
+- Precios nuevos: Moshaco Large S/ 389.00, Medium S/ 341.00, Small S/ 170.00 · Ya Vuelta S/ 267.00 · Sacha Paleta S/ 302.00 ·
+  Bosques Amazónicos S/ 170.00 · Huambrilla S/ 195.00 (ahora 52 × 20 × 1.5 cm) · Ñañito S/ 175.00.
+- Colección nueva Edición Limitada: Pishcota (60 × 26 × 2 cm, S/ 225.00) y Nuiti (60 × 26 × 2 cm, S/ 342.00).
+- Butcher Chunky Pro (edición especial hecha a pedido) no está en la web: el PDF no publica su precio.
+- Migración: `supabase/migrations/20261106100000_catalogo_woodland_experience.sql`. Fotos: `public/images/experience/`.
+- Tipografía del PDF: títulos en Golden Hopes y Alice, textos en BD Sans. En la web se usa Alice (libre, Google Fonts);
+  Golden Hopes y BD Sans son fuentes con licencia de Canva y no se incluyen.

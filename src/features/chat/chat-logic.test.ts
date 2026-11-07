@@ -130,8 +130,8 @@ describe('parseBody', () => {
 
 describe('photoForModel', () => {
   it('encuentra la foto sin importar tildes ni mayúsculas', () => {
-    expect(photoForModel('Ñañito')?.src).toBe('/images/oficial/nanito.jpg')
-    expect(photoForModel('bosques amazonicos')?.src).toBe('/images/oficial/bosques-amazonicos.jpg')
+    expect(photoForModel('Ñañito')?.src).toBe('/images/experience/nanito.webp')
+    expect(photoForModel('bosques amazonicos')?.src).toBe('/images/experience/bosques-amazonicos.webp')
   })
 
   it('devuelve undefined si el modelo no tiene foto', () => {

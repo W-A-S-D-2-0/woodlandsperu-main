@@ -20,6 +20,7 @@ function FramedPhoto({ image, className = '' }: { image: LandingImage | null; cl
         height={image.height}
         loading="lazy"
         decoding="async"
+        style={{ objectPosition: image.focus }}
         className="relative aspect-[4/3] w-full rounded-2xl object-cover shadow-[0_30px_50px_-30px_rgb(43_33_24/0.6)]"
       />
     </div>

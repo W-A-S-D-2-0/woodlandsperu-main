@@ -105,8 +105,8 @@ export function ChatWidget() {
   const [guiding, setGuiding] = useState<{ id: GuideId; phase: 'going' | 'arrived' } | null>(null)
   const guideTimer = useRef<number | undefined>(undefined)
   const glideCancel = useRef<(() => void) | null>(null)
-  // Modelo elegido en el catálogo: su tarjeta de pedido (cantidad y grabado) aparece al final de la conversación.
-  const [orderDraft, setOrderDraft] = useState<ProductRow | null>(null)
+  // Tabla elegida en el catálogo (una fila por medida): su tarjeta de pedido aparece al final de la conversación.
+  const [orderDraft, setOrderDraft] = useState<ProductRow[] | null>(null)
   useEffect(() => {
     if (pathname !== '/') return
     const id = window.setTimeout(() => {
@@ -308,11 +308,11 @@ export function ChatWidget() {
       if (message) void submitRef.current(undefined, message)
     }
     const onOrderModel = (event: Event) => {
-      const model = (event as CustomEvent<OrderModel>).detail
+      const models = (event as CustomEvent<OrderModel[]>).detail
       dismissTeaser()
       setGuiding(null)
       setOpen(true)
-      setOrderDraft({ n: 1, product: model.product, variant: model.variant, dimensions: model.dimensions, price: model.price })
+      setOrderDraft(models.map((model, i) => ({ n: i + 1, product: model.product, variant: model.variant, dimensions: model.dimensions, price: model.price })))
     }
     window.addEventListener(OPEN_CHAT_EVENT, onOpen)
     window.addEventListener(ORDER_MODEL_EVENT, onOrderModel)
@@ -404,10 +404,10 @@ export function ChatWidget() {
             ))}
             {orderDraft && !pending && !uploading && (
               <li className={`w-full max-w-full rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${bubble.assistant}`}>
-                Elegiste <strong className="font-semibold text-nogal">{orderDraft.product} · {orderDraft.variant}</strong>. Dime cuántas tablas quieres y si la prefieres con grabado.
+                Elegiste la tabla <strong className="font-semibold text-nogal">{orderDraft[0]!.product}</strong>. {orderDraft.length > 1 ? 'Elige la medida, cuántas tablas quieres' : 'Dime cuántas tablas quieres'} y si la prefieres con grabado.
                 <OrderCard
-                  key={`${orderDraft.product}-${orderDraft.variant}`}
-                  rows={[orderDraft]}
+                  key={orderDraft.map((r) => `${r.product}-${r.variant}`).join('|')}
+                  rows={orderDraft}
                   onSubmit={(message) => {
                     setOrderDraft(null)
                     void submit(undefined, message)

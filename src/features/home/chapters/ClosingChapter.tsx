@@ -25,7 +25,10 @@ export function ClosingChapter() {
   const { closing } = homeContent
 
   return (
-    <section className="grain relative isolate flex min-h-[85dvh] items-center overflow-hidden surface-warm py-24 text-beige" aria-labelledby="closing-title">
+    <section className="relative isolate flex min-h-[85dvh] items-center overflow-hidden bg-carbon py-24 text-beige" aria-labelledby="closing-title">
+      {/* Foto de «The Woodland Experience» en lugar del fondo marrón; la sombra deja leer el texto. */}
+      <img src="/images/experience/signature.webp" alt="" width={1312} height={1199} loading="lazy" decoding="async" className="absolute inset-0 -z-20 h-full w-full object-cover" />
+      <div aria-hidden="true" className="absolute inset-0 -z-10 bg-carbon/65" />
       <ClosedRings />
       <Embers />
       <Container className="relative z-10 grid justify-items-center gap-6 text-center">

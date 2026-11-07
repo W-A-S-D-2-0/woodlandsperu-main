@@ -9,7 +9,7 @@ const models = Object.values(modelPhotos).map((p) => p.name)
 
 describe('silueta de cada tabla', () => {
   it('todos los modelos del catálogo oficial tienen su propia forma', () => {
-    expect(models).toHaveLength(6)
+    expect(models).toHaveLength(8)
     for (const name of models) expect(boardShapeFor(name), name).not.toBe(defaultBoardShape)
   })
 
@@ -28,7 +28,7 @@ describe('silueta de cada tabla', () => {
   })
 
   it('las proporciones son las de las medidas oficiales', () => {
-    expect(boardShapeFor('Huambrilla').ratio).toBeCloseTo(53 / 20)
+    expect(boardShapeFor('Huambrilla').ratio).toBeCloseTo(52 / 20)
     expect(boardShapeFor('Ñañito').ratio).toBeCloseTo(30 / 18)
     expect(boardShapeFor('Moshaco').ratio).toBeCloseTo(65 / 46)
     expect(boardShapeFor('Ya Vuelta').ratio).toBe(1)
