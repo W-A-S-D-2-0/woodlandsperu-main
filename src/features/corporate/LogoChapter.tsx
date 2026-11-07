@@ -90,7 +90,7 @@ export function LogoChapter() {
         <div className="grid gap-6">
           <div>
             <p className="text-xs font-semibold tracking-[0.22em] text-beige/80 uppercase">Para empresas</p>
-            <h2 id="logo-title" className="mt-4 text-4xl leading-tight text-marfil sm:text-5xl">
+            <h2 id="logo-title" className="title-script mt-4 text-4xl leading-tight text-marfil sm:text-5xl">
               Tablas con el logo de tu empresa.
             </h2>
             <ul className="mt-5 grid gap-3 text-beige/85">

@@ -188,7 +188,7 @@ export function EngravingChapter() {
         <div className="grid gap-7">
           <div>
             <p className="text-xs font-semibold tracking-[0.22em] text-beige/80 uppercase">{engravingContent.eyebrow}</p>
-            <h2 id="engrave-title" className="mt-4 text-4xl leading-tight text-marfil sm:text-5xl">
+            <h2 id="engrave-title" className="title-script mt-4 text-4xl leading-tight text-marfil sm:text-5xl">
               {engravingContent.title}
             </h2>
             <p className="mt-5 max-w-md text-lg leading-relaxed text-beige/85">{engravingContent.body}</p>

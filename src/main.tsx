@@ -1,4 +1,5 @@
 import '@fontsource/alice'
+import '@fontsource/hurricane'
 import '@fontsource-variable/manrope'
 import './styles/index.css'
 

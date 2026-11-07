@@ -40,7 +40,7 @@ export function HomePage() {
       <section className="bg-marfil py-16 text-carbon sm:py-24" aria-labelledby="commitment-title">
         <Container className="max-w-3xl">
           <p className="text-center text-[11px] font-semibold tracking-[0.28em] text-carbon-600 uppercase">{commitment.eyebrow}</p>
-          <h2 id="commitment-title" className="mt-3 text-center text-3xl uppercase sm:text-4xl">
+          <h2 id="commitment-title" className="title-script mt-3 text-center text-4xl sm:text-5xl">
             {commitment.title}
           </h2>
           <div className="mt-10 divide-y divide-linea border-y border-linea">

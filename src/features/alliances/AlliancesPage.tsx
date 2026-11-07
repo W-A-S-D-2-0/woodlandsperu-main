@@ -122,7 +122,7 @@ export function AlliancesPage() {
           {groups.map((group, groupIndex) => (
             <section key={group.title} aria-labelledby={`alianzas-${groupIndex}`} className="min-w-0">
               <Reveal className="relative flex items-baseline justify-between gap-4 border-b border-linea pb-4">
-                <h2 id={`alianzas-${groupIndex}`} className="text-2xl sm:text-3xl">
+                <h2 id={`alianzas-${groupIndex}`} className="title-script text-2xl sm:text-3xl">
                   {group.title}
                 </h2>
                 <span className="font-display text-2xl text-madera-700 tabular-nums sm:text-3xl">
@@ -136,7 +136,7 @@ export function AlliancesPage() {
             </section>
           ))}
           <Reveal className="mx-auto grid max-w-2xl justify-items-center gap-4 text-center">
-            <h2 className="text-3xl sm:text-4xl">{closing.title}</h2>
+            <h2 className="title-script text-3xl sm:text-4xl">{closing.title}</h2>
             <p className="text-lg leading-relaxed text-carbon-600">{closing.body}</p>
             <ButtonLink chat={closing.cta.chat} arrow className="mt-2">
               {closing.cta.label}

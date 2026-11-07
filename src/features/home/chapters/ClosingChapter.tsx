@@ -33,7 +33,7 @@ export function ClosingChapter() {
       <Embers />
       <Container className="relative z-10 grid justify-items-center gap-6 text-center">
         <p className="text-xs font-semibold tracking-[0.22em] text-beige/80 uppercase">{brand.tagline}</p>
-        <h2 id="closing-title" className="max-w-3xl text-5xl leading-[1.02] text-marfil sm:text-7xl">
+        <h2 id="closing-title" className="title-script max-w-3xl text-5xl leading-[1.02] text-marfil sm:text-7xl">
           De la semilla
           <span className="text-shimmer block">a tu mesa.</span>
         </h2>

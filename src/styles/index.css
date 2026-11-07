@@ -37,6 +37,9 @@
 
   /* Alice: la tipografía de los títulos de «The Woodland Experience» (catálogo de Woodland, 2026-11-06). */
   --font-display: 'Alice', ui-serif, Georgia, serif;
+  /* Manuscrita de los títulos de sección y nombres de modelos. Golden Hopes (la del catálogo «The Woodland
+     Experience») es de pago; Hurricane es la alternativa libre más parecida hasta tener su licencia web. */
+  --font-script: 'Hurricane', 'Segoe Script', cursive;
   --font-sans: 'Manrope Variable', ui-sans-serif, system-ui, sans-serif;
 
   --ease-suave: cubic-bezier(0.22, 1, 0.36, 1);
@@ -213,6 +216,19 @@
   ::selection {
     @apply bg-beige text-nogal;
   }
+}
+
+/* Títulos manuscritos (fuera de capas para mandar sobre text-*, leading-* y uppercase de Tailwind): sin
+ * mayúsculas ni espaciado, con aire entre líneas para que los trazos largos no choquen y un ojo de letra
+ * cercano al de Alice para que no se vean pequeños con las mismas clases de tamaño. */
+.title-script {
+  font-family: var(--font-script);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size-adjust: 0.5;
+  line-height: 1.3;
+  padding-bottom: 0.08em;
 }
 
 /* ---------------------------------------------------------------------------

@@ -34,7 +34,7 @@ export function HeroChapter({ product }: { product?: CatalogProduct }) {
 
       <div className="mx-auto w-full max-w-6xl px-5 pt-24 pb-14 sm:px-8 sm:pb-20">
         <p className="animate-rise text-xs font-semibold tracking-[0.28em] text-ambar uppercase">{hero.eyebrow}</p>
-        <h1 id="hero-title" className="mt-4 animate-settle text-5xl leading-[0.98] text-marfil [animation-delay:60ms] sm:text-7xl">
+        <h1 id="hero-title" className="title-script mt-4 animate-settle text-5xl leading-[0.98] text-marfil [animation-delay:60ms] sm:text-7xl">
           <span className="block">{first}</span>
           <span className="block text-ambar">{rest.join(' ')}</span>
         </h1>
@@ -42,7 +42,7 @@ export function HeroChapter({ product }: { product?: CatalogProduct }) {
 
         {/* Moshaco, la más vendida: la tabla de la foto. */}
         <p className="mt-8 animate-rise text-xs font-semibold tracking-[0.22em] text-marfil/80 uppercase [animation-delay:200ms]">
-          En la foto · el más vendido: <span className="font-display text-base tracking-normal text-marfil normal-case">Moshaco, Seductor Don Juan</span>
+          En la foto · el más vendido: <span className="title-script text-2xl text-marfil">Moshaco, Seductor Don Juan</span>
         </p>
 
         <div className="mt-8 flex animate-rise flex-col gap-3 [animation-delay:320ms] sm:flex-row">

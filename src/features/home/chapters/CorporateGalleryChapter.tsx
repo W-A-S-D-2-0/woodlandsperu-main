@@ -29,7 +29,7 @@ export function CorporateGalleryChapter() {
     <section className="bg-marfil py-16 text-carbon sm:py-24" aria-labelledby="corporate-title">
       <Container>
         <p className="text-center text-xs font-semibold tracking-[0.28em] text-madera-700 uppercase">Empresas y regalos</p>
-        <h2 id="corporate-title" className="mx-auto mt-3 max-w-3xl text-center text-3xl sm:text-5xl">
+        <h2 id="corporate-title" className="title-script mx-auto mt-3 max-w-3xl text-center text-3xl sm:text-5xl">
           Corporativos, personalizados, o diseña el tuyo!
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-center text-carbon-600">

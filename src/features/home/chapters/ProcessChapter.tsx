@@ -21,7 +21,7 @@ export function ProcessChapter() {
       <div className="mx-auto grid w-full max-w-6xl items-start gap-14 px-5 sm:px-8 lg:grid-cols-[1fr_0.9fr] lg:gap-20">
         <div>
           <p className="text-xs font-semibold tracking-[0.22em] text-madera-700 uppercase">Después de pedir</p>
-          <h2 id="process-title" className="mt-4 max-w-md text-4xl leading-tight sm:text-5xl">
+          <h2 id="process-title" className="title-script mt-4 max-w-md text-4xl leading-tight sm:text-5xl">
             Así sigue tu pedido.
           </h2>
           <p className="mt-4 max-w-md text-lg text-carbon-600">Desde que lo recibimos hasta que llega a tu mesa, puedes ver en qué paso va.</p>

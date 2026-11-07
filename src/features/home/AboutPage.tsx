@@ -49,7 +49,7 @@ export function AboutPage() {
             <p className="text-xs font-semibold tracking-[0.22em] text-madera-700 uppercase">{origin.eyebrow}</p>
             <p className="mt-3 font-display text-8xl leading-none font-medium text-madera sm:text-9xl">{origin.year}</p>
             <p className="mt-4 max-w-sm text-lg text-carbon-600">{origin.yearLabel}</p>
-            <h2 id="about-origin" className="mt-10 text-3xl sm:text-4xl">
+            <h2 id="about-origin" className="title-script mt-10 text-3xl sm:text-4xl">
               {seed.lines[0]}
             </h2>
             <p className="mt-4 max-w-md text-lg leading-relaxed text-carbon-600">{seed.lines[1]}</p>
@@ -68,7 +68,7 @@ export function AboutPage() {
           </Reveal>
           <Reveal index={1}>
             <p className="text-xs font-semibold tracking-[0.22em] text-madera-700 uppercase">{purpose.eyebrow}</p>
-            <h2 id="about-purpose" className="mt-4 text-3xl sm:text-5xl">
+            <h2 id="about-purpose" className="title-script mt-4 text-3xl sm:text-5xl">
               {purpose.title}
             </h2>
             <p className="mt-5 max-w-md text-lg leading-relaxed text-carbon-600">{purpose.body}</p>
@@ -89,7 +89,7 @@ export function AboutPage() {
         <Embers />
         <Container className="relative">
           <p className="text-xs font-semibold tracking-[0.22em] text-ambar uppercase">Lo que nos distingue</p>
-          <h2 id="about-highlights" className="mt-4 max-w-xl text-3xl text-marfil sm:text-5xl">
+          <h2 id="about-highlights" className="title-script mt-4 max-w-xl text-3xl text-marfil sm:text-5xl">
             Madera con origen, hecha a mano.
           </h2>
           <ul className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -110,7 +110,7 @@ export function AboutPage() {
         <Container className="grid items-center gap-14 lg:grid-cols-[0.9fr_1.1fr] lg:gap-20">
           <Reveal>
             <p className="text-xs font-semibold tracking-[0.22em] text-madera-700 uppercase">{grain.eyebrow}</p>
-            <h2 id="about-craft" className="mt-4 text-3xl sm:text-5xl">
+            <h2 id="about-craft" className="title-script mt-4 text-3xl sm:text-5xl">
               {grain.title}
             </h2>
             <p className="mt-5 max-w-md text-lg leading-relaxed text-carbon-600">{grain.body}</p>
@@ -139,7 +139,7 @@ export function AboutPage() {
         <Container>
           <Reveal className="max-w-2xl">
             <p className="text-xs font-semibold tracking-[0.22em] text-madera-700 uppercase">{commitment.eyebrow}</p>
-            <h2 id="about-commitment" className="mt-4 text-4xl sm:text-5xl">
+            <h2 id="about-commitment" className="title-script mt-4 text-4xl sm:text-5xl">
               {commitment.title}
             </h2>
             <p className="mt-6 text-lg leading-relaxed text-carbon-600">{commitment.body}</p>

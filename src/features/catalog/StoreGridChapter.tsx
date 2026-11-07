@@ -39,7 +39,7 @@ export function StoreGridChapter({ products }: { products: CatalogProduct[] }) {
     <section className="bg-marfil py-16 text-carbon sm:py-24" aria-labelledby="catalog-pan-title">
       <Container>
         <p className="text-center text-xs font-semibold tracking-[0.28em] text-madera-700 uppercase">Catálogo</p>
-        <h2 id="catalog-pan-title" className="mt-3 text-center text-3xl tracking-[0.06em] uppercase sm:text-4xl">
+        <h2 id="catalog-pan-title" className="title-script mt-3 text-center text-4xl sm:text-5xl">
           Nuestras tablas de teca
         </h2>
         <p className="mt-3 text-center text-[11px] font-semibold tracking-[0.28em] text-carbon-600 uppercase">Piezas con origen peruano</p>
@@ -69,15 +69,25 @@ export function StoreGridChapter({ products }: { products: CatalogProduct[] }) {
                 <button type="button" onClick={() => startOrder(product.variants.map((variant) => toOrderModel(product, variant)))} className="block w-full text-left">
                   <div className="aspect-square animate-photo-in overflow-hidden bg-beige/50" style={{ animationDelay: `${i * 110 + 80}ms` }}>
                     {photo ? (
-                      <div className="h-full w-full animate-unzoom" style={{ animationDelay: `${i * 110 + 80}ms` }}>
+                      <div className="relative h-full w-full animate-unzoom" style={{ animationDelay: `${i * 110 + 80}ms` }}>
                         <img src={photo.src} alt={photo.alt} loading="lazy" style={{ objectPosition: photo.focus }} className="h-full w-full object-cover transition-transform duration-700 ease-suave group-hover:scale-105" />
+                        {/* Al pasar el cursor (o enfocar con teclado) la foto con comida se funde con la tabla sola. */}
+                        {photo.bare && (
+                          <img
+                            src={photo.bare.src}
+                            alt=""
+                            loading="lazy"
+                            style={{ objectPosition: photo.bare.focus }}
+                            className="absolute inset-0 h-full w-full object-cover opacity-0 transition-[opacity,transform] duration-500 ease-suave group-hover:scale-105 group-hover:opacity-100 group-has-[:focus-visible]:opacity-100"
+                          />
+                        )}
                       </div>
                     ) : (
                       <div className="grid h-full place-items-center text-sm text-carbon-600">Fotografía pendiente</div>
                     )}
                   </div>
                   {product.category && <p className="mt-4 text-[11px] tracking-[0.18em] text-carbon-600 uppercase">{product.category.name}</p>}
-                  <h3 className="mt-1 text-lg font-semibold tracking-[0.04em] uppercase">{product.name}</h3>
+                  <h3 className="title-script mt-1 text-3xl text-carbon">{product.name}</h3>
                   <p className="mt-1 text-sm">
                     {sizes > 1 ? 'Desde ' : ''}
                     <span className="font-semibold">{formatPrice(from)}</span>
